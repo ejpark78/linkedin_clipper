@@ -7,16 +7,16 @@
  * @lastUpdated 2026-06-15
  */
 
-import Redis from 'ioredis';
-import { MongoDatabase } from '../database/mongo';
-import { MeiliSearchDatabase } from '../database/meili';
-import { Logger } from '../utils';
-import { getSite, getIndexName } from '../core/SiteRegistry';
-import { AppConfig } from '../config/AppConfig';
+import Redis from "ioredis";
+import { MongoDatabase } from "../database/mongo";
+import { MeiliSearchDatabase } from "../database/meili";
+import { Logger } from "../utils";
+import { getSite, getIndexName } from "../core/SiteRegistry";
+import { AppConfig } from "../config/AppConfig";
 
 const REDIS_URL = AppConfig.REDIS_URL;
-const INDEX_QUEUE = 'index_queue';
-const DEAD_LETTER_QUEUE = 'dead_letter_queue';
+const INDEX_QUEUE = "index_queue";
+const DEAD_LETTER_QUEUE = "dead_letter_queue";
 
 interface IndexPayload {
   site: string;
@@ -32,10 +32,10 @@ async function shutdown(signal: string) {
   try {
     if (redisClient) {
       await redisClient.quit();
-      Logger.info('[Indexer] Redis connection closed.');
+      Logger.info("[Indexer] Redis connection closed.");
     }
     await mongoDb.close();
-    Logger.info('[Indexer] MongoDB connection closed.');
+    Logger.info("[Indexer] MongoDB connection closed.");
     process.exit(0);
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -44,8 +44,8 @@ async function shutdown(signal: string) {
   }
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 async function main() {
   Logger.info(`Connecting to Redis at ${REDIS_URL}...`);
@@ -83,21 +83,33 @@ async function main() {
           const doc = await collection.findOne({ [tl.filterField]: id });
 
           if (!doc) {
-            throw new Error(`Document not found in Silver database (${tl.collectionName}) for ID: ${id}`);
+            throw new Error(
+              `Document not found in Silver database (${tl.collectionName}) for ID: ${id}`,
+            );
           }
 
           // Parse publication/creation date
-          let publishedAt = doc.publishedAt || doc.collectedAt || doc.createdAt || doc.scrapedAt || doc.updatedAt || null;
+          let publishedAt =
+            doc.publishedAt ||
+            doc.collectedAt ||
+            doc.createdAt ||
+            doc.scrapedAt ||
+            doc.updatedAt ||
+            null;
           if (!publishedAt) {
-            if (site === 'linkedin' && doc.description) {
-              const match = doc.description.match(/posted_date:\s*"([^"]+)"/) || doc.description.match(/\*\*포스팅 날짜 \(Posted Date\):\*\*\s*([^\n]+)/);
+            if (site === "linkedin" && doc.description) {
+              const match =
+                doc.description.match(/posted_date:\s*"([^"]+)"/) ||
+                doc.description.match(
+                  /\*\*포스팅 날짜 \(Posted Date\):\*\*\s*([^\n]+)/,
+                );
               if (match) {
                 publishedAt = match[1].trim();
               }
-            } else if (site === 'geeknews' && (doc.markdown || doc.content)) {
-              const md = doc.markdown || doc.content || '';
+            } else if (site === "geeknews" && (doc.markdown || doc.content)) {
+              const md = doc.markdown || doc.content || "";
               const match = md.match(/\*\*작성일:\*\*\s*([^\n]+)/);
-              if (match && match[1].trim() !== '정보 없음') {
+              if (match && match[1].trim() !== "정보 없음") {
                 publishedAt = match[1].trim();
               }
             }
@@ -111,44 +123,57 @@ async function main() {
             id: `${site}_${id}`, // Unique composite ID
             site: site,
             docId: id,
-            title: doc.title || doc.jobTitle || 'Untitled',
+            title: doc.title || doc.jobTitle || "Untitled",
             companyName: doc.companyName || null,
             location: doc.location || null,
-            geo: doc.geo || 'Unknown',
-            content: doc.description || doc.markdown || doc.content || '',
+            geo: doc.geo || "Unknown",
+            content: doc.description || doc.markdown || doc.content || "",
             url: doc.url || null,
             publishedAt: publishedAt,
-            updatedAt: doc.updatedAt || new Date().toISOString()
+            updatedAt: doc.updatedAt || new Date().toISOString(),
           };
 
           const targetIndex = getIndexName(site);
           await meili.addDocuments(targetIndex, [meiliDoc]);
-          Logger.info(`[Indexer] Successfully indexed to Meilisearch for [${site}] ID: ${id}`);
-
+          Logger.info(
+            `[Indexer] Successfully indexed to Meilisearch for [${site}] ID: ${id}`,
+          );
         } catch (err: unknown) {
           const errorMsg = err instanceof Error ? err.message : String(err);
-          Logger.error(`[Indexer] Indexing failed for [${site}] ID: ${id} on attempt ${attempt}`, err);
+          Logger.error(
+            `[Indexer] Indexing failed for [${site}] ID: ${id} on attempt ${attempt}`,
+            err,
+          );
 
           if (attempt < 3) {
             const retryTask = { site, id, attempt: attempt + 1 };
             await redis.rpush(INDEX_QUEUE, JSON.stringify(retryTask));
-            Logger.info(`[Indexer] Re-queued task to retry. Attempt: ${attempt + 1}`);
+            Logger.info(
+              `[Indexer] Re-queued task to retry. Attempt: ${attempt + 1}`,
+            );
           } else {
-            const deadTask = { site, id, error: errorMsg, failedAt: new Date().toISOString() };
+            const deadTask = {
+              site,
+              id,
+              error: errorMsg,
+              failedAt: new Date().toISOString(),
+            };
             await redis.rpush(DEAD_LETTER_QUEUE, JSON.stringify(deadTask));
-            Logger.error(`[Indexer] Max retry attempts exceeded. Moved index ID: ${id} to dead_letter_queue`);
+            Logger.error(
+              `[Indexer] Max retry attempts exceeded. Moved index ID: ${id} to dead_letter_queue`,
+            );
           }
         }
       });
-
     } catch (loopErr: unknown) {
-      const errorMsg = loopErr instanceof Error ? loopErr.message : String(loopErr);
+      const errorMsg =
+        loopErr instanceof Error ? loopErr.message : String(loopErr);
       Logger.error(`[Indexer] Worker loop exception: ${errorMsg}`, loopErr);
     }
   }
 }
 
 main().catch((err: unknown) => {
-  Logger.error('Fatal crash on Indexer Worker', err);
+  Logger.error("Fatal crash on Indexer Worker", err);
   process.exit(1);
 });

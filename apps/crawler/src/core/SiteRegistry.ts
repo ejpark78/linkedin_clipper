@@ -8,9 +8,9 @@
  * @lastUpdated 2026-06-11
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import type { IConverter, IFileSaver } from './IConverter';
+import * as fs from "fs";
+import * as path from "path";
+import type { IConverter, IFileSaver } from "./IConverter";
 
 export interface IndexSpec {
   collection: `bronze/${string}` | `silver/${string}`;
@@ -39,7 +39,10 @@ export interface SiteDescriptor {
     excludePatterns?: string[];
     urlFilter?: (url: string) => boolean;
     htmlSourcesToScan?: string[];
-    generateUrls?: (config: Record<string, unknown>, options?: Record<string, unknown>) => string[];
+    generateUrls?: (
+      config: Record<string, unknown>,
+      options?: Record<string, unknown>,
+    ) => string[];
   };
 
   converter?: {
@@ -66,7 +69,7 @@ export interface SiteDescriptor {
     getSilverFields?: (meta: unknown) => Record<string, unknown>;
     imageDownload?: {
       enabled: boolean;
-      htmlSource?: 'rawContent' | 'shortContent';
+      htmlSource?: "rawContent" | "shortContent";
       removeFavicons?: boolean;
     };
   };
@@ -75,12 +78,19 @@ export interface SiteDescriptor {
 const registry = new Map<string, SiteDescriptor>();
 
 function discoverSites(): void {
-  const staticConfigPath = path.resolve(__dirname, '..', '..', '..', 'config', 'sites.json');
-  const isViewer = process.env.IS_VIEWER === 'true';
+  const staticConfigPath = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "config",
+    "sites.json",
+  );
+  const isViewer = process.env.IS_VIEWER === "true";
 
   if (isViewer && fs.existsSync(staticConfigPath)) {
     try {
-      const raw = fs.readFileSync(staticConfigPath, 'utf8');
+      const raw = fs.readFileSync(staticConfigPath, "utf8");
       const staticConfigs = JSON.parse(raw);
       for (const s of staticConfigs) {
         registry.set(s.key, {
@@ -90,24 +100,30 @@ function discoverSites(): void {
           indexName: s.indexName,
           targetLoader: {
             collectionName: s.collectionName,
-            filterField: 'id',
-            buildDocument: () => ({})
+            filterField: "id",
+            buildDocument: () => ({}),
           },
-          scraper: s.bronzeCollectionName ? {
-            collectionName: s.bronzeCollectionName,
-            updateFilterKey: s.updateFilterKey || 'id',
-          } : undefined
+          scraper: s.bronzeCollectionName
+            ? {
+                collectionName: s.bronzeCollectionName,
+                updateFilterKey: s.updateFilterKey || "id",
+              }
+            : undefined,
         } as unknown as SiteDescriptor);
       }
-      console.log(`✅ [SiteRegistry] Loaded ${staticConfigs.length} site descriptors statically from config/sites.json`);
+      console.log(
+        `✅ [SiteRegistry] Loaded ${staticConfigs.length} site descriptors statically from config/sites.json`,
+      );
       return;
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(`[SiteRegistry] Failed to load static config from ${staticConfigPath}: ${errorMsg}`);
+      console.error(
+        `[SiteRegistry] Failed to load static config from ${staticConfigPath}: ${errorMsg}`,
+      );
     }
   }
 
-  const sitesDir = path.resolve(__dirname, '..', 'sites');
+  const sitesDir = path.resolve(__dirname, "..", "sites");
 
   if (!fs.existsSync(sitesDir)) return;
 
@@ -115,19 +131,26 @@ function discoverSites(): void {
     const dirPath = path.join(sitesDir, dir);
     if (!fs.statSync(dirPath).isDirectory()) continue;
 
-    const configPath = path.join(dirPath, 'site.config');
-    if (fs.existsSync(configPath + '.ts') || fs.existsSync(configPath + '.js')) {
+    const configPath = path.join(dirPath, "site.config");
+    if (
+      fs.existsSync(configPath + ".ts") ||
+      fs.existsSync(configPath + ".js")
+    ) {
       try {
         const mod = require(configPath) as { descriptor: SiteDescriptor };
         if (mod.descriptor) {
           if (registry.has(mod.descriptor.key)) {
-            throw new Error(`Duplicate site key collision detected: key '${mod.descriptor.key}' is already registered.`);
+            throw new Error(
+              `Duplicate site key collision detected: key '${mod.descriptor.key}' is already registered.`,
+            );
           }
           registry.set(mod.descriptor.key, mod.descriptor);
         }
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
-        console.error(`[SiteRegistry] Failed to load config: ${configPath} - ${errorMsg}`);
+        console.error(
+          `[SiteRegistry] Failed to load config: ${configPath} - ${errorMsg}`,
+        );
         throw err;
       }
     }
@@ -136,19 +159,26 @@ function discoverSites(): void {
       const subDirPath = path.join(dirPath, subDir);
       if (!fs.statSync(subDirPath).isDirectory()) continue;
 
-      const subConfigPath = path.join(subDirPath, 'site.config');
-      if (fs.existsSync(subConfigPath + '.ts') || fs.existsSync(subConfigPath + '.js')) {
+      const subConfigPath = path.join(subDirPath, "site.config");
+      if (
+        fs.existsSync(subConfigPath + ".ts") ||
+        fs.existsSync(subConfigPath + ".js")
+      ) {
         try {
           const mod = require(subConfigPath) as { descriptor: SiteDescriptor };
           if (mod.descriptor) {
             if (registry.has(mod.descriptor.key)) {
-              throw new Error(`Duplicate site key collision detected: key '${mod.descriptor.key}' is already registered.`);
+              throw new Error(
+                `Duplicate site key collision detected: key '${mod.descriptor.key}' is already registered.`,
+              );
             }
             registry.set(mod.descriptor.key, mod.descriptor);
           }
         } catch (err: unknown) {
           const errorMsg = err instanceof Error ? err.message : String(err);
-          console.error(`[SiteRegistry] Failed to load config: ${subConfigPath} - ${errorMsg}`);
+          console.error(
+            `[SiteRegistry] Failed to load config: ${subConfigPath} - ${errorMsg}`,
+          );
           throw err;
         }
       }
@@ -159,7 +189,7 @@ function discoverSites(): void {
 discoverSites();
 
 export function getSite(key: string): SiteDescriptor | undefined {
-  const normalizedKey = key === 'dailydoseofds' ? 'dailydose_ds' : key;
+  const normalizedKey = key === "dailydoseofds" ? "dailydose_ds" : key;
   return registry.get(normalizedKey);
 }
 
@@ -173,13 +203,13 @@ export function getIndexName(siteKey: string): string {
 }
 
 export function getSiteKeyFromCollection(collectionName: string): string {
-  if (collectionName === 'linkedin.jobs') {
-    return 'linkedin';
-  } else if (collectionName === 'silver/linkedin.companies') {
-    return 'linkedin_company';
-  } else if (collectionName.startsWith('silver/')) {
-    return collectionName.replace('silver/', '').split('.')[0];
+  if (collectionName === "linkedin.jobs") {
+    return "linkedin";
+  } else if (collectionName === "silver/linkedin.companies") {
+    return "linkedin_company";
+  } else if (collectionName.startsWith("silver/")) {
+    return collectionName.replace("silver/", "").split(".")[0];
   } else {
-    return collectionName.split('.')[0];
+    return collectionName.split(".")[0];
   }
 }

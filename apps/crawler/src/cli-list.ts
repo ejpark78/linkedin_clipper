@@ -8,45 +8,47 @@
  * @lastUpdated 2026-06-12
  */
 
-import { spawn } from 'child_process';
-import * as path from 'path';
+import { spawn } from "child_process";
+import * as path from "path";
 
 const pathMap: Record<string, string> = {
-  aicasebook: 'src/sites/aicasebook/List.ts',
-  dailydoseofds: 'src/sites/dailydoseofds/List.ts',
-  geeknews: 'src/sites/geeknews/List.ts',
-  gpters: 'src/sites/gpters/news/List.ts',
-  gpters_newsletter: 'src/sites/gpters/newsletter/List.ts',
-  linkedin: 'src/sites/linkedin/jobs/List.ts',
-  maily_josh: 'src/sites/maily/josh/List.ts',
-  pytorch_kr: 'src/sites/pytorch_kr/List.ts',
-  uppity: 'src/sites/uppity/List.ts',
-  yozm: 'src/sites/yozm/List.ts',
+  aicasebook: "src/sites/aicasebook/List.ts",
+  dailydoseofds: "src/sites/dailydoseofds/List.ts",
+  geeknews: "src/sites/geeknews/List.ts",
+  gpters: "src/sites/gpters/news/List.ts",
+  gpters_newsletter: "src/sites/gpters/newsletter/List.ts",
+  linkedin: "src/sites/linkedin/jobs/List.ts",
+  maily_josh: "src/sites/maily/josh/List.ts",
+  pytorch_kr: "src/sites/pytorch_kr/List.ts",
+  uppity: "src/sites/uppity/List.ts",
+  yozm: "src/sites/yozm/List.ts",
 };
 
-let siteKey = '';
-let page = '';
-let day = '';
-let limit = '';
+let siteKey = "";
+let page = "";
+let day = "";
+let limit = "";
 
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === '--site') {
-    siteKey = process.argv[i + 1] || '';
+  if (process.argv[i] === "--site") {
+    siteKey = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === '--page') {
-    page = process.argv[i + 1] || '';
+  } else if (process.argv[i] === "--page") {
+    page = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === '--day') {
-    day = process.argv[i + 1] || '';
+  } else if (process.argv[i] === "--day") {
+    day = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === '--limit') {
-    limit = process.argv[i + 1] || '';
+  } else if (process.argv[i] === "--limit") {
+    limit = process.argv[i + 1] || "";
     i++;
   }
 }
 
 if (!siteKey) {
-  console.error('Usage: npx ts-node src/crawler/cli-list.ts --site <siteKey> [--page <page>] [--day <day>] [--limit <limit>]');
+  console.error(
+    "Usage: npx ts-node src/crawler/cli-list.ts --site <siteKey> [--page <page>] [--day <day>] [--limit <limit>]",
+  );
   process.exit(1);
 }
 
@@ -57,23 +59,25 @@ if (!targetPath) {
 }
 
 // Determine the positional argument to pass to target List.ts
-let arg = page || '1';
-if (siteKey === 'geeknews' && day && day.trim() !== '') {
+let arg = page || "1";
+if (siteKey === "geeknews" && day && day.trim() !== "") {
   arg = day;
-} else if ((siteKey === 'gpters' || siteKey === 'gpters_newsletter') && limit) {
+} else if ((siteKey === "gpters" || siteKey === "gpters_newsletter") && limit) {
   arg = limit;
 }
 
-console.log(`🚀 [cli-list] Running list scraper for ${siteKey} (${targetPath}) with argument: ${arg}`);
+console.log(
+  `🚀 [cli-list] Running list scraper for ${siteKey} (${targetPath}) with argument: ${arg}`,
+);
 
-const child = spawn('npx', ['ts-node', targetPath, arg], {
-  stdio: 'inherit',
+const child = spawn("npx", ["ts-node", targetPath, arg], {
+  stdio: "inherit",
   env: {
     ...process.env,
     PAGE: page, // Pass PAGE environment variable as fallback
-  }
+  },
 });
 
-child.on('close', (code) => {
+child.on("close", (code) => {
   process.exit(code || 0);
 });

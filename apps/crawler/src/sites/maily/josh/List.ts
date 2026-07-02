@@ -7,26 +7,31 @@
  * @lastUpdated 2026-06-11
  */
 
-import * as cheerio from 'cheerio';
-import { BaseListService } from '../../../core/BaseListService';
-import { descriptor } from './site.config';
+import * as cheerio from "cheerio";
+import { BaseListService } from "../../../core/BaseListService";
+import { descriptor } from "./site.config";
 
 class MailyJoshList extends BaseListService {
   constructor() {
     super({
       site: descriptor.key,
       displayName: descriptor.name,
-      cacheSetKey: descriptor.converter?.completedSetKey || `completed_${descriptor.key}`,
-      bronzeHtmlCollection: descriptor.scraper?.collectionName || `bronze/${descriptor.key}.html` as any,
-      urlsCollection: descriptor.scraper?.urlsCollectionName || `bronze/${descriptor.key}.urls` as any,
+      cacheSetKey:
+        descriptor.converter?.completedSetKey || `completed_${descriptor.key}`,
+      bronzeHtmlCollection:
+        descriptor.scraper?.collectionName ||
+        (`bronze/${descriptor.key}.html` as any),
+      urlsCollection:
+        descriptor.scraper?.urlsCollectionName ||
+        (`bronze/${descriptor.key}.urls` as any),
     });
   }
 
   public async run(pageArg?: number): Promise<number> {
-    const sleepSec = parseInt(process.env.LIST_SLACK || '2', 10);
-    const pageStr = process.env.PAGE || '1';
-    const pageRange = pageStr.includes('-')
-      ? pageStr.split('-').map(Number)
+    const sleepSec = parseInt(process.env.LIST_SLACK || "2", 10);
+    const pageStr = process.env.PAGE || "1";
+    const pageRange = pageStr.includes("-")
+      ? pageStr.split("-").map(Number)
       : [1, parseInt(pageStr, 10)];
     const startPage = pageArg || pageRange[0];
     const endPage = pageRange[1] || startPage;
@@ -37,7 +42,7 @@ class MailyJoshList extends BaseListService {
     const seenUrls = new Set<string>();
 
     for (let page = startPage; page <= endPage; page++) {
-      let fetchUrl = '';
+      let fetchUrl = "";
       if (descriptor.scraper?.generateUrls) {
         const urls = descriptor.scraper.generateUrls({ page });
         if (urls.length > 0) {
@@ -52,22 +57,29 @@ class MailyJoshList extends BaseListService {
         try {
           res = await fetch(fetchUrl, {
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             },
           });
           if (res.ok) break;
 
-          console.warn(`⚠️ [MailyJosh List] Fetch failed with status ${res.status} (attempt ${attempt}/${retries}). Waiting ${attempt * 5}s before retry...`);
-          await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+          console.warn(
+            `⚠️ [MailyJosh List] Fetch failed with status ${res.status} (attempt ${attempt}/${retries}). Waiting ${attempt * 5}s before retry...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, attempt * 5000));
         } catch (err: any) {
-          console.warn(`⚠️ [MailyJosh List] Fetch network error: ${err.message} (attempt ${attempt}/${retries}). Waiting ${attempt * 5}s before retry...`);
-          await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+          console.warn(
+            `⚠️ [MailyJosh List] Fetch network error: ${err.message} (attempt ${attempt}/${retries}). Waiting ${attempt * 5}s before retry...`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, attempt * 5000));
         }
       }
 
       if (!res || !res.ok) {
-        const statusMsg = res ? `HTTP status ${res.status}` : 'Network error';
-        console.error(`❌ [MailyJosh List] Page ${page} failed (${statusMsg}). Stopping this section.`);
+        const statusMsg = res ? `HTTP status ${res.status}` : "Network error";
+        console.error(
+          `❌ [MailyJosh List] Page ${page} failed (${statusMsg}). Stopping this section.`,
+        );
         break;
       }
 
@@ -77,15 +89,19 @@ class MailyJoshList extends BaseListService {
       const articleLinks = this.extractArticleLinks($, seenUrls);
 
       if (articleLinks.length === 0) {
-        console.log(`🏁 [MailyJosh List] No articles found on page ${page}. Done.`);
+        console.log(
+          `🏁 [MailyJosh List] No articles found on page ${page}. Done.`,
+        );
         break;
       }
 
-      console.log(`🔍 [MailyJosh List] Found ${articleLinks.length} new articles on page ${page}.`);
+      console.log(
+        `🔍 [MailyJosh List] Found ${articleLinks.length} new articles on page ${page}.`,
+      );
 
       for (const { url, title } of articleLinks) {
-        const crypto = require('crypto');
-        const id = crypto.createHash('md5').update(url).digest('hex');
+        const crypto = require("crypto");
+        const id = crypto.createHash("md5").update(url).digest("hex");
         if (await this.processItem(id, url, title)) {
           queuedCount++;
         }
@@ -93,11 +109,13 @@ class MailyJoshList extends BaseListService {
 
       if (page < endPage) {
         console.log(`💤 Waiting ${sleepSec}s before next page...`);
-        await new Promise(resolve => setTimeout(resolve, sleepSec * 1000));
+        await new Promise((resolve) => setTimeout(resolve, sleepSec * 1000));
       }
     }
 
-    console.log(`🎉 [MailyJosh List] Successfully queued ${queuedCount} items.`);
+    console.log(
+      `🎉 [MailyJosh List] Successfully queued ${queuedCount} items.`,
+    );
     return queuedCount;
   }
 
@@ -108,11 +126,11 @@ class MailyJoshList extends BaseListService {
     const results: Array<{ url: string; title: string }> = [];
 
     $('a.post-card-list-item[href*="/josh/posts/"]').each((_, el) => {
-      const href = $(el).attr('href');
+      const href = $(el).attr("href");
       if (!href || seenUrls.has(href)) return;
       seenUrls.add(href);
 
-      const titleEl = $(el).find('.font-bold').first();
+      const titleEl = $(el).find(".font-bold").first();
       const title = titleEl.text().trim();
       if (title) {
         results.push({ url: href, title });

@@ -7,54 +7,72 @@
  * @lastUpdated 2026-06-11
  */
 
-import type { SiteDescriptor } from '../../core/SiteRegistry';
-import { GeekNewsConverter } from './Converter';
-import { scrapeHttpFetch } from '../../utils/scraper';
+import type { SiteDescriptor } from "../../core/SiteRegistry";
+import { GeekNewsConverter } from "./Converter";
+import { scrapeHttpFetch } from "../../utils/scraper";
 
 export interface GeekNewsComment {
-    commentId: string;
-    author: string;
-    content: string;
+  commentId: string;
+  author: string;
+  content: string;
 }
 
 export interface GeekNewsMeta {
-    id: string;
-    title: string;
-    url: string;
-    publishedAt: Date | null;
-    content: string;
-    comments: GeekNewsComment[];
-    jsonLdRaw: string | null;
-    rawContent: string;
+  id: string;
+  title: string;
+  url: string;
+  publishedAt: Date | null;
+  content: string;
+  comments: GeekNewsComment[];
+  jsonLdRaw: string | null;
+  rawContent: string;
 }
 
 export const descriptor: SiteDescriptor = {
-  key: 'geeknews',
-  name: 'GeekNews',
-  domain: 'news.hada.io',
-  favicon: 'https://news.hada.io/favicon.ico',
-  indexName: 'geeknews',
+  key: "geeknews",
+  name: "GeekNews",
+  domain: "news.hada.io",
+  favicon: "https://news.hada.io/favicon.ico",
+  indexName: "geeknews",
 
   indexes: [
-    { collection: 'bronze/geeknews.html', fields: { id: 1 }, options: { unique: true } },
-    { collection: 'bronze/geeknews.urls', fields: { id: 1 }, options: { unique: true } },
-    { collection: 'bronze/geeknews.urls', fields: { status: 1, id: 1 } },
-    { collection: 'silver/geeknews.contents', fields: { id: 1 }, options: { unique: true } },
-    { collection: 'silver/geeknews.contents', fields: { publishedAt: -1 } },
     {
-      collection: 'silver/geeknews.contents',
-      fields: { title: 'text', content: 'text', markdown: 'text', url: 'text', companyName: 'text' },
+      collection: "bronze/geeknews.html",
+      fields: { id: 1 },
+      options: { unique: true },
+    },
+    {
+      collection: "bronze/geeknews.urls",
+      fields: { id: 1 },
+      options: { unique: true },
+    },
+    { collection: "bronze/geeknews.urls", fields: { status: 1, id: 1 } },
+    {
+      collection: "silver/geeknews.contents",
+      fields: { id: 1 },
+      options: { unique: true },
+    },
+    { collection: "silver/geeknews.contents", fields: { publishedAt: -1 } },
+    {
+      collection: "silver/geeknews.contents",
+      fields: {
+        title: "text",
+        content: "text",
+        markdown: "text",
+        url: "text",
+        companyName: "text",
+      },
       options: {
         weights: { title: 10, content: 5, markdown: 3, url: 1, companyName: 3 },
-        name: 'text_idx',
+        name: "text_idx",
       },
     },
   ],
 
   scraper: {
-    collectionName: 'bronze/geeknews.html',
-    targetCollection: 'geeknews.html',
-    updateFilterKey: 'topicId',
+    collectionName: "bronze/geeknews.html",
+    targetCollection: "geeknews.html",
+    updateFilterKey: "topicId",
     defaultSlack: 3,
     extractId: (url) => {
       const weeklyMatch = url.match(/\/weekly\/(\d+)$/);
@@ -62,10 +80,20 @@ export const descriptor: SiteDescriptor = {
         return `weekly-${weeklyMatch[1]}`;
       }
       const match = url.match(/[?&]id=(\d+)/);
-      return match ? match[1] : '';
+      return match ? match[1] : "";
     },
-    excludePatterns: ['vote?', '/vote', 'user?', '/user', 'item?', 'favicon', 'login', 'logout', 'signup'],
-    urlsCollectionName: 'bronze/geeknews.urls',
+    excludePatterns: [
+      "vote?",
+      "/vote",
+      "user?",
+      "/user",
+      "item?",
+      "favicon",
+      "login",
+      "logout",
+      "signup",
+    ],
+    urlsCollectionName: "bronze/geeknews.urls",
     scrape: scrapeHttpFetch,
     generateUrls: (config: { page?: number }): string[] => {
       const page = config.page || 1;
@@ -73,11 +101,11 @@ export const descriptor: SiteDescriptor = {
 
       if (page === 1) {
         urls.push(
-          'https://news.hada.io/',
-          'https://news.hada.io/new',
-          'https://news.hada.io/weekly/page/1',
-          'https://news.hada.io/plus',
-          'https://news.hada.io/show'
+          "https://news.hada.io/",
+          "https://news.hada.io/new",
+          "https://news.hada.io/weekly/page/1",
+          "https://news.hada.io/plus",
+          "https://news.hada.io/show",
         );
       } else {
         if (page <= 5) {
@@ -86,7 +114,7 @@ export const descriptor: SiteDescriptor = {
         urls.push(
           `https://news.hada.io/weekly/page/${page}`,
           `https://news.hada.io/plus?page=${page}`,
-          `https://news.hada.io/show?page=${page}`
+          `https://news.hada.io/show?page=${page}`,
         );
       }
       return urls;
@@ -95,18 +123,18 @@ export const descriptor: SiteDescriptor = {
 
   converter: {
     converter: new GeekNewsConverter(),
-    targetCollection: 'geeknews.html',
+    targetCollection: "geeknews.html",
     filter: (id) => ({ topicId: id }),
-    statusCollection: 'bronze/geeknews.urls',
-    completedSetKey: 'sites:geeknews:completed',
+    statusCollection: "bronze/geeknews.urls",
+    completedSetKey: "sites:geeknews:completed",
   },
 
   targetLoader: {
-    collectionName: 'silver/geeknews.contents',
-    filterField: 'id',
+    collectionName: "silver/geeknews.contents",
+    filterField: "id",
     buildDocument: (id, meta: GeekNewsMeta) => ({
       id,
-      title: meta.title || 'Untitled',
+      title: meta.title || "Untitled",
       url: meta.url || null,
       content: meta.content || null,
       comments: meta.comments || null,

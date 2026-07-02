@@ -2,165 +2,190 @@
  * @file meili.ts
  * @description Meilisearch database adapter implementing the Singleton pattern.
  * Uses native fetch API to interface with the Meilisearch HTTP REST API.
- * 
+ *
  * Rules Complied:
  * - Centralized Config: Uses AppConfig.
  * - Strict OOP: Implemented as a singleton with explicit types.
  * - Robust Error Handling: Returns clean diagnostics and rejects failed requests.
  */
 
-import { AppConfig } from '../config/AppConfig';
+import { AppConfig } from "../config/AppConfig";
 
 export interface MeiliIndexSettings {
-    searchableAttributes?: string[];
-    filterableAttributes?: string[];
-    sortableAttributes?: string[];
-    rankingRules?: string[];
+  searchableAttributes?: string[];
+  filterableAttributes?: string[];
+  sortableAttributes?: string[];
+  rankingRules?: string[];
 }
 
 export class MeiliSearchDatabase {
-    private static instance: MeiliSearchDatabase;
-    private readonly host: string;
-    private readonly apiKey: string;
+  private static instance: MeiliSearchDatabase;
+  private readonly host: string;
+  private readonly apiKey: string;
 
-    private constructor() {
-        this.host = AppConfig.MEILI_URL.replace(/\/$/, '');
-        this.apiKey = AppConfig.MEILI_MASTER_KEY;
+  private constructor() {
+    this.host = AppConfig.MEILI_URL.replace(/\/$/, "");
+    this.apiKey = AppConfig.MEILI_MASTER_KEY;
+  }
+
+  public static getInstance(): MeiliSearchDatabase {
+    if (!MeiliSearchDatabase.instance) {
+      MeiliSearchDatabase.instance = new MeiliSearchDatabase();
+    }
+    return MeiliSearchDatabase.instance;
+  }
+
+  /**
+   * Send HTTP request to Meilisearch API
+   */
+  private async request<T = unknown>(
+    path: string,
+    method: string = "GET",
+    body?: unknown,
+  ): Promise<T> {
+    const url = `${this.host}${path}`;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+
+    if (body) {
+      headers["Content-Type"] = "application/json";
     }
 
-    public static getInstance(): MeiliSearchDatabase {
-        if (!MeiliSearchDatabase.instance) {
-            MeiliSearchDatabase.instance = new MeiliSearchDatabase();
-        }
-        return MeiliSearchDatabase.instance;
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Meilisearch API error (${response.status}): ${text}`);
+      }
+
+      // GET/POST to some endpoints return empty but valid body
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      return (await response.json()) as T;
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `❌ [Meilisearch] Request error (${method} ${path}): ${errMsg}`,
+      );
+      throw err;
     }
+  }
 
-    /**
-     * Send HTTP request to Meilisearch API
-     */
-    private async request<T = unknown>(path: string, method: string = 'GET', body?: unknown): Promise<T> {
-        const url = `${this.host}${path}`;
-        const headers: Record<string, string> = {
-            'Authorization': `Bearer ${this.apiKey}`,
-        };
-
-        if (body) {
-            headers['Content-Type'] = 'application/json';
-        }
-
-        try {
-            const response = await fetch(url, {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : undefined,
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`Meilisearch API error (${response.status}): ${text}`);
-            }
-
-            // GET/POST to some endpoints return empty but valid body
-            if (response.status === 204) {
-                return {} as T;
-            }
-
-            return await response.json() as T;
-        } catch (err: unknown) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            console.error(`❌ [Meilisearch] Request error (${method} ${path}): ${errMsg}`);
-            throw err;
-        }
+  /**
+   * Check if Meilisearch is reachable and healthy
+   */
+  public async isHealthy(): Promise<boolean> {
+    try {
+      const res = await this.request<{ status: string }>("/health");
+      return res.status === "available" || res.status === "ok";
+    } catch {
+      return false;
     }
+  }
 
-    /**
-     * Check if Meilisearch is reachable and healthy
-     */
-    public async isHealthy(): Promise<boolean> {
-        try {
-            const res = await this.request<{ status: string }>('/health');
-            return res.status === 'available' || res.status === 'ok';
-        } catch {
-            return false;
-        }
+  /**
+   * Ensure index exists, creating it with primaryKey: 'id' if missing.
+   */
+  public async ensureIndex(indexName: string): Promise<void> {
+    try {
+      await this.request(`/indexes/${indexName}`, "GET");
+    } catch (e) {
+      // Index doesn't exist, create it with primaryKey 'id'
+      await this.request("/indexes", "POST", {
+        uid: indexName,
+        primaryKey: "id",
+      });
     }
+  }
 
-    /**
-     * Ensure index exists, creating it with primaryKey: 'id' if missing.
-     */
-    public async ensureIndex(indexName: string): Promise<void> {
-        try {
-            await this.request(`/indexes/${indexName}`, 'GET');
-        } catch (e) {
-            // Index doesn't exist, create it with primaryKey 'id'
-            await this.request('/indexes', 'POST', { uid: indexName, primaryKey: 'id' });
-        }
-    }
+  /**
+   * Add or replace documents in an index
+   */
+  public async addDocuments(
+    indexName: string,
+    documents: Record<string, unknown>[],
+  ): Promise<void> {
+    if (documents.length === 0) return;
+    // Clean and prepare documents for Meilisearch
+    const cleanedDocs = documents.map((doc) => {
+      // Document must have a primary key field named 'id'
+      // Ensure ID satisfies Meilisearch requirements: ^[a-zA-Z0-9-_]/g
+      const safeId = String(doc.id || doc._id || "").replace(
+        /[^a-zA-Z0-9-_]/g,
+        "_",
+      );
+      return {
+        ...doc,
+        id: safeId,
+      };
+    });
 
-    /**
-     * Add or replace documents in an index
-     */
-    public async addDocuments(indexName: string, documents: Record<string, unknown>[]): Promise<void> {
-        if (documents.length === 0) return;
-        // Clean and prepare documents for Meilisearch
-        const cleanedDocs = documents.map(doc => {
-            // Document must have a primary key field named 'id'
-            // Ensure ID satisfies Meilisearch requirements: ^[a-zA-Z0-9-_]/g
-            const safeId = String(doc.id || doc._id || '').replace(/[^a-zA-Z0-9-_]/g, '_');
-            return {
-                ...doc,
-                id: safeId,
-            };
-        });
+    await this.ensureIndex(indexName);
+    await this.request(`/indexes/${indexName}/documents`, "POST", cleanedDocs);
+  }
 
-        await this.ensureIndex(indexName);
-        await this.request(`/indexes/${indexName}/documents`, 'POST', cleanedDocs);
-    }
+  /**
+   * Delete a single document from an index
+   */
+  public async deleteDocument(
+    indexName: string,
+    documentId: string,
+  ): Promise<void> {
+    const safeId = documentId.replace(/[^a-zA-Z0-9-_]/g, "_");
+    await this.request(`/indexes/${indexName}/documents/${safeId}`, "DELETE");
+  }
 
-    /**
-     * Delete a single document from an index
-     */
-    public async deleteDocument(indexName: string, documentId: string): Promise<void> {
-        const safeId = documentId.replace(/[^a-zA-Z0-9-_]/g, '_');
-        await this.request(`/indexes/${indexName}/documents/${safeId}`, 'DELETE');
-    }
+  /**
+   * Search documents in an index
+   */
+  public async search<T = unknown>(
+    indexName: string,
+    query: string,
+    options: Record<string, unknown> = {},
+  ): Promise<{
+    hits: T[];
+    offset: number;
+    limit: number;
+    estimatedTotalHits: number;
+    processingTimeMs: number;
+    query: string;
+  }> {
+    return this.request(`/indexes/${indexName}/search`, "POST", {
+      q: query,
+      ...options,
+    });
+  }
 
-    /**
-     * Search documents in an index
-     */
-    public async search<T = unknown>(indexName: string, query: string, options: Record<string, unknown> = {}): Promise<{
-        hits: T[];
-        offset: number;
-        limit: number;
-        estimatedTotalHits: number;
-        processingTimeMs: number;
-        query: string;
-    }> {
-        return this.request(`/indexes/${indexName}/search`, 'POST', {
-            q: query,
-            ...options,
-        });
-    }
+  /**
+   * Setup index settings (Searchable, Filterable, Sortable)
+   */
+  public async updateSettings(
+    indexName: string,
+    settings: MeiliIndexSettings,
+  ): Promise<void> {
+    // First ensure index exists by triggering index creation (if not exists)
+    await this.ensureIndex(indexName);
 
-    /**
-     * Setup index settings (Searchable, Filterable, Sortable)
-     */
-    public async updateSettings(indexName: string, settings: MeiliIndexSettings): Promise<void> {
-        // First ensure index exists by triggering index creation (if not exists)
-        await this.ensureIndex(indexName);
+    // Apply settings
+    await this.request(`/indexes/${indexName}/settings`, "PATCH", settings);
+  }
 
-        // Apply settings
-        await this.request(`/indexes/${indexName}/settings`, 'PATCH', settings);
-    }
-
-    /**
-     * Get index stats (including number of documents)
-     */
-    public async getStats(indexName: string): Promise<{
-        numberOfDocuments: number;
-        isIndexing: boolean;
-        fieldDistribution: Record<string, number>;
-    }> {
-        return this.request(`/indexes/${indexName}/stats`, 'GET');
-    }
+  /**
+   * Get index stats (including number of documents)
+   */
+  public async getStats(indexName: string): Promise<{
+    numberOfDocuments: number;
+    isIndexing: boolean;
+    fieldDistribution: Record<string, number>;
+  }> {
+    return this.request(`/indexes/${indexName}/stats`, "GET");
+  }
 }

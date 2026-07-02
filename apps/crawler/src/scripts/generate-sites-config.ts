@@ -8,9 +8,13 @@
  * @dependencies SiteRegistry, fs, path
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import { getAllSites, getIndexName, SiteDescriptor } from '../core/SiteRegistry';
+import * as fs from "fs";
+import * as path from "path";
+import {
+  getAllSites,
+  getIndexName,
+  SiteDescriptor,
+} from "../core/SiteRegistry";
 
 interface StaticSiteConfig {
   key: string;
@@ -23,29 +27,37 @@ interface StaticSiteConfig {
 }
 
 function main() {
-  console.log('🚀 Extracting site configurations metadata...');
-  
+  console.log("🚀 Extracting site configurations metadata...");
+
   const sites = getAllSites();
   const staticConfigs: StaticSiteConfig[] = sites.map((s: SiteDescriptor) => {
     return {
       key: s.key,
       name: s.name,
-      favicon: s.favicon || '',
+      favicon: s.favicon || "",
       indexName: getIndexName(s.key),
-      collectionName: s.targetLoader?.collectionName || `silver/${s.key}.contents`,
+      collectionName:
+        s.targetLoader?.collectionName || `silver/${s.key}.contents`,
       bronzeCollectionName: s.scraper?.collectionName,
-      updateFilterKey: s.scraper?.updateFilterKey
+      updateFilterKey: s.scraper?.updateFilterKey,
     };
   });
 
-  const configDir = path.resolve(__dirname, '..', '..', '..', 'viewer', 'config');
+  const configDir = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "viewer",
+    "config",
+  );
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
   }
 
-  const outputPath = path.join(configDir, 'sites.json');
-  fs.writeFileSync(outputPath, JSON.stringify(staticConfigs, null, 2), 'utf8');
-  
+  const outputPath = path.join(configDir, "sites.json");
+  fs.writeFileSync(outputPath, JSON.stringify(staticConfigs, null, 2), "utf8");
+
   console.log(`✅ Static sites configuration written to: ${outputPath}`);
 }
 

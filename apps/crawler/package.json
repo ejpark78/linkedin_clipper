@@ -29,6 +29,7 @@
     "scrape:yozm:list": "ts-node src/cli-list.ts --site yozm",
     "scrape:yozm:refresh-urls": "ts-node src/cli-refresh-urls.ts --site yozm",
     "scrape:yozm:refresh-silver": "ts-node src/cli-refresh-silver.ts --site yozm",
+    "scrape:nvidia:list": "ts-node src/cli-list.ts --site nvidia",
     "scrape:linkedin:list": "ts-node src/cli-list.ts --site linkedin",
     "scrape:linkedin:refresh-urls": "ts-node src/cli-refresh-urls.ts --site linkedin",
     "scrape:linkedin:refresh-silver": "ts-node src/cli-refresh-silver.ts --site linkedin",

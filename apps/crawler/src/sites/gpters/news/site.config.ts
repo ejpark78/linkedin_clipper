@@ -8,29 +8,32 @@
  * @lastUpdated 2026-06-11
  */
 
-import type { SiteDescriptor } from '../../../core/SiteRegistry';
-import { GptersConverter } from '../Converter';
-import { scrapeGptersGraphQL } from '../scrape';
+import type { SiteDescriptor } from "../../../core/SiteRegistry";
+import { GptersConverter } from "../Converter";
+import { scrapeGptersGraphQL } from "../scrape";
 
 export interface GptersMeta {
-    id: string;
-    title: string;
-    url: string;
-    author: string | null;
-    shortContent: string | null;
-    publishedAt: Date | null;
-    reactionsCount: number;
-    repliesCount: number;
-    rawContent: string;
-    spaceId: string | null;
-    spaceName: string | null;
-    spaceSlug: string | null;
+  id: string;
+  title: string;
+  url: string;
+  author: string | null;
+  shortContent: string | null;
+  publishedAt: Date | null;
+  reactionsCount: number;
+  repliesCount: number;
+  rawContent: string;
+  spaceId: string | null;
+  spaceName: string | null;
+  spaceSlug: string | null;
 }
 
-function buildGptersDocument(id: string, meta: GptersMeta): Record<string, any> {
+function buildGptersDocument(
+  id: string,
+  meta: GptersMeta,
+): Record<string, any> {
   const doc: Record<string, any> = {
     id,
-    title: meta.title || 'Untitled',
+    title: meta.title || "Untitled",
     url: meta.url || null,
     author: meta.author || null,
     shortContent: meta.shortContent || null,
@@ -47,54 +50,66 @@ function buildGptersDocument(id: string, meta: GptersMeta): Record<string, any> 
 }
 
 export const descriptor: SiteDescriptor = {
-  key: 'gpters',
-  name: 'GPTers News',
-  domain: 'gpters.org',
-  favicon: 'https://gpters.org/favicon.ico',
-  indexName: 'gpters',
+  key: "gpters",
+  name: "GPTers News",
+  domain: "gpters.org",
+  favicon: "https://gpters.org/favicon.ico",
+  indexName: "gpters",
 
   indexes: [
-    { collection: 'bronze/gpters.html', fields: { id: 1 }, options: { unique: true } },
-    { collection: 'bronze/gpters.urls', fields: { id: 1 }, options: { unique: true } },
-    { collection: 'bronze/gpters.urls', fields: { status: 1, id: 1 } },
-    { collection: 'silver/gpters.contents', fields: { id: 1 }, options: { unique: true } },
-    { collection: 'silver/gpters.contents', fields: { publishedAt: -1 } },
     {
-      collection: 'silver/gpters.contents',
-      fields: { title: 'text', content: 'text', markdown: 'text', url: 'text' },
+      collection: "bronze/gpters.html",
+      fields: { id: 1 },
+      options: { unique: true },
+    },
+    {
+      collection: "bronze/gpters.urls",
+      fields: { id: 1 },
+      options: { unique: true },
+    },
+    { collection: "bronze/gpters.urls", fields: { status: 1, id: 1 } },
+    {
+      collection: "silver/gpters.contents",
+      fields: { id: 1 },
+      options: { unique: true },
+    },
+    { collection: "silver/gpters.contents", fields: { publishedAt: -1 } },
+    {
+      collection: "silver/gpters.contents",
+      fields: { title: "text", content: "text", markdown: "text", url: "text" },
       options: {
         weights: { title: 10, content: 5, markdown: 3, url: 1 },
-        name: 'text_idx',
+        name: "text_idx",
       },
     },
   ],
 
   scraper: {
-    collectionName: 'bronze/gpters.html',
-    targetCollection: 'gpters.html',
-    updateFilterKey: 'postId',
+    collectionName: "bronze/gpters.html",
+    targetCollection: "gpters.html",
+    updateFilterKey: "postId",
     defaultSlack: 3,
     extractId: (url) => {
-      const parts = url.split('-');
-      const id = parts[parts.length - 1] || '';
-      return /^[a-zA-Z0-9]{15}$/.test(id) ? id : '';
+      const parts = url.split("-");
+      const id = parts[parts.length - 1] || "";
+      return /^[a-zA-Z0-9]{15}$/.test(id) ? id : "";
     },
-    excludePatterns: ['favicon', 'login', 'logout', 'signup'],
-    urlsCollectionName: 'bronze/gpters.urls',
+    excludePatterns: ["favicon", "login", "logout", "signup"],
+    urlsCollectionName: "bronze/gpters.urls",
     scrape: scrapeGptersGraphQL,
   },
 
   converter: {
     converter: new GptersConverter(),
-    targetCollection: 'gpters.html',
+    targetCollection: "gpters.html",
     filter: (id) => ({ $or: [{ postId: id }, { id: id }] }),
-    statusCollection: 'bronze/gpters.urls',
-    completedSetKey: 'sites:gpters:completed',
+    statusCollection: "bronze/gpters.urls",
+    completedSetKey: "sites:gpters:completed",
   },
 
   targetLoader: {
-    collectionName: 'silver/gpters.contents',
-    filterField: 'id',
+    collectionName: "silver/gpters.contents",
+    filterField: "id",
     buildDocument: (id, meta: GptersMeta) => buildGptersDocument(id, meta),
   },
 
@@ -102,7 +117,7 @@ export const descriptor: SiteDescriptor = {
     saveJson: true,
     imageDownload: {
       enabled: true,
-      htmlSource: 'shortContent',
+      htmlSource: "shortContent",
     },
     getSilverFields: (meta: GptersMeta) => ({
       id: meta.id,

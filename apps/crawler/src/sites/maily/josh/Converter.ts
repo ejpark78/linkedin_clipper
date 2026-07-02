@@ -7,36 +7,41 @@
  * @lastUpdated 2026-06-11
  */
 
-import * as cheerio from 'cheerio';
-import { BaseConverter } from '../../../core/BaseConverter';
-import { DateUtils } from '../../../utils/DateUtils';
+import * as cheerio from "cheerio";
+import { BaseConverter } from "../../../core/BaseConverter";
+import { DateUtils } from "../../../utils/DateUtils";
 
-import { MailyJoshMeta } from './site.config';
+import { MailyJoshMeta } from "./site.config";
 
 export class MailyJoshConverter extends BaseConverter<MailyJoshMeta> {
-
-  public async convertHtmlToMarkdown(htmlContent: string, id: string, url: string): Promise<MailyJoshMeta> {
+  public async convertHtmlToMarkdown(
+    htmlContent: string,
+    id: string,
+    url: string,
+  ): Promise<MailyJoshMeta> {
     const $ = cheerio.load(htmlContent);
 
-    const canonical = $('link[rel="canonical"]').attr('href');
+    const canonical = $('link[rel="canonical"]').attr("href");
     const finalUrl = canonical || url;
 
-    const ogTitle = $('meta[property="og:title"]').attr('content');
-    const titleTag = $('title').text().trim();
-    const title = ogTitle || titleTag || 'Unknown Title';
+    const ogTitle = $('meta[property="og:title"]').attr("content");
+    const titleTag = $("title").text().trim();
+    const title = ogTitle || titleTag || "Unknown Title";
 
     const category = $('h2 a[href*="/c/"]').first().text().trim() || null;
 
     let publishedAtStr: string | null = null;
-    const pubDateMeta = $('meta[property="article:published_time"]').attr('content');
+    const pubDateMeta = $('meta[property="article:published_time"]').attr(
+      "content",
+    );
     if (pubDateMeta) {
       publishedAtStr = pubDateMeta;
     } else {
-      const dateEl = $('span.text-slate-600').first();
+      const dateEl = $("span.text-slate-600").first();
       const dateText = dateEl.text().trim();
       const dateMatch = dateText.match(/(\d{4}\.\d{2}\.\d{2})/);
       if (dateMatch) {
-        const parts = dateMatch[1].split('.');
+        const parts = dateMatch[1].split(".");
         publishedAtStr = `${parts[0]}-${parts[1]}-${parts[2]}T00:00:00Z`;
       }
     }
@@ -44,14 +49,14 @@ export class MailyJoshConverter extends BaseConverter<MailyJoshMeta> {
     const publishedAt = DateUtils.parseSafeDate(publishedAtStr);
 
     let viewCount: string | null = null;
-    $('span.text-slate-600').each((_, el) => {
+    $("span.text-slate-600").each((_, el) => {
       const text = $(el).text().trim();
-      if (text.includes('조회')) {
-        viewCount = text.replace('조회', '').trim();
+      if (text.includes("조회")) {
+        viewCount = text.replace("조회", "").trim();
       }
     });
 
-    const articleHtml = $('article.post-body-narrow').first().html() || '';
+    const articleHtml = $("article.post-body-narrow").first().html() || "";
     const contentMarkdown = this.htmlToMarkdown(articleHtml);
 
     let markdown = `# ${title}\n\n`;

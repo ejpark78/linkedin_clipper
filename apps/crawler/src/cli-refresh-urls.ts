@@ -7,13 +7,13 @@
  * @lastUpdated 2026-06-15
  */
 
-import { BaseRefreshUrls } from './core/BaseRefreshUrls';
-import { getSite } from './core/SiteRegistry';
+import { BaseRefreshUrls } from "./core/BaseRefreshUrls";
+import { getSite } from "./core/SiteRegistry";
 
-let siteKey = '';
+let siteKey = "";
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === '--site') {
-    siteKey = process.argv[i + 1] || '';
+  if (process.argv[i] === "--site") {
+    siteKey = process.argv[i + 1] || "";
     break;
   }
 }
@@ -22,7 +22,9 @@ if (!siteKey) {
 }
 
 if (!siteKey) {
-  console.error('Usage: npx ts-node src/crawler/cli-refresh-urls.ts --site <siteKey>');
+  console.error(
+    "Usage: npx ts-node src/crawler/cli-refresh-urls.ts --site <siteKey>",
+  );
   process.exit(1);
 }
 
@@ -40,7 +42,7 @@ const refresh = new BaseRefreshUrls({
   site: desc.key,
   displayName: desc.name,
   cacheSetKey: desc.converter.completedSetKey,
-  legacyQueue: siteKey === 'gpters',
+  legacyQueue: siteKey === "gpters",
 });
 
 refresh.run().catch(console.error);

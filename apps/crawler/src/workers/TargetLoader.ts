@@ -7,8 +7,8 @@
  * @lastUpdated 2026-06-11
  */
 
-import { MongoDatabase } from '../database/mongo';
-import { getSite } from '../core/SiteRegistry';
+import { MongoDatabase } from "../database/mongo";
+import { getSite } from "../core/SiteRegistry";
 
 export class TargetLoader {
   public static async load(site: string, id: string, meta: any): Promise<void> {
@@ -27,7 +27,7 @@ export class TargetLoader {
     await collection.updateOne(
       { [tl.filterField]: id },
       { $set: doc },
-      { upsert: true }
+      { upsert: true },
     );
   }
 }

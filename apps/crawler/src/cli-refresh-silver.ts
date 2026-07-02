@@ -7,13 +7,13 @@
  * @lastUpdated 2026-06-15
  */
 
-import { getSite } from './core/SiteRegistry';
-import { BaseRefreshConvert } from './core/BaseRefreshConvert';
+import { getSite } from "./core/SiteRegistry";
+import { BaseRefreshConvert } from "./core/BaseRefreshConvert";
 
-let siteKey = '';
+let siteKey = "";
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === '--site') {
-    siteKey = process.argv[i + 1] || '';
+  if (process.argv[i] === "--site") {
+    siteKey = process.argv[i + 1] || "";
     break;
   }
 }
@@ -22,7 +22,9 @@ if (!siteKey) {
 }
 
 if (!siteKey) {
-  console.error('Usage: npx ts-node src/crawler/cli-refresh-silver.ts --site <siteKey>');
+  console.error(
+    "Usage: npx ts-node src/crawler/cli-refresh-silver.ts --site <siteKey>",
+  );
   process.exit(1);
 }
 
@@ -32,7 +34,7 @@ if (!desc) {
   process.exit(1);
 }
 
-const overwrite = process.env.OVERWRITE === 'true';
+const overwrite = process.env.OVERWRITE === "true";
 
 console.log(`🔄 Running refresh for ${siteKey} (Queue-based)...`);
 if (!desc.scraper?.collectionName) {
@@ -43,7 +45,11 @@ if (!desc.scraper?.collectionName) {
 const refreshConvert = new BaseRefreshConvert({
   site: desc.key,
   bronzeCollection: desc.scraper.collectionName,
-  idExtract: siteKey === 'gpters' ? (doc: any) => doc.id || doc.postId : undefined,
-  includeUrlInPayload: siteKey === 'gpters',
+  idExtract:
+    siteKey === "gpters" ? (doc: any) => doc.id || doc.postId : undefined,
+  includeUrlInPayload: siteKey === "gpters",
 });
-refreshConvert.run().catch(console.error).then(() => process.exit(0));
+refreshConvert
+  .run()
+  .catch(console.error)
+  .then(() => process.exit(0));
