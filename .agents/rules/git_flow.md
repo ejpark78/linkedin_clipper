@@ -49,3 +49,16 @@ trigger: always_on
    - 개발 과정 중 로컬 작업 시 `main` 브랜치로 직접 되돌아가거나 직접 커밋을 날리는 행위는 절대 금지됩니다.
 6. **Git 히스토리 탐색 덤프 루프 방지**:
    - 히스토리 조회 시 단발성 명령어(`git log`, `git show`, `git reflog` 등)를 여러 턴에 걸쳐 쪼개어 반복 실행(덤프 루프)하지 마십시오. 삭제된 파일이나 변경 이력이 필요할 경우 한 번에 넓은 범위나 삭제 필터를 결합(`git log --diff-filter=D --summary` 등)하여 단일 턴에 탐색을 종결해야 합니다.
+7. **브랜치 병합 절차**:
+   - 기능 개발 완료 후 `task git:merge`로 자동 병합합니다.
+   - `feature/*` 브랜치는 `develop`에, `hotfix/*` 브랜치는 `main` → `develop` 순으로 병합됩니다.
+   - 병합 후 `task git:push`로 원격 저장소에 반영합니다.
+   - 필요시 직접 `task git:merge BRANCH="feature/xxx"`로 특정 브랜치를 지정할 수 있습니다.
+8. **브랜치 정리 (Prune)**:
+   - `develop(또는 main)`에 이미 병합된 `feature/*` 및 `hotfix/*` 브랜치는 주기적으로 정리합니다.
+   - `task git:prune` 명령어로 일괄 삭제합니다. 내부적으로 다음을 수행합니다:
+     - `develop` 브랜치로 체크아웃
+     - GitHub 최신 상태로 갱신
+     - 병합 완료된 `feature/*`, `hotfix/*` 로컬 브랜치 삭제
+     - 원격 저장소의 사라진 브랜치 참조(ref) 정리
+   - `release/*` 브랜치는 릴리즈 이력 보존을 위해 자동 정리 대상에서 제외됩니다.

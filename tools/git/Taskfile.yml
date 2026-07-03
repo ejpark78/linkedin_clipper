@@ -164,6 +164,41 @@ tasks:
     cmds:
       - npm run push
 
+  merge:
+    desc: "현재 브랜치를 develop/main에 병합"
+    summary: |
+      현재 브랜치 타입에 따라 자동 병합합니다.
+      - feature/* → develop
+      - hotfix/* → main → develop
+
+      [Variables]
+        - BRANCH: (옵션) 병합할 브랜치명 (미지정 시 현재 브랜치)
+
+      [Usage Examples]
+        - task git:merge
+        - task git:merge BRANCH="feature/146-taskfile-refactor"
+    cmds:
+      - |
+        BRANCH="{{.BRANCH}}"
+        if [ -z "$BRANCH" ]; then
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        fi
+        echo "🔀 Merging $BRANCH..."
+        case "$BRANCH" in
+          feature/*)
+            git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff
+            ;;
+          hotfix/*)
+            git checkout main && git pull github main && git merge "$BRANCH" --no-ff
+            git checkout develop && git pull github develop && git merge main --no-ff
+            ;;
+          *)
+            echo "❌ 브랜치 패턴이 feature/* 또는 hotfix/* 가 아닙니다: $BRANCH"
+            exit 1
+            ;;
+        esac
+        echo "✅ Merge 완료: $BRANCH"
+
   prune:
     desc: "Merge된 feature 브랜치 및 원격 ref 정리"
     summary: |
@@ -174,9 +209,9 @@ tasks:
         - task git:prune
     cmds:
       - git checkout develop
-      - git pull origin develop
-      - git branch --merged | grep feature | xargs git branch -d
-      - git remote prune origin
+      - git pull github develop
+      - git branch --merged | grep -E 'feature/|hotfix/' | xargs git branch -d
+      - git fetch --prune github
 
   token:
     desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)
