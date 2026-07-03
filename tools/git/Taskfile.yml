@@ -164,6 +164,20 @@ tasks:
     cmds:
       - npm run push
 
+  prune:
+    desc: "Merge된 feature 브랜치 및 원격 ref 정리"
+    summary: |
+      develop에 병합된 로컬 feature/* 브랜치를 삭제하고
+      원격 저장소의 사라진 브랜치 참조(ref)를 정리합니다.
+
+      [Usage Examples]
+        - task git:prune
+    cmds:
+      - git checkout develop
+      - git pull origin develop
+      - git branch --merged | grep feature | xargs git branch -d
+      - git remote prune origin
+
   token:
     desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)
     summary: |
