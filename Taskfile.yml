@@ -93,33 +93,33 @@ tasks:
       - mkdir -p data/.services/traefik/certs
       - mkcert -cert-file data/.services/traefik/certs/local-cert.pem -key-file data/.services/traefik/certs/local-key.pem localhost gitea.localhost route.localhost viewer.localhost docs.localhost me.localhost redis.localhost search.localhost "*.localhost" 127.0.0.1
 
-  gitea:up:
+  git:up:
     desc: Gitea 컨테이너 실행 및 관리자 계정 확인
     summary: |
       Gitea 컨테이너를 시작하고 로컬 관리자 계정(gitea-admin)이 존재하는지 확인합니다.
 
       [Usage Examples]
-        - task gitea:up
+        - task git:up
     cmds:
       - task infra:gitea:up
 
-  gitea:mkcert:
+  git:mkcert:
     desc: mkcert 로컬 CA 인증서 생성
     summary: |
       mkcert를 사용하여 *.localhost 도메인용 TLS 인증서를 생성합니다.
 
       [Usage Examples]
-        - task gitea:mkcert
+        - task git:mkcert
     cmds:
       - task mkcert
 
-  gitea:repo:init:
+  git:repo:init:
     internal: true
     desc: Gitea repo 생성 + 토큰 발급 + git remote + push
     cmds:
       - npm run gitea init
 
-  gitea:init:
+  git:init:
     desc: Gitea 초기 설정 (인증서 → 컨테이너 실행 → repo 생성 → 토큰 발급 → push)
     summary: |
       Gitea 워크플로우를 한 번에 초기화합니다.
@@ -128,34 +128,34 @@ tasks:
       3. scraper repo 생성 + API 토큰 발급 + git remote + push
 
       [Usage Examples]
-        - task gitea:init
+        - task git:init
     cmds:
-      - task: gitea:mkcert
-      - task: gitea:up
+      - task: git:mkcert
+      - task: git:up
       - echo "Gitea 컨테이너가 시작되었습니다. 초기화를 계속합니다..."
-      - task: gitea:repo:init
+      - task: git:repo:init
 
-  gitea:token:
+  git:token:
     desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)
     summary: |
       Gitea 관리자 계정으로 API 토큰을 생성합니다.
 
       [Usage Examples]
-        - task gitea:token
+        - task git:token
     cmds:
       - npm run gitea:token
 
-  gitea:token:tea:
+  git:token:tea:
     desc: Generate a Gitea API token through tea.
     summary: |
       Generate a Gitea API token using the tea interactive CLI tool.
       
       [Usage Examples]
-        - task gitea:token:tea
+        - task git:token:tea
     cmds:
       - npm run gitea:token:tea
 
-  gitea:issue:new:
+  git:issue:new:
     desc: "새 Gitea 이슈 생성"
     summary: |
       새 Gitea 이슈를 생성합니다.
@@ -165,11 +165,11 @@ tasks:
         - BODY: (필수) 이슈 본문 내용 (개행은 [br] 기호로 변환 권장)
 
       [Usage Examples]
-        - task gitea:issue:new TITLE="이슈 제목" BODY="상세 내용[br]두번째 줄"
+        - task git:issue:new TITLE="이슈 제목" BODY="상세 내용[br]두번째 줄"
     cmds:
       - npm run gitea create-issue "{{.TITLE}}" "{{.BODY}}"
 
-  gitea:issue:update:
+  git:issue:update:
     desc: "Gitea 이슈 제목/본문 수정"
     summary: |
       기존 Gitea 이슈의 제목과 본문을 수정합니다.
@@ -180,11 +180,11 @@ tasks:
         - BODY: (필수) 새로운 이슈 본문
 
       [Usage Examples]
-        - task gitea:issue:update ISSUE_ID="104" TITLE="수정된 제목" BODY="수정된 내용"
+        - task git:issue:update ISSUE_ID="104" TITLE="수정된 제목" BODY="수정된 내용"
     cmds:
       - npm run gitea update-issue "{{.ISSUE_ID}}" "{{.TITLE}}" "{{.BODY}}"
 
-  gitea:issue:comment:new:
+  git:issue:comment:new:
     desc: "Gitea 이슈에 댓글 등록"
     summary: |
       Gitea 이슈에 새 댓글을 등록합니다.
@@ -194,11 +194,11 @@ tasks:
         - BODY: (필수) 댓글 본문 (개행은 [br] 기호 활용)
 
       [Usage Examples]
-        - task gitea:issue:comment:new ISSUE_ID="104" BODY="진행 경과 보고[br]- 완료"
+        - task git:issue:comment:new ISSUE_ID="104" BODY="진행 경과 보고[br]- 완료"
     cmds:
       - npm run gitea comment "{{.ISSUE_ID}}" "{{.BODY}}"
 
-  gitea:issue:comment:update:
+  git:issue:comment:update:
     desc: "Gitea 이슈 댓글 수정"
     summary: |
       기존 Gitea 이슈 댓글의 내용을 수정합니다.
@@ -208,11 +208,11 @@ tasks:
         - BODY: (필수) 새로운 댓글 본문
 
       [Usage Examples]
-        - task gitea:issue:comment:update COMMENT_ID="2642" BODY="수정된 댓글 내용"
+        - task git:issue:comment:update COMMENT_ID="2642" BODY="수정된 댓글 내용"
     cmds:
       - npm run gitea update-comment "{{.COMMENT_ID}}" "{{.BODY}}"
 
-  gitea:issue:close:
+  git:issue:close:
     desc: "Gitea 이슈 마감"
     summary: |
       활성 Gitea 이슈를 마감(Closed) 처리합니다.
@@ -221,11 +221,11 @@ tasks:
         - ISSUE_ID: (필수) 닫으려는 이슈 ID 번호
 
       [Usage Examples]
-        - task gitea:issue:close ISSUE_ID="142"
+        - task git:issue:close ISSUE_ID="142"
     cmds:
       - npm run gitea close-issue "{{.ISSUE_ID}}"
 
-  gitea:issue:reopen:
+  git:issue:reopen:
     desc: "Gitea 이슈 재오픈"
     summary: |
       마감된 Gitea 이슈를 다시 엽니다(Reopen).
@@ -234,11 +234,11 @@ tasks:
         - ISSUE_ID: (필수) 다시 열려는 이슈 ID 번호
 
       [Usage Examples]
-        - task gitea:issue:reopen ISSUE_ID="142"
+        - task git:issue:reopen ISSUE_ID="142"
     cmds:
       - npm run gitea reopen-issue "{{.ISSUE_ID}}"
 
-  gitea:issue:show:
+  git:issue:show:
     desc: "Gitea 이슈 본문 조회"
     summary: |
       Gitea 이슈의 본문 내용과 상태를 출력합니다.
@@ -247,6 +247,6 @@ tasks:
         - ISSUE_ID: (필수) 조회할 이슈 ID 번호
 
       [Usage Examples]
-        - task gitea:issue:show ISSUE_ID="104"
+        - task git:issue:show ISSUE_ID="104"
     cmds:
       - npm run gitea show-issue "{{.ISSUE_ID}}"
