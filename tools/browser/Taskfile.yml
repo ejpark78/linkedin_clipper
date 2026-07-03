@@ -27,16 +27,6 @@ tasks:
     cmds:
       - task crawler:open SITE={{.SITE | default "linkedin"}}
 
-  inspect-layout:
-    desc: Inspect a browser-rendered layout.
-    summary: |
-      Launches browser layout diagnostics to inspect crawler conversion.
-
-      [Usage Examples]
-        - task browser:inspect-layout
-    cmds:
-      - task crawler:inspect-layout
-
   logout:
     desc: "Remove a browser-backed site session."
     summary: |

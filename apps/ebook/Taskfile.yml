@@ -33,12 +33,12 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe split --raw "{{.RAW | default "data/raw"}}" --path "{{.OUT_PATH | default "data/output"}}"'
 
-  to-html:
+  2html:
     desc: Convert PDF/EPUB to HTML.
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe to-html --path "{{.OUT_PATH | default "data/output"}}"'
 
-  to-md:
+  2md:
     desc: Convert HTML to Markdown.
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe to-md --path "{{.OUT_PATH | default "data/output"}}"'

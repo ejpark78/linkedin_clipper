@@ -28,10 +28,6 @@ tasks:
     cmds:
       - SITE={{.SITE | default "linkedin"}} npx ts-node src/tools/browser/open.ts
 
-  inspect-layout:
-    cmds:
-      - npx ts-node src/scripts/inspect-layout.ts
-
   logout:
     cmds:
       - rm -f {{.ROOT_DIR}}/data/sessions/{{.SITE | default "linkedin"}}.json
@@ -97,7 +93,7 @@ tasks:
     cmds:
       - task site SITE={{.SITE}} CMD=list PAGE={{.PAGE | default "1"}} LIST_SLACK={{.LIST_SLACK | default "2"}}
 
-  sites:refresh-urls:
+  sites:refresh:urls:
     desc: "Refresh crawler URLs for a site."
     summary: |
       Trigger crawling and scraping cycle to fetch newest URLs for a specific site.
@@ -106,11 +102,11 @@ tasks:
         - SITE: (필수) 새로운 URL 목록을 갱신할 사이트명 (예: gpters, linkedin)
 
       [Usage Examples]
-        - task crawler:sites:refresh-urls SITE="gpters"
+        - task crawler:sites:refresh:urls SITE="gpters"
     cmds:
       - task site SITE={{.SITE}} CMD=refresh-urls
 
-  sites:refresh-silver:
+  sites:refresh:silver:
     desc: "Refresh crawler Silver documents for a site."
     summary: |
       Re-process raw HTML data (Bronze) and convert it into structured markdown (Silver) for a specific site.
@@ -119,7 +115,7 @@ tasks:
         - SITE: (필수) 실버 데이터를 재생성할 사이트명 (예: maily_josh, uppity)
 
       [Usage Examples]
-        - task crawler:sites:refresh-silver SITE="uppity"
+        - task crawler:sites:refresh:silver SITE="uppity"
     cmds:
       - task site SITE={{.SITE}} CMD=refresh-silver
 

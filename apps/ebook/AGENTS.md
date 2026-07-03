@@ -1,17 +1,17 @@
 # 📘 Ebook Pipeline
 
 ## 개요
-(PDF, EPUB) → split → (PDF, html) → to-html → (html) → to-md → (markdown)
+(PDF, EPUB) → split → (PDF, html) → 2html → (html) → 2md → (markdown)
 
 ## 주요 명령어
 | 명령어 | 기본값 파라미터가 명시된 Task 실행 형식 | 설명 |
 |--------|----------------------------------------|------|
 | `task ebook:analyze` | `task ebook:analyze RAW=data/raw OVERWRITE=false` | PDF/EPUB 파일 또는 디렉토리 하위의 파일들에서 구조 분석 및 TOC 추출 (`books.json` 저장) |
 | `task ebook:split` | `task ebook:split RAW=data/raw OUT_PATH=data/output` | PDF/EPUB → 챕터별 파일 분할 (PDF→PDF, EPUB→HTML) |
-| `task ebook:to-html` | `task ebook:to-html OUT_PATH=data/output` | PDF/EPUB → HTML 변환 |
-| `task ebook:to-md` | `task ebook:to-md OUT_PATH=data/output` | HTML → Markdown 변환 |
+| `task ebook:2html` | `task ebook:2html OUT_PATH=data/output` | PDF/EPUB → HTML 변환 |
+| `task ebook:2md` | `task ebook:2md OUT_PATH=data/output` | HTML → Markdown 변환 |
 | `npm run test` | `npm run test` | pytest 실행 (apps/ebook) |
-| **통합 파이프라인 검증** | `task ebook:build && task ebook:split RAW=data/raw OUT_PATH=data/output && task ebook:to-html OUT_PATH=data/output && task ebook:to-md OUT_PATH=data/output` | 이미지 빌드부터 분할, HTML 변환, Markdown 최종 변환까지 전체 파이프라인을 일괄 통합 테스트 및 검증 |
+| **통합 파이프라인 검증** | `task ebook:build && task ebook:split RAW=data/raw OUT_PATH=data/output && task ebook:2html OUT_PATH=data/output && task ebook:2md OUT_PATH=data/output` | 이미지 빌드부터 분할, HTML 변환, Markdown 최종 변환까지 전체 파이프라인을 일괄 통합 테스트 및 검증 |
 
 ## 출력 파일 규칙
 - 변환 결과는 **입력 파일과 동일한 디렉토리**에 저장
