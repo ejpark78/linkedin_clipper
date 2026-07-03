@@ -44,7 +44,20 @@ trigger: always_on
 변경된 파일 목록
 ```
 
-## 3. 에이전트 행동 규칙
+## 3. 이슈 제목 형식
+
+이슈 제목은 `{type}: {description}` 형식을 따릅니다.
+
+| type | 용도 | 예시 |
+|------|------|------|
+| `feat:` | 새 기능/작업 계획 (Plan) | `feat: taskfile 네임스페이스 정리` |
+| `fix:` | 버그 수정 | `fix: git:prune origin 인증 오류` |
+| `docs:` | 문서/규칙 변경 | `docs: git flow merge/prune 규칙` |
+| `session:` | 세션 요약 | `session: 2026-07-03` |
+
+`git:` 접두사를 제목에 중복 사용하지 않습니다. 이미 `git:issue:new`로 생성하므로, 제목은 **무엇을 했는지(action)**에 집중합니다.
+
+## 4. 에이전트 행동 규칙
 
 - **Plan 승인 → 이슈 우선 생성**: 사용자가 Plan을 승인하면, 소스 코드 수정 전에 **반드시 먼저 `task git:issue:new`로 Plan 이슈를 생성**합니다. 구현이 먼저 이루어지고 이슈가 나중에 생성되는 것을 금지합니다.
 - **새 작업 시작 시**: `task git:issue:new TEMPLATE="issue"` 우선 사용
