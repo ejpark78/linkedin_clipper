@@ -512,7 +512,7 @@ class GiteaClient {
     mapping.forEach(m => console.log(`   Original #${m.original} → New #${m.new}`));
   }
 
-  public async wikiInit(): Promise<void> {
+  public async wikiInit(fromDir?: string): Promise<void> {
     const baseUrl = this.config.apiUrl;
     const token = this.config.accessToken;
 
@@ -531,17 +531,27 @@ class GiteaClient {
       });
     }
 
-    const tmpDir = path.resolve('data/dumps/gitea/wiki-init');
+    const tmpDir = path.resolve(fromDir || 'data/dumps/gitea/wiki-init');
     fs.mkdirSync(tmpDir, { recursive: true });
-    const homeMd = path.join(tmpDir, 'Home.md');
-    fs.writeFileSync(homeMd, `# ${this.config.repo.split('/')[1]} Wiki\n\nWelcome to the project wiki.\n`);
+
+    if (!fromDir) {
+      // No source dir: create placeholder Home.md
+      const homeMd = path.join(tmpDir, 'Home.md');
+      if (!fs.existsSync(homeMd)) {
+        fs.writeFileSync(homeMd, `# ${this.config.repo.split('/')[1]} Wiki\n\nWelcome to the project wiki.\n`);
+      }
+    }
 
     const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
-    execSync(`cd ${tmpDir} && git init && git add -A && git commit -m "Initial wiki setup"`, { stdio: 'inherit' });
+    const isGitRepo = fs.existsSync(path.join(tmpDir, '.git'));
+    if (!isGitRepo) {
+      execSync(`cd ${tmpDir} && git init`, { stdio: 'inherit' });
+    }
+    execSync(`cd ${tmpDir} && git add -A && git commit -m "Wiki sync: $(date)" 2>/dev/null || true`, { stdio: 'inherit' });
     try {
-      execSync(`cd ${tmpDir} && git remote add origin ${wikiUrl}`, { stdio: 'inherit' });
+      execSync(`cd ${tmpDir} && git remote remove origin 2>/dev/null; git remote add origin ${wikiUrl}`, { stdio: 'inherit' });
     } catch {}
-    execSync(`cd ${tmpDir} && git push -u origin main`, { stdio: 'inherit' });
+    execSync(`cd ${tmpDir} && git push -u origin main --force`, { stdio: 'inherit' });
     console.log('✅ Wiki 초기화 완료!');
   }
 
@@ -821,7 +831,7 @@ class GiteaController {
         break;
 
       case 'issue:dump':
-        await client.dumpIssue('data/dumps/gitea', args[1]);
+        await client.dumpIssue(args[1] || 'data/dumps/gitea', args[2]);
         break;
 
       case 'issue:restore':
@@ -830,7 +840,7 @@ class GiteaController {
         break;
 
       case 'wiki:init':
-        await client.wikiInit();
+        await client.wikiInit(args[1]);
         break;
 
       case 'wiki:dump':

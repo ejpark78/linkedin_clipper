@@ -54,13 +54,13 @@ tasks:
       Gitea 저장소의 이슈(댓글 포함)와 위키를 로컬 JSON/Git으로 내보냅니다.
 
       [Variables]
-        - DUMP_DIR: (옵션) 덤프 출력 디렉토리 (기본값: data/dumps/gitea)
+        - DUMP_PATH: (옵션) 덤프 출력 디렉토리 (기본값: data/dumps/gitea)
 
       [Usage Examples]
         - task git:repo:dump
-        - task git:repo:dump DUMP_DIR="data/backup/gitea"
+        - task git:repo:dump DUMP_PATH="data/backup/gitea"
     cmds:
-      - npm run gitea repo:dump {{.DUMP_DIR}}
+      - npm run gitea repo:dump {{.DUMP_PATH}}
 
   repo:restore:
     desc: "Gitea repo 전체 복원 (이슈 + 위키)"
@@ -68,12 +68,12 @@ tasks:
       덤프 데이터에서 이슈와 위키를 Gitea에 복원합니다.
 
       [Variables]
-        - DUMP_DIR: (필수) 덤프 데이터 디렉토리 경로
+        - DUMP_PATH: (필수) 덤프 데이터 디렉토리 경로
 
       [Usage Examples]
-        - task git:repo:restore DUMP_DIR="data/dumps/gitea/20260703"
+        - task git:repo:restore DUMP_PATH="data/dumps/gitea/20260703"
     cmds:
-      - npm run gitea repo:restore "{{.DUMP_DIR}}"
+      - npm run gitea repo:restore "{{.DUMP_PATH}}"
 
   issue:dump:
     desc: "Gitea 이슈를 JSON 파일로 내보내기"
@@ -81,13 +81,15 @@ tasks:
       Gitea 이슈(본문 + 댓글)를 로컬 JSON 파일로 덤프합니다.
 
       [Variables]
+        - DUMP_PATH: (옵션) 덤프 출력 디렉토리 (기본값: data/dumps/gitea)
         - ISSUE_ID: (옵션) 특정 이슈 ID (미지정 시 전체)
 
       [Usage Examples]
         - task git:issue:dump
         - task git:issue:dump ISSUE_ID="104"
+        - task git:issue:dump DUMP_PATH="data/backup" ISSUE_ID="104"
     cmds:
-      - npm run gitea issue:dump {{.ISSUE_ID}}
+      - npm run gitea issue:dump {{.DUMP_PATH}} {{.ISSUE_ID}}
 
   issue:restore:
     desc: "JSON 덤프 파일에서 Gitea 이슈 복원"
@@ -95,22 +97,26 @@ tasks:
       덤프 파일에서 이슈와 댓글을 읽어 Gitea에 재생성합니다.
 
       [Variables]
-        - FILE: (필수) 덤프 JSON 파일 경로
+        - FILE_PATH: (필수) 덤프 JSON 파일 경로
 
       [Usage Examples]
-        - task git:issue:restore FILE="data/dumps/gitea/issues.json"
+        - task git:issue:restore FILE_PATH="data/dumps/gitea/issues.json"
     cmds:
-      - npm run gitea issue:restore "{{.FILE}}"
+      - npm run gitea issue:restore "{{.FILE_PATH}}"
 
   wiki:init:
-    desc: "Gitea wiki 저장소 초기화"
+    desc: "Gitea wiki 저장소 초기화 (로컬 마크다운 → Gitea wiki push)"
     summary: |
-      Gitea repo wiki를 활성화하고 Home.md를 생성하여 push합니다.
+      Gitea repo wiki를 활성화하고 로컬 마크다운 파일들을 wiki 저장소에 push합니다.
+
+      [Variables]
+        - FROM_PATH: (옵션) wiki로 push할 로컬 마크다운 디렉토리 (미지정 시 Home.md만 생성)
 
       [Usage Examples]
         - task git:wiki:init
+        - task git:wiki:init FROM_PATH="data/docs/wiki"
     cmds:
-      - npm run gitea wiki:init
+      - npm run gitea wiki:init {{.FROM_PATH}}
 
   wiki:dump:
     desc: "Gitea wiki 페이지 로컬로 내려받기"
@@ -118,12 +124,12 @@ tasks:
       Gitea wiki 저장소(.wiki.git)를 로컬 디렉토리에 clone합니다.
 
       [Variables]
-        - DUMP_DIR: (옵션) wiki를 저장할 디렉토리 (기본값: data/dumps/gitea)
+        - DUMP_PATH: (옵션) wiki를 저장할 디렉토리 (기본값: data/dumps/gitea)
 
       [Usage Examples]
         - task git:wiki:dump
     cmds:
-      - npm run gitea wiki:dump {{.DUMP_DIR}}
+      - npm run gitea wiki:dump {{.DUMP_PATH}}
 
   wiki:restore:
     desc: "로컬 wiki를 Gitea에 복원"
@@ -131,12 +137,12 @@ tasks:
       로컬에 clone된 wiki 저장소를 Gitea에 push하여 복원합니다.
 
       [Variables]
-        - WIKI_DIR: (필수) 로컬 wiki 저장소 디렉토리 경로
+        - WIKI_PATH: (필수) 로컬 wiki 저장소 디렉토리 경로
 
       [Usage Examples]
-        - task git:wiki:restore WIKI_DIR="data/dumps/gitea/wiki"
+        - task git:wiki:restore WIKI_PATH="data/dumps/gitea/wiki"
     cmds:
-      - npm run gitea wiki:restore "{{.WIKI_DIR}}"
+      - npm run gitea wiki:restore "{{.WIKI_PATH}}"
 
   commit:
     desc: Commit changes through the project commit helper.

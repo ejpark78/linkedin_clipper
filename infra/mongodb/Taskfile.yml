@@ -41,12 +41,12 @@ tasks:
     desc: Restore MongoDB backup.
     cmds:
       - |
-        if [ -z "{{.BACKUP_DIR}}" ]; then
-          echo "BACKUP_DIR 변수를 지정해야 합니다."
+        if [ -z "{{.BACKUP_PATH}}" ]; then
+          echo "BACKUP_PATH 변수를 지정해야 합니다."
           exit 1
         fi
       - '{{.COMPOSE}} exec -T mongodb sh -c "rm -rf /tmp/mongodb_restore"'
-      - '{{.COMPOSE}} cp {{.ROOT_DIR}}/data/{{.BACKUP_DIR}} mongodb:/tmp/mongodb_restore'
+      - '{{.COMPOSE}} cp {{.ROOT_DIR}}/data/{{.BACKUP_PATH}} mongodb:/tmp/mongodb_restore'
       - '{{.COMPOSE}} exec -T mongodb mongorestore --gzip /tmp/mongodb_restore'
       - '{{.COMPOSE}} exec -T mongodb rm -rf /tmp/mongodb_restore'
 
