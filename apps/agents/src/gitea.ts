@@ -578,6 +578,103 @@ class GiteaClient {
     console.log('✅ Wiki 복원 완료!');
   }
 
+  public async sessionSave(): Promise<void> {
+    const date = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
+
+    // 1. Git 데이터 수집
+    const branch = this.runGitCmd('git rev-parse --abbrev-ref HEAD');
+    const commits = this.runGitCmd(`git log --since="${date}T00:00:00" --oneline --format="%h %s"`);
+    const commitCount = commits ? commits.split('\n').length : 0;
+    const firstCommitTime = this.runGitCmd(`git log --since="${date}T00:00:00" --format="%ai" --reverse | head -1`);
+    const lastCommitTime = this.runGitCmd(`git log --since="${date}T00:00:00" --format="%ai" -1`);
+
+    // 2. Diff 통계
+    const firstHash = this.runGitCmd(`git log --since="${date}T00:00:00" --format="%H" --reverse | head -1`);
+    let statLines = '';
+    let additions = 0, deletions = 0;
+    if (firstHash) {
+      const statOutput = this.runGitCmd(`git diff --stat ${firstHash}^..HEAD -- ':!package-lock.json' ':!uv.lock'`);
+      statLines = statOutput.split('\n').slice(0, -1).join('\n');
+      // 파싱: N file changed, M insertions(+), K deletions(-)
+      const summary = statOutput.split('\n').pop() || '';
+      const addMatch = summary.match(/(\d+) insertion/);
+      const delMatch = summary.match(/(\d+) deletion/);
+      additions = addMatch ? parseInt(addMatch[1]) : 0;
+      deletions = delMatch ? parseInt(delMatch[1]) : 0;
+    }
+
+    // 3. 관련 이슈 추출
+    const issues = [...new Set(commits.match(/#\d+/g) || [])].join(', ');
+
+    // 4. Ollama 요약 시도 (선택)
+    let decisions = '';
+    try {
+      const prompt = `You are a developer summarizing a work session. Based on these git log entries, infer what decisions were made and why.
+
+Git commits:
+${commits}
+
+Git diff stats:
+${statLines.length > 200 ? statLines.slice(0, 200) + '...' : statLines}
+
+For each decision, provide a markdown table row in this exact format (without extra text):
+| decision | rationale |
+Only output the table rows, nothing else.`;
+
+      const ollamaRes = await fetch('http://127.0.0.1:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 500 } }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (ollamaRes.ok) {
+        const data = await ollamaRes.json() as any;
+        decisions = data.response || '';
+      }
+    } catch {
+      decisions = 'Ollama unavailable — add decisions manually.';
+    }
+
+    // 5. 템플릿 채우기
+    const body = `# Agent Context Memory: ${date}
+
+## 📊 Session Stats
+- **Session Time**: ${firstCommitTime || 'N/A'} ~ ${lastCommitTime || now}
+- **Branch**: ${branch}
+- **Commits**: ${commitCount}개
+- **Changed Files**: ${statLines}
+- **Related Issues**: ${issues || '(none)'}
+
+## 📋 Commits
+\`\`\`
+${commits || '(no commits today)'}
+\`\`\`
+
+## 🧠 Decisions
+${decisions || '(none inferred)'}
+
+## 📁 Key Files
+${statLines.split('\n').map(l => `- ${l}`).join('\n') || '(none)'}
+`;
+
+    // 6. 이슈 생성
+    const title = `Agent Context Memory: ${date}`;
+    const createRes = await fetch(`${this.config.apiUrl}/repos/${this.config.repo}/issues`, {
+      method: 'POST',
+      headers: { 'Authorization': `token ${this.config.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body }),
+    });
+    if (createRes.ok) {
+      const data = await createRes.json() as any;
+      console.log(`✅ Session context saved as Issue #${data.number}`);
+      console.log(`🔗 ${data.html_url}`);
+    } else {
+      const err = await createRes.text();
+      console.error('❌ 이슈 생성 실패:', err);
+    }
+  }
+
   public async retroactiveCommitLinks(): Promise<void> {
     console.log('🔍 전체 이슈 대상 Commit Diff 링크 소급 매핑 프로세스 기동 (v3)...');
     try {
@@ -852,8 +949,12 @@ class GiteaController {
         await client.restoreWiki(args[1]);
         break;
 
+      case 'session:save':
+        await client.sessionSave();
+        break;
+
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, session:save');
         process.exit(1);
     }
   }
