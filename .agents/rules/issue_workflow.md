@@ -46,7 +46,9 @@ trigger: always_on
 
 ## 3. 에이전트 행동 규칙
 
+- **Plan 승인 → 이슈 우선 생성**: 사용자가 Plan을 승인하면, 소스 코드 수정 전에 **반드시 먼저 `task git:issue:new`로 Plan 이슈를 생성**합니다. 구현이 먼저 이루어지고 이슈가 나중에 생성되는 것을 금지합니다.
 - **새 작업 시작 시**: `task git:issue:new TEMPLATE="issue"` 우선 사용
 - **세션 종료 시**: `task git:issue:save`로 컨텍스트 저장
 - **긴급/단순 작업**: 템플릿 생략 가능 (`task git:issue:new TITLE="..." BODY="..."`)
 - **기존 이슈 참조**: 이슈 본문에 `#NNN` 형식으로 관련 이슈 번호 명시
+- **이슈 생성 후 구현**: 이슈 번호가 발급된 후에만 `GITEA_ISSUE_ID={#}`를 설정하고 코드 수정 및 커밋을 진행합니다.
