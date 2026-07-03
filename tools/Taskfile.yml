@@ -227,9 +227,9 @@ tasks:
       Verify and run Gitea container, ensuring local API connectivity.
       
       [Usage Examples]
-        - task tools:up-gitea
+        - task gitea:up
     cmds:
-      - task infra:gitea:up
+      - task gitea:up
 
   up-obsidian:
     desc: Start Obsidian docs viewer.

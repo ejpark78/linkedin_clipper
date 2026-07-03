@@ -366,6 +366,59 @@ class GiteaClient {
     }
   }
 
+  public async initGitea(): Promise<void> {
+    console.log('Gitea 초기 설정을 시작합니다...');
+    const baseUrl = this.config.apiUrl;
+    const username = 'gitea-admin';
+    const password = 'admin12345';
+    const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
+    const authHeader = { 'Authorization': `Basic ${basicAuth}` };
+
+    // 1. repo 존재 확인 or 생성
+    const repoRes = await fetch(`${baseUrl}/repos/${this.config.repo}`, { headers: authHeader });
+    if (repoRes.ok) {
+      console.log(`리포지토리 ${this.config.repo} 가 이미 존재합니다.`);
+    } else {
+      console.log('리포지토리 생성 중...');
+      const repoName = this.config.repo.split('/')[1];
+      const createRes = await fetch(`${baseUrl}/user/repos`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: repoName, private: true, auto_init: false }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.text();
+        throw new Error(`repo 생성 실패: ${createRes.status} ${err}`);
+      }
+      console.log(`리포지토리 ${this.config.repo} 생성 완료!`);
+    }
+
+    // 2. 토큰 생성
+    const tokenName = `opencode-token-${Math.floor(Date.now() / 1000)}`;
+    const createRes = await fetch(`${baseUrl}/users/${username}/tokens`, {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: tokenName, scopes: ['all'] }),
+    });
+    if (!createRes.ok) {
+      const err = await createRes.text();
+      throw new Error(`토큰 생성 실패: ${createRes.status} ${err}`);
+    }
+    const newToken = await createRes.json() as any;
+    const token = newToken.sha1;
+
+    console.log(`\n토큰이 생성되었습니다: ${token}`);
+    console.log(`\n.env 파일에 다음을 등록하세요:\n  GITEA_ACCESS_TOKEN=${token}\n`);
+
+    // 3. git remote 설정 & push
+    try {
+      execSync('git remote remove gitea 2>/dev/null', { stdio: 'ignore' });
+    } catch {}
+    execSync(`git remote add gitea https://gitea:${token}@gitea.localhost/${this.config.repo}.git`, { stdio: 'inherit' });
+    execSync('git push gitea develop', { stdio: 'inherit' });
+    console.log('\nGitea 초기 설정이 완료되었습니다!');
+  }
+
   public async retroactiveCommitLinks(): Promise<void> {
     console.log('🔍 전체 이슈 대상 Commit Diff 링크 소급 매핑 프로세스 기동 (v3)...');
     try {
@@ -605,8 +658,12 @@ class GiteaController {
         await client.generateTokenWithTea();
         break;
 
+      case 'init':
+        await client.initGitea();
+        break;
+
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init');
         process.exit(1);
     }
   }
