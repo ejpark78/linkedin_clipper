@@ -440,7 +440,7 @@ class GiteaClient {
     const wikiDir = path.join(dir, 'wiki');
 
     await this.dumpIssueToFile(issuesFile);
-    await this.dumpWikiToDir(wikiDir);
+    await this.dumpWiki(wikiDir);
 
     const info = {
       repo: this.config.repo,
