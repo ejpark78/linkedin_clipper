@@ -1,0 +1,157 @@
+version: '3'
+
+tasks:
+  dump:
+    desc: "Dump agent sessions."
+    summary: |
+      Extract and dump agent session artifacts and diagnostics data.
+
+      [Variables]
+        - AGENTS: (옵션) 덤프할 에이전트명 (기본값: "agy,opencode,codex" 멀티 지정)
+
+      [Usage Examples]
+        - task agents:dump
+        - task agents:dump AGENTS="agy"
+    cmds:
+      - npm run agents:sessions -- --all-targets --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+
+  dump-transcripts:
+    desc: "Dump agent transcripts."
+    summary: |
+      Dump JSONL raw transcripts for specific agent conversations.
+
+      [Variables]
+        - AGENTS: (옵션) 대상 에이전트 식별자 목록 (기본값: "agy,opencode,codex")
+
+      [Usage Examples]
+        - task agents:dump-transcripts
+    cmds:
+      - npm run agents:sessions -- --transcript --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+
+  dump-context:
+    desc: "Dump agent context."
+    summary: |
+      Dump current active codebase context gathered by agents.
+
+      [Variables]
+        - AGENTS: (옵션) 대상 에이전트 식별자 목록
+
+      [Usage Examples]
+        - task agents:dump-context
+    cmds:
+      - npm run agents:sessions -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+
+  dump-brain:
+    desc: "Dump agent brain/session memory."
+    summary: |
+      Dump semantic brain logs and memory segments of active agents.
+
+      [Variables]
+        - AGENTS: (옵션) 대상 에이전트 식별자 목록
+
+      [Usage Examples]
+        - task agents:dump-brain
+    cmds:
+      - npm run agents:sessions -- --brain --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+
+  dump-sysinfo:
+    desc: Dump agent system information.
+    summary: |
+      Display Antigravity CLI system configurations and operational state.
+
+      [Usage Examples]
+        - task agents:dump-sysinfo
+    cmds:
+      - npm run agents:sessions -- --sysinfo
+
+  compress-rules:
+    desc: "Compress agent rules context."
+    summary: |
+      Compress workspace rules markdown files to optimize agent token efficiency.
+
+      [Variables]
+        - AGENTS: (옵션) 대상 에이전트 식별자 목록
+
+      [Usage Examples]
+        - task agents:compress-rules
+    cmds:
+      - npm run agents:sessions -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+      - npm run agents:rules -- --compress
+
+  lint-rules:
+    desc: Lint agent rules.
+    summary: |
+      Validate syntax, frontmatter format, and integrity of agent config rules.
+
+      [Usage Examples]
+        - task agents:lint-rules
+    cmds:
+      - npm run agents:rules -- --lint
+
+  dump-all:
+    desc: "Dump all agent diagnostics."
+    summary: |
+      Perform a comprehensive diagnostic dump (transcripts, brain, sysinfo, compressed rules).
+
+      [Variables]
+        - AGENTS: (옵션) 대상 에이전트 식별자 목록
+
+      [Usage Examples]
+        - task agents:dump-all
+    cmds:
+      - task dump-sysinfo
+      - task dump-transcripts AGENTS={{.AGENTS | default "agy,opencode,codex"}}
+      - task dump-context AGENTS={{.AGENTS | default "agy,opencode,codex"}}
+      - task dump-brain AGENTS={{.AGENTS | default "agy,opencode,codex"}}
+      - task compress-rules AGENTS={{.AGENTS | default "agy,opencode,codex"}}
+      - task lint-rules
+
+  usage:
+    desc: Print agent usage diagnostics.
+    summary: |
+      Calculate and display session durations and token usage metrics.
+
+      [Usage Examples]
+        - task agents:usage
+    cmds:
+      - npm run agents:usage
+
+  prune:
+    desc: Prune agent session data.
+    summary: |
+      Clean up old workspace directories, scratch records, and cached transcripts.
+
+      [Usage Examples]
+        - task agents:prune
+    cmds:
+      - npm run agents:sessions -- --prune
+
+  commit:
+    desc: Commit changes through the project commit helper.
+    summary: |
+      Interactively run local lint, type-check, and AI review checks before committing.
+
+      [Usage Examples]
+        - task agents:commit
+    cmds:
+      - npm run commit
+
+  review:
+    desc: Run AI code review through Antigravity CLI.
+    summary: |
+      Run semantic code review on the latest workspace diffs.
+
+      [Usage Examples]
+        - task agents:review
+    cmds:
+      - agy --skill code_review "Run semantic code review on my latest modifications."
+
+  push:
+    desc: Push changes through the project push helper.
+    summary: |
+      Push locally committed branches and synchronize issue tracking tags with Gitea.
+
+      [Usage Examples]
+        - task agents:push
+    cmds:
+      - npm run push

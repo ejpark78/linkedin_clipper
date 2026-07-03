@@ -5,16 +5,6 @@ tasks:
     cmds:
       - '{{.COMPOSE}} config'
 
-  up:
-    desc: Start Gitea and ensure the local admin account exists.
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d gitea'
-      - sleep 5
-      - |
-        if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "gitea-admin"; then
-          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username gitea-admin --password admin12345 --email admin@example.com || true
-        fi
-
   runner:up:
     cmds:
       - '{{.COMPOSE}} --profile tools up -d gitea_runner'

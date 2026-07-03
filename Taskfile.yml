@@ -22,6 +22,12 @@ includes:
   wiki:
     taskfile: ./apps/wiki/Taskfile.yml
     dir: .
+  agents:
+    taskfile: ./tools/agents/Taskfile.yml
+    dir: .
+  openkb:
+    taskfile: ./apps/openkb/Taskfile.yml
+    dir: .
 
 
 tasks:
@@ -101,17 +107,12 @@ tasks:
       [Usage Examples]
         - task git:up
     cmds:
-      - task infra:gitea:up
-
-  git:mkcert:
-    desc: mkcert 로컬 CA 인증서 생성
-    summary: |
-      mkcert를 사용하여 *.localhost 도메인용 TLS 인증서를 생성합니다.
-
-      [Usage Examples]
-        - task git:mkcert
-    cmds:
-      - task mkcert
+      - '{{.COMPOSE}} --profile tools up -d gitea'
+      - sleep 5
+      - |
+        if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "gitea-admin"; then
+          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username gitea-admin --password admin12345 --email admin@example.com || true
+        fi
 
   git:repo:init:
     internal: true
@@ -130,7 +131,7 @@ tasks:
       [Usage Examples]
         - task git:init
     cmds:
-      - task: git:mkcert
+      - task: mkcert
       - task: git:up
       - echo "Gitea 컨테이너가 시작되었습니다. 초기화를 계속합니다..."
       - task: git:repo:init

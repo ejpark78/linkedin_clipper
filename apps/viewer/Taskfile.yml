@@ -1,11 +1,6 @@
 version: '3'
 
 tasks:
-  config:
-    desc: Validate viewer Docker Compose.
-    cmds:
-      - '{{.COMPOSE}} config'
-
   build:
     desc: Build viewer services after regenerating static site config.
     cmds:

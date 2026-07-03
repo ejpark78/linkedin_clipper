@@ -1,11 +1,6 @@
 version: '3'
 
 tasks:
-  config:
-    desc: Validate OpenKB Docker Compose.
-    cmds:
-      - '{{.COMPOSE}} config'
-
   build:
     cmds:
       - '{{.COMPOSE}} build openkb'
@@ -29,10 +24,6 @@ tasks:
   shell:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint bash openkb'
-
-  lint:
-    cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint poe openkb -C /app lint'
 
   format:
     cmds:

@@ -35,7 +35,7 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npx ts-node src/scripts/meili-manager.ts {{if .SITE}}--site {{.SITE}}{{end}}'
 
-  meili:reset-index:
+  meili:index:reset:
     desc: "Clear and rebuild Meilisearch index."
     summary: |
       Clean existing Meilisearch indexes and rebuild them from MongoDB Silver collection.
@@ -44,23 +44,10 @@ tasks:
         - SITE: (옵션) 인덱스를 완전 리셋하고 재생성할 특정 사이트명
         
       [Usage Examples]
-        - task infra:meili:reset-index
-        - task infra:meili:reset-index SITE="yozm"
+        - task infra:meili:index:reset
+        - task infra:meili:index:reset SITE="yozm"
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npx ts-node src/scripts/meili-manager.ts --clean {{if .SITE}}--site {{.SITE}}{{end}}'
-
-  meili:reindex:
-    desc: "Alias for infra:meili:reset-index."
-    summary: |
-      Shortcut alias for rebuilding Meilisearch index.
-      
-      [Variables]
-        - SITE: (옵션) 인덱싱할 특정 사이트명
-        
-      [Usage Examples]
-        - task infra:meili:reindex SITE="gpters"
-    cmds:
-      - task infra:meili:reset-index SITE={{.SITE}}
 
   meili:status:
     desc: Check Meilisearch index statistics.

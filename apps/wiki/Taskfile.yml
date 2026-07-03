@@ -1,11 +1,6 @@
 version: '3'
 
 tasks:
-  config:
-    desc: Validate Wiki Docker Compose.
-    cmds:
-      - '{{.COMPOSE}} config'
-
   build:
     desc: Build Wiki CLI tool image.
     cmds:

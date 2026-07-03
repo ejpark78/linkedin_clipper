@@ -1,11 +1,6 @@
 version: '3'
 
 tasks:
-  config:
-    desc: Validate ebook Docker Compose.
-    cmds:
-      - '{{.COMPOSE}} config'
-
   build:
     cmds:
       - '{{.COMPOSE}} build --no-cache ebook'
@@ -46,6 +41,3 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook bash'
 
-  test:
-    cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe test'

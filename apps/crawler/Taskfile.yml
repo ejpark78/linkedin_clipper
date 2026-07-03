@@ -1,11 +1,6 @@
 version: '3'
 
 tasks:
-  config:
-    desc: Validate crawler Docker Compose files.
-    cmds:
-      - '{{.COMPOSE}} config'
-
   build:
     desc: Build crawler worker images.
     cmds:
@@ -25,19 +20,6 @@ tasks:
     desc: Stop crawler workers.
     cmds:
       - '{{.COMPOSE}} stop worker scraper converter indexer'
-
-  test:
-    desc: Run crawler site tests.
-    cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run test:sites'
-
-  test:urls:
-    cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run test:urls'
-
-  test:mcp:
-    cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} viewer npm run test:mcp'
 
   login:
     desc: Log into a browser-backed site session.

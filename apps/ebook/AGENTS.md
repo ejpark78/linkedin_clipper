@@ -10,7 +10,7 @@
 | `task app:ebook:split` | `task app:ebook:split RAW=data/raw OUT_PATH=data/output` | PDF/EPUB → 챕터별 파일 분할 (PDF→PDF, EPUB→HTML) |
 | `task app:ebook:to-html` | `task app:ebook:to-html OUT_PATH=data/output` | PDF/EPUB → HTML 변환 |
 | `task app:ebook:to-md` | `task app:ebook:to-md OUT_PATH=data/output` | HTML → Markdown 변환 |
-| `task app:ebook:test` | `task app:ebook:test` | pytest 실행 |
+| `npm run test` | `npm run test` | pytest 실행 (apps/ebook) |
 | **통합 파이프라인 검증** | `task app:ebook:build && task app:ebook:split RAW=data/raw OUT_PATH=data/output && task app:ebook:to-html OUT_PATH=data/output && task app:ebook:to-md OUT_PATH=data/output` | 이미지 빌드부터 분할, HTML 변환, Markdown 최종 변환까지 전체 파이프라인을 일괄 통합 테스트 및 검증 |
 
 ## 출력 파일 규칙

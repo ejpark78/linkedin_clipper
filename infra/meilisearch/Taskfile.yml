@@ -25,13 +25,9 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts {{if .SITE}}{{printf "--site %s" .SITE}}{{end}}'
 
-  reset-index:
+  index:reset:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts --clean {{if .SITE}}{{printf "--site %s" .SITE}}{{end}}'
-
-  reindex:
-    cmds:
-      - task: reset-index
 
   status:
     cmds:
