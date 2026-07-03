@@ -58,16 +58,28 @@ class Config {
 
 }
 
+interface DumpIssue {
+  original_number: number;
+  title: string;
+  body: string;
+  state: string;
+  created_at: string;
+  comments: { body: string; created_at: string }[];
+}
+
 interface IssueResponse {
   number: number;
   title: string;
   body: string;
+  state: string;
+  created_at: string;
   html_url: string;
 }
 
 interface CommentResponse {
   id: number;
   body: string;
+  created_at: string;
 }
 
 interface TokenResponse {
@@ -419,6 +431,143 @@ class GiteaClient {
     console.log('\nGitea 초기 설정이 완료되었습니다!');
   }
 
+  public async repoDump(targetDir: string): Promise<void> {
+    const dir = path.resolve(targetDir);
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`📦 Gitea repo dump 시작... 대상: ${dir}`);
+
+    const issuesFile = path.join(dir, 'issues.json');
+    const wikiDir = path.join(dir, 'wiki');
+
+    await this.dumpIssueToFile(issuesFile);
+    await this.dumpWikiToDir(wikiDir);
+
+    const info = {
+      repo: this.config.repo,
+      exported_at: new Date().toISOString(),
+      issue_count: JSON.parse(fs.readFileSync(issuesFile, 'utf-8')).length,
+      wiki_page_count: fs.existsSync(wikiDir) ? fs.readdirSync(wikiDir).filter(f => f.endsWith('.md')).length : 0,
+    };
+    fs.writeFileSync(path.join(dir, 'info.json'), JSON.stringify(info, null, 2));
+    console.log(`✅ Repo dump 완료: ${dir}`);
+  }
+
+  public async repoRestore(dumpDir: string): Promise<void> {
+    await this.restoreIssue(path.join(dumpDir, 'issues.json'));
+    await this.restoreWiki(path.join(dumpDir, 'wiki'));
+  }
+
+  public async dumpIssue(targetDir: string, issueId?: string): Promise<void> {
+    const dir = path.resolve(targetDir);
+    fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, 'issues.json');
+    await this.dumpIssueToFile(filePath, issueId);
+    console.log(`✅ Issues dumped to ${filePath}`);
+  }
+
+  private async dumpIssueToFile(filePath: string, issueId?: string): Promise<void> {
+    const issues = issueId ? [await this.getIssue(issueId)] : await this.getIssues();
+    const dumpData: DumpIssue[] = [];
+    for (const issue of issues) {
+      const comments = await this.getComments(String(issue.number));
+      dumpData.push({
+        original_number: issue.number,
+        title: issue.title,
+        body: issue.body,
+        state: (issue as any).state || 'open',
+        created_at: (issue as any).created_at || '',
+        comments: comments.map(c => ({
+          body: c.body,
+          created_at: (c as any).created_at || '',
+        })),
+      });
+    }
+    fs.writeFileSync(filePath, JSON.stringify(dumpData, null, 2));
+  }
+
+  public async restoreIssue(filePath: string): Promise<void> {
+    if (!fs.existsSync(filePath)) {
+      console.error(`❌ 파일 없음: ${filePath}`);
+      return;
+    }
+    const dumpData: DumpIssue[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    console.log(`📥 ${dumpData.length}개 이슈 복원 시작...`);
+    const mapping: { original: number; new: number }[] = [];
+
+    for (const item of dumpData) {
+      const bodyWithRef = `> Originally #${item.original_number}\n\n---\n\n${item.body}`;
+      const data = await this.request<IssueResponse>(`/repos/${this.config.repo}/issues`, 'POST', {
+        title: item.title,
+        body: bodyWithRef,
+      });
+      console.log(`   ✅ Issue #${item.original_number} → #${data.number}`);
+      mapping.push({ original: item.original_number, new: data.number });
+
+      for (const comment of item.comments) {
+        await this.createComment(String(data.number), comment.body);
+      }
+    }
+
+    console.log(`\n📊 매핑 테이블:`);
+    mapping.forEach(m => console.log(`   Original #${m.original} → New #${m.new}`));
+  }
+
+  public async wikiInit(): Promise<void> {
+    const baseUrl = this.config.apiUrl;
+    const token = this.config.accessToken;
+
+    // Enable wiki if not already
+    const repoRes = await fetch(`${baseUrl}/repos/${this.config.repo}`, {
+      method: 'GET',
+      headers: { 'Authorization': `token ${token}` },
+    });
+    const repoData = await repoRes.json() as any;
+    if (!repoData.has_wiki) {
+      console.log('🔧 Wiki 활성화 중...');
+      await fetch(`${baseUrl}/repos/${this.config.repo}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ has_wiki: true }),
+      });
+    }
+
+    const tmpDir = path.resolve('data/dumps/gitea/wiki-init');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const homeMd = path.join(tmpDir, 'Home.md');
+    fs.writeFileSync(homeMd, `# ${this.config.repo.split('/')[1]} Wiki\n\nWelcome to the project wiki.\n`);
+
+    const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
+    execSync(`cd ${tmpDir} && git init && git add -A && git commit -m "Initial wiki setup"`, { stdio: 'inherit' });
+    try {
+      execSync(`cd ${tmpDir} && git remote add origin ${wikiUrl}`, { stdio: 'inherit' });
+    } catch {}
+    execSync(`cd ${tmpDir} && git push -u origin main`, { stdio: 'inherit' });
+    console.log('✅ Wiki 초기화 완료!');
+  }
+
+  public async dumpWiki(targetDir: string): Promise<void> {
+    const dir = path.resolve(targetDir);
+    const wikiDir = path.join(dir, 'wiki');
+    fs.mkdirSync(wikiDir, { recursive: true });
+    const token = this.config.accessToken;
+    const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
+    console.log(`📥 Wiki clone 중... ${wikiUrl}`);
+    execSync(`cd ${dir} && git clone ${wikiUrl} wiki 2>/dev/null || echo "Wiki empty or not available"`, { stdio: 'inherit' });
+    console.log(`✅ Wiki dumped to ${wikiDir}`);
+  }
+
+  public async restoreWiki(wikiDir: string): Promise<void> {
+    if (!fs.existsSync(wikiDir) || !fs.existsSync(path.join(wikiDir, '.git'))) {
+      console.error(`❌ Wiki git 저장소 없음: ${wikiDir}`);
+      return;
+    }
+    const token = this.config.accessToken;
+    const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
+    console.log(`📤 Wiki push 중...`);
+    execSync(`cd ${wikiDir} && git push --mirror ${wikiUrl}`, { stdio: 'inherit' });
+    console.log('✅ Wiki 복원 완료!');
+  }
+
   public async retroactiveCommitLinks(): Promise<void> {
     console.log('🔍 전체 이슈 대상 Commit Diff 링크 소급 매핑 프로세스 기동 (v3)...');
     try {
@@ -662,8 +811,39 @@ class GiteaController {
         await client.initGitea();
         break;
 
+      case 'repo:dump':
+        await client.repoDump(args[1] || 'data/dumps/gitea');
+        break;
+
+      case 'repo:restore':
+        if (!args[1]) { console.error('Usage: npm run gitea repo:restore <dumpDir>'); process.exit(1); }
+        await client.repoRestore(args[1]);
+        break;
+
+      case 'issue:dump':
+        await client.dumpIssue('data/dumps/gitea', args[1]);
+        break;
+
+      case 'issue:restore':
+        if (!args[1]) { console.error('Usage: npm run gitea issue:restore <file>'); process.exit(1); }
+        await client.restoreIssue(args[1]);
+        break;
+
+      case 'wiki:init':
+        await client.wikiInit();
+        break;
+
+      case 'wiki:dump':
+        await client.dumpWiki(args[1] || 'data/dumps/gitea');
+        break;
+
+      case 'wiki:restore':
+        if (!args[1]) { console.error('Usage: npm run gitea wiki:restore <wikiDir>'); process.exit(1); }
+        await client.restoreWiki(args[1]);
+        break;
+
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore');
         process.exit(1);
     }
   }

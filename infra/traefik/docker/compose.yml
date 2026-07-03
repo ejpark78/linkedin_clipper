@@ -11,6 +11,7 @@
 
 services:
   traefik:
+    image: scraper/traefik:latest
     build:
       context: .
       dockerfile: Dockerfile

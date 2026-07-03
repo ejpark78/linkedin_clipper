@@ -4,6 +4,7 @@
 
 services:
   openkb:
+    image: scraper/openkb:latest
     build:
       context: ${HOST_PROJECT_PATH:-.}/apps/openkb
       dockerfile: docker/Dockerfile
