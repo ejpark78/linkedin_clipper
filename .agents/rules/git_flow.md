@@ -62,3 +62,7 @@ trigger: always_on
      - 병합 완료된 `feature/*`, `hotfix/*` 로컬 브랜치 삭제
      - 원격 저장소의 사라진 브랜치 참조(ref) 정리
    - `release/*` 브랜치는 릴리즈 이력 보존을 위해 자동 정리 대상에서 제외됩니다.
+9. **세션 컨텍스트 저장**:
+   - 세션 종료 시 `task git:issue:save`로 에이전트 컨텍스트 메모리를 Gitea 이슈로 저장합니다.
+   - 저장 정보: 커밋 내역, 변경 파일, Decisions (Ollama 자동 추론), 관련 이슈
+   - 템플릿: `.agents/templates/memory.md`

@@ -578,7 +578,7 @@ class GiteaClient {
     console.log('✅ Wiki 복원 완료!');
   }
 
-  public async sessionSave(): Promise<void> {
+  public async issueSave(): Promise<void> {
     const date = new Date().toISOString().slice(0, 10);
     const now = new Date().toISOString().replace('T', ' ').slice(0, 16);
 
@@ -949,12 +949,12 @@ class GiteaController {
         await client.restoreWiki(args[1]);
         break;
 
-      case 'session:save':
-        await client.sessionSave();
+      case 'issue:save':
+        await client.issueSave();
         break;
 
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, session:save');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save');
         process.exit(1);
     }
   }

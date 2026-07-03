@@ -213,16 +213,16 @@ tasks:
       - git branch --merged | grep -E 'feature/|hotfix/' | xargs git branch -d
       - git fetch --prune github
 
-  session:save:
+  issue:save:
     desc: "현재 세션 컨텍스트 메모리를 Gitea 이슈로 저장"
     summary: |
       오늘 세션의 커밋 내역과 변경 통계를 Gitea 이슈에 저장합니다.
       Ollama(gemma4:e4b-mlx)가 자동으로 Decisions 섹션을 추론합니다.
 
       [Usage Examples]
-        - task git:session:save
+        - task git:issue:save
     cmds:
-      - npm run gitea session:save
+      - npm run gitea issue:save
 
   token:
     desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)

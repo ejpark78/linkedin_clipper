@@ -1,15 +1,13 @@
 # {{TITLE}}
 
-## 📊 Summary
-- **Date**: {{DATE}}
-- **Author**: {{AUTHOR}}
-- **Related Issues**: {{ISSUES}}
+## 🎯 Goal
+{{GOAL}}
 
-## 📋 Changes
-{{CHANGES}}
+## 🧠 Context Memory
+{{CONTEXT}}
 
-## 🧠 Decisions
-{{DECISIONS}}
+## ✅ Solution
+{{SOLUTION}}
 
 ## 🔗 References
 {{REFERENCES}}
