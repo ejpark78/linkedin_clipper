@@ -11,10 +11,7 @@ tasks:
     cmds:
       - SCALE={{.SCALE | default "1"}} {{.COMPOSE}} up -d worker scraper converter indexer
 
-  logs:
-    desc: Follow crawler logs.
-    cmds:
-      - '{{.COMPOSE}} logs -f scraper converter'
+
 
   down:
     desc: Stop crawler workers.
@@ -83,6 +80,48 @@ tasks:
           echo "Unknown crawler command: {{.CMD}}"
           exit 1
         fi
+
+  sites:list:
+    desc: "Run crawler list command for a site."
+    summary: |
+      List crawled target URLs, metadata, and status distribution for a specific site.
+
+      [Variables]
+        - SITE: (필수) 목록을 출력할 사이트명 (예: geeknews, linkedin, yozm)
+        - PAGE: (옵션) 조회할 페이지 번호 (기본값: "1")
+        - LIST_SLACK: (옵션) 슬랙 로깅 제한 설정값 (기본값: "2")
+
+      [Usage Examples]
+        - task crawler:sites:list SITE="geeknews"
+        - task crawler:sites:list SITE="yozm" PAGE=2
+    cmds:
+      - task site SITE={{.SITE}} CMD=list PAGE={{.PAGE | default "1"}} LIST_SLACK={{.LIST_SLACK | default "2"}}
+
+  sites:refresh-urls:
+    desc: "Refresh crawler URLs for a site."
+    summary: |
+      Trigger crawling and scraping cycle to fetch newest URLs for a specific site.
+
+      [Variables]
+        - SITE: (필수) 새로운 URL 목록을 갱신할 사이트명 (예: gpters, linkedin)
+
+      [Usage Examples]
+        - task crawler:sites:refresh-urls SITE="gpters"
+    cmds:
+      - task site SITE={{.SITE}} CMD=refresh-urls
+
+  sites:refresh-silver:
+    desc: "Refresh crawler Silver documents for a site."
+    summary: |
+      Re-process raw HTML data (Bronze) and convert it into structured markdown (Silver) for a specific site.
+
+      [Variables]
+        - SITE: (필수) 실버 데이터를 재생성할 사이트명 (예: maily_josh, uppity)
+
+      [Usage Examples]
+        - task crawler:sites:refresh-silver SITE="uppity"
+    cmds:
+      - task site SITE={{.SITE}} CMD=refresh-silver
 
   extract:
     cmds:

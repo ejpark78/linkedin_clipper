@@ -10,9 +10,7 @@ tasks:
   down:
     cmds:
       - '{{.COMPOSE}} stop obsidian'
-  logs:
-    cmds:
-      - '{{.COMPOSE}} logs -f obsidian'
+
   ps:
     cmds:
       - '{{.COMPOSE}} ps obsidian'

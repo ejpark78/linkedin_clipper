@@ -65,7 +65,7 @@ A recovery script that rescans and enqueues failed or uncollected targets.
 - **Role**: Listens to `scrape_queue:{site}:{priority}` queues and fetches raw HTML via HTTP GET.
 - **Queue Priority**: Processes `high` ➡️ `medium` ➡️ `low` queues sequentially, but shuffles the site queues within each priority tier into a single array before calling `blpop`. This multi-argument `blpop` prevents site starvation.
 - **Error Handling**: Moves documents to the `dead_letter_queue` after 3 failed attempts.
-- **Scaling**: Supports running parallel container instances using commands like `task app:crawler:up SCALE=3`.
+- **Scaling**: Supports running parallel container instances using commands like `task crawler:up SCALE=3`.
 
 ### 3.2 [ConverterWorker.ts](src/crawler/workers/ConverterWorker.ts)
 - **Role**: Consumes `convert_queue` tasks and transforms raw HTML to Markdown.

@@ -5,17 +5,16 @@ tasks:
     cmds:
       - '{{.COMPOSE}} config'
   up:
+    desc: Start Redis server.
     cmds:
       - '{{.COMPOSE}} up -d redis'
   gui:up:
+    desc: Start RedisInsight web UI.
     cmds:
       - '{{.COMPOSE}} --profile tools up -d redisinsight'
   down:
+    desc: Stop Redis and RedisInsight.
     cmds:
       - '{{.COMPOSE}} stop redis redisinsight'
-  logs:
-    cmds:
-      - '{{.COMPOSE}} logs -f redis redisinsight'
-  ps:
-    cmds:
-      - '{{.COMPOSE}} ps redis redisinsight'
+
+

@@ -13,23 +13,21 @@ tasks:
     cmds:
       - '{{.COMPOSE}} stop meilisearch'
 
-  logs:
-    cmds:
-      - '{{.COMPOSE}} logs -f meilisearch'
 
-  ps:
-    cmds:
-      - '{{.COMPOSE}} ps meilisearch'
+
 
   refresh-index:
+    desc: Sync MongoDB Silver documents to Meilisearch.
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts {{if .SITE}}{{printf "--site %s" .SITE}}{{end}}'
 
   index:reset:
+    desc: Clear and rebuild Meilisearch index.
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts --clean {{if .SITE}}{{printf "--site %s" .SITE}}{{end}}'
 
   status:
+    desc: Check Meilisearch index statistics.
     cmds:
       - |
         {{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker node -e "\

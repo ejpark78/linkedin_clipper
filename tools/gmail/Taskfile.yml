@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  sync:
+    desc: Sync Gmail messages through the crawler Gmail tool.
+    cmds:
+      - task crawler:gmail:sync

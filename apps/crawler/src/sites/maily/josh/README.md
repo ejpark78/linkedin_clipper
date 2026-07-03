@@ -31,7 +31,7 @@ flowchart LR
 
 ## 🔄 데이터 흐름
 
-1. **List** (`task app:crawler:site SITE=maily_josh CMD=list`)
+1. **List** (`task crawler:site SITE=maily_josh CMD=list`)
    - 페이지네이션 API (`https://maily.so/josh?page=N&controller=...`) 호출
    - 각 페이지에서 `<a class="post-card-list-item">` 링크 추출
    - 중복 제거 후 URL을 Redis Queue에 Push
@@ -55,15 +55,15 @@ flowchart LR
 
 ```bash
 # 게시글 목록 수집 (페이지네이션)
-task app:crawler:site SITE=maily_josh CMD=list               # 전체 페이지 수집
-task app:crawler:site SITE=maily_josh CMD=list PAGE=1-5      # 1-5페이지만 수집
-task app:crawler:site SITE=maily_josh CMD=list LIST_SLACK=3  # 페이지 간 간격 3초
+task crawler:site SITE=maily_josh CMD=list               # 전체 페이지 수집
+task crawler:site SITE=maily_josh CMD=list PAGE=1-5      # 1-5페이지만 수집
+task crawler:site SITE=maily_josh CMD=list LIST_SLACK=3  # 페이지 간 간격 3초
 
 # URL 큐 복구
-task app:crawler:site SITE=maily_josh CMD=refresh-urls
+task crawler:site SITE=maily_josh CMD=refresh-urls
 
 # 실버 레이어 재가공
-task app:crawler:site SITE=maily_josh CMD=refresh-silver
+task crawler:site SITE=maily_josh CMD=refresh-silver
 
 # 테스트 실행
 npx ts-node tests/sites/maily/josh/Converter.test.ts

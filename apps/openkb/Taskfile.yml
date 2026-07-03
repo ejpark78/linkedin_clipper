@@ -13,9 +13,7 @@ tasks:
     cmds:
       - '{{.COMPOSE}} stop openkb'
 
-  logs:
-    cmds:
-      - '{{.COMPOSE}} logs -f openkb'
+
 
   compile:
     cmds:

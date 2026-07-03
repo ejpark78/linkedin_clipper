@@ -9,13 +9,13 @@ tasks:
       - rm -f {{.ROOT_DIR}}/apps/viewer/config/sites.json
 
   up:
+    desc: Start viewer services.
     cmds:
       - '{{.COMPOSE}} up -d viewer-fe viewer-api viewer-mcp'
 
   down:
+    desc: Stop viewer services.
     cmds:
       - '{{.COMPOSE}} stop viewer-fe viewer-api viewer-mcp'
 
-  logs:
-    cmds:
-      - '{{.COMPOSE}} logs -f viewer-fe viewer-api viewer-mcp'
+

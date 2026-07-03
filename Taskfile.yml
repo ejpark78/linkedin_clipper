@@ -10,14 +10,23 @@ vars:
   ENV_COMMON: -e LIST_SLACK={{.LIST_SLACK | default "3"}} -e SCRAPER_SLACK={{.SCRAPER_SLACK | default "0"}} -e PRIORITY={{.PRIORITY | default "medium"}} -e OVERWRITE={{.OVERWRITE | default "false"}} -e AUTH={{.AUTH | default "false"}} -e CHUNK_SIZE={{.CHUNK_SIZE | default "500"}} -e ERROR_RESET={{.ERROR_RESET | default "false"}} -e RESET={{.RESET | default "false"}} -e TS_NODE_PROJECT=tsconfig.json
 
 includes:
-  app:
-    taskfile: ./apps/Taskfile.yml
+  gmail:
+    taskfile: ./tools/gmail/Taskfile.yml
     dir: .
-  infra:
-    taskfile: ./infra/Taskfile.yml
+  viewer:
+    taskfile: ./apps/viewer/Taskfile.yml
     dir: .
-  tools:
-    taskfile: ./tools/Taskfile.yml
+  ebook:
+    taskfile: ./apps/ebook/Taskfile.yml
+    dir: .
+  obsidian:
+    taskfile: ./tools/obsidian/Taskfile.yml
+    dir: .
+  crawler:
+    taskfile: ./apps/crawler/Taskfile.yml
+    dir: .
+  browser:
+    taskfile: ./tools/browser/Taskfile.yml
     dir: .
   wiki:
     taskfile: ./apps/wiki/Taskfile.yml
@@ -27,6 +36,21 @@ includes:
     dir: .
   openkb:
     taskfile: ./apps/openkb/Taskfile.yml
+    dir: .
+  git:
+    taskfile: ./tools/git/Taskfile.yml
+    dir: .
+  meili:
+    taskfile: ./infra/meilisearch/Taskfile.yml
+    dir: .
+  mongo:
+    taskfile: ./infra/mongodb/Taskfile.yml
+    dir: .
+  redis:
+    taskfile: ./infra/redis/Taskfile.yml
+    dir: .
+  traefik:
+    taskfile: ./infra/traefik/Taskfile.yml
     dir: .
 
 
@@ -86,168 +110,4 @@ tasks:
     cmds:
       - '{{.COMPOSE}} logs -f scraper converter'
 
-  mkcert:
-    desc: Generate local Traefik certificates with mkcert.
-    summary: |
-      Automatically generate trusted SSL certificates for *.localhost and route domains on the host using mkcert.
-      
-      [Usage Examples]
-        - task mkcert
-    cmds:
-      - command -v mkcert >/dev/null 2>&1 || { echo "호스트에 mkcert가 설치되어 있지 않습니다."; exit 1; }
-      - mkcert -install
-      - mkdir -p data/.services/traefik/certs
-      - mkcert -cert-file data/.services/traefik/certs/local-cert.pem -key-file data/.services/traefik/certs/local-key.pem localhost gitea.localhost route.localhost viewer.localhost docs.localhost me.localhost redis.localhost search.localhost "*.localhost" 127.0.0.1
 
-  git:up:
-    desc: Gitea 컨테이너 실행 및 관리자 계정 확인
-    summary: |
-      Gitea 컨테이너를 시작하고 로컬 관리자 계정(gitea-admin)이 존재하는지 확인합니다.
-
-      [Usage Examples]
-        - task git:up
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d gitea'
-      - sleep 5
-      - |
-        if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "gitea-admin"; then
-          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username gitea-admin --password admin12345 --email admin@example.com || true
-        fi
-
-  git:repo:init:
-    internal: true
-    desc: Gitea repo 생성 + 토큰 발급 + git remote + push
-    cmds:
-      - npm run gitea init
-
-  git:init:
-    desc: Gitea 초기 설정 (인증서 → 컨테이너 실행 → repo 생성 → 토큰 발급 → push)
-    summary: |
-      Gitea 워크플로우를 한 번에 초기화합니다.
-      1. mkcert 인증서 생성 (없을 때만)
-      2. Gitea 컨테이너 실행 및 관리자 계정 생성
-      3. scraper repo 생성 + API 토큰 발급 + git remote + push
-
-      [Usage Examples]
-        - task git:init
-    cmds:
-      - task: mkcert
-      - task: git:up
-      - echo "Gitea 컨테이너가 시작되었습니다. 초기화를 계속합니다..."
-      - task: git:repo:init
-
-  git:token:
-    desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)
-    summary: |
-      Gitea 관리자 계정으로 API 토큰을 생성합니다.
-
-      [Usage Examples]
-        - task git:token
-    cmds:
-      - npm run gitea:token
-
-  git:token:tea:
-    desc: Generate a Gitea API token through tea.
-    summary: |
-      Generate a Gitea API token using the tea interactive CLI tool.
-      
-      [Usage Examples]
-        - task git:token:tea
-    cmds:
-      - npm run gitea:token:tea
-
-  git:issue:new:
-    desc: "새 Gitea 이슈 생성"
-    summary: |
-      새 Gitea 이슈를 생성합니다.
-
-      [Variables]
-        - TITLE: (필수) 생성할 이슈의 제목
-        - BODY: (필수) 이슈 본문 내용 (개행은 [br] 기호로 변환 권장)
-
-      [Usage Examples]
-        - task git:issue:new TITLE="이슈 제목" BODY="상세 내용[br]두번째 줄"
-    cmds:
-      - npm run gitea create-issue "{{.TITLE}}" "{{.BODY}}"
-
-  git:issue:update:
-    desc: "Gitea 이슈 제목/본문 수정"
-    summary: |
-      기존 Gitea 이슈의 제목과 본문을 수정합니다.
-
-      [Variables]
-        - ISSUE_ID: (필수) 대상 이슈 ID 번호 (예: 104)
-        - TITLE: (필수) 새로운 이슈 제목
-        - BODY: (필수) 새로운 이슈 본문
-
-      [Usage Examples]
-        - task git:issue:update ISSUE_ID="104" TITLE="수정된 제목" BODY="수정된 내용"
-    cmds:
-      - npm run gitea update-issue "{{.ISSUE_ID}}" "{{.TITLE}}" "{{.BODY}}"
-
-  git:issue:comment:new:
-    desc: "Gitea 이슈에 댓글 등록"
-    summary: |
-      Gitea 이슈에 새 댓글을 등록합니다.
-
-      [Variables]
-        - ISSUE_ID: (필수) 대상 이슈 ID 번호
-        - BODY: (필수) 댓글 본문 (개행은 [br] 기호 활용)
-
-      [Usage Examples]
-        - task git:issue:comment:new ISSUE_ID="104" BODY="진행 경과 보고[br]- 완료"
-    cmds:
-      - npm run gitea comment "{{.ISSUE_ID}}" "{{.BODY}}"
-
-  git:issue:comment:update:
-    desc: "Gitea 이슈 댓글 수정"
-    summary: |
-      기존 Gitea 이슈 댓글의 내용을 수정합니다.
-
-      [Variables]
-        - COMMENT_ID: (필수) 대상 댓글 ID 번호 (예: 2642)
-        - BODY: (필수) 새로운 댓글 본문
-
-      [Usage Examples]
-        - task git:issue:comment:update COMMENT_ID="2642" BODY="수정된 댓글 내용"
-    cmds:
-      - npm run gitea update-comment "{{.COMMENT_ID}}" "{{.BODY}}"
-
-  git:issue:close:
-    desc: "Gitea 이슈 마감"
-    summary: |
-      활성 Gitea 이슈를 마감(Closed) 처리합니다.
-
-      [Variables]
-        - ISSUE_ID: (필수) 닫으려는 이슈 ID 번호
-
-      [Usage Examples]
-        - task git:issue:close ISSUE_ID="142"
-    cmds:
-      - npm run gitea close-issue "{{.ISSUE_ID}}"
-
-  git:issue:reopen:
-    desc: "Gitea 이슈 재오픈"
-    summary: |
-      마감된 Gitea 이슈를 다시 엽니다(Reopen).
-
-      [Variables]
-        - ISSUE_ID: (필수) 다시 열려는 이슈 ID 번호
-
-      [Usage Examples]
-        - task git:issue:reopen ISSUE_ID="142"
-    cmds:
-      - npm run gitea reopen-issue "{{.ISSUE_ID}}"
-
-  git:issue:show:
-    desc: "Gitea 이슈 본문 조회"
-    summary: |
-      Gitea 이슈의 본문 내용과 상태를 출력합니다.
-
-      [Variables]
-        - ISSUE_ID: (필수) 조회할 이슈 ID 번호
-
-      [Usage Examples]
-        - task git:issue:show ISSUE_ID="104"
-    cmds:
-      - npm run gitea show-issue "{{.ISSUE_ID}}"

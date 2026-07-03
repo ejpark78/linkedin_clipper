@@ -22,15 +22,11 @@ tasks:
     cmds:
       - '{{.COMPOSE}} stop mongodb mongo-express'
 
-  logs:
-    cmds:
-      - '{{.COMPOSE}} logs -f mongodb mongo-express'
 
-  ps:
-    cmds:
-      - '{{.COMPOSE}} ps mongodb mongo-express'
+
 
   dump:
+    desc: Back up MongoDB databases.
     cmds:
       - mkdir -p {{.DUMP_DIR}}
       - '{{.COMPOSE}} exec -T mongodb sh -c "rm -rf /tmp/mongodb_backup && mkdir -p /tmp/mongodb_backup"'
@@ -42,6 +38,7 @@ tasks:
       - '{{.COMPOSE}} exec -T mongodb rm -rf /tmp/mongodb_backup'
 
   restore:
+    desc: Restore MongoDB backup.
     cmds:
       - |
         if [ -z "{{.BACKUP_DIR}}" ]; then
@@ -54,9 +51,11 @@ tasks:
       - '{{.COMPOSE}} exec -T mongodb rm -rf /tmp/mongodb_restore'
 
   index:
+    desc: Synchronize MongoDB indexes.
     cmds:
       - '{{.COMPOSE}} run --rm -T worker npx ts-node src/scripts/sync-indexes.ts'
 
   show-columns:
+    desc: Map MongoDB collection columns.
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules worker npx ts-node src/scripts/show_collection_columns.ts'
