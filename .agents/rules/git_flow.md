@@ -51,8 +51,8 @@ trigger: always_on
    - 히스토리 조회 시 단발성 명령어(`git log`, `git show`, `git reflog` 등)를 여러 턴에 걸쳐 쪼개어 반복 실행(덤프 루프)하지 마십시오. 삭제된 파일이나 변경 이력이 필요할 경우 한 번에 넓은 범위나 삭제 필터를 결합(`git log --diff-filter=D --summary` 등)하여 단일 턴에 탐색을 종결해야 합니다.
 7. **브랜치 병합 절차**:
    - 기능 개발 완료 후 `task git:merge`로 자동 병합합니다.
-   - `feature/*` 브랜치는 `develop`에, `hotfix/*` 브랜치는 `main` → `develop` 순으로 병합됩니다.
-   - 병합 후 `task git:push`로 원격 저장소에 반영합니다.
+   - 브랜치 타입과 무관하게 항상 현재 브랜치 → `develop` → `main` 순으로 병합됩니다.
+   - 병합 후 자동으로 `develop` 브랜치로 복귀합니다.
    - 필요시 직접 `task git:merge BRANCH="feature/xxx"`로 특정 브랜치를 지정할 수 있습니다.
 8. **브랜치 정리 (Prune)**:
    - `develop(또는 main)`에 이미 병합된 `feature/*` 및 `hotfix/*` 브랜치는 주기적으로 정리합니다.
