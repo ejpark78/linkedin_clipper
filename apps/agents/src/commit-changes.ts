@@ -452,7 +452,8 @@ Diff stats:\n${stat || 'none'}`,
       return;
     }
     const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
-    const pushUrl = `https://${pushUser}:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
+    const gitHost = new URL(this.config.apiUrl).host;
+    const pushUrl = `https://${pushUser}:${this.config.accessToken}@${gitHost}/${this.config.repo}.git`;
     this.git.runCmd(`git push "${pushUrl}" develop --no-verify`);
     console.log('✅ 원격 저장소 동기화가 정상 완료되었습니다.');
   }
@@ -464,7 +465,8 @@ Diff stats:\n${stat || 'none'}`,
       return;
     }
     const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
-    const pushUrl = `https://${pushUser}:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
+    const gitHost = new URL(this.config.apiUrl).host;
+    const pushUrl = `https://${pushUser}:${this.config.accessToken}@${gitHost}/${this.config.repo}.git`;
     this.git.runCmd(`git push "${pushUrl}" "${branchName}" --no-verify`);
     console.log('✅ 원격 저장소 동기화가 정상 완료되었습니다.');
   }
@@ -485,7 +487,7 @@ Diff stats:\n${stat || 'none'}`,
 이슈 #${issueId} 관련 변경 사항이 성공적으로 검증되어 \`develop\` 브랜치에 자동 병합 및 원격 저장소 동기화(Push) 완료되었습니다.
 
 ### 🔗 Gitea Commit Diff 링크 (변경 사항 확인)
-- [Commit Diff #${commitHash.substring(0, 8)}](https://gitea.localhost/${this.config.repo}/commit/${commitHash})
+- [Commit Diff #${commitHash.substring(0, 8)}](https://${new URL(this.config.apiUrl).host}/${this.config.repo}/commit/${commitHash})
 
 이슈 처리가 완수되어 본 이슈를 자동으로 마감합니다.`;
 
