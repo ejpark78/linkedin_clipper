@@ -192,7 +192,8 @@ tasks:
         echo "🔀 Merging $BRANCH → develop → main"
         git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff
         git checkout main && git pull github main && git merge develop --no-ff
-        echo "✅ Merge 완료: $BRANCH → develop → main"
+        git checkout develop
+        echo "✅ Merge 완료: $BRANCH → develop → main (develop으로 복귀)"
 
   prune:
     desc: "Merge된 feature 브랜치 및 원격 ref 정리"
