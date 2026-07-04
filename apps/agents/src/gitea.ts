@@ -423,7 +423,12 @@ class GiteaClient {
     const token = newToken.sha1;
 
     console.log(`\n토큰이 생성되었습니다: ${token}`);
-    console.log(`\n.env 파일에 다음을 등록하세요:\n  GITEA_ACCESS_TOKEN=${token}\n`);
+    const envPath = path.resolve(process.cwd(), '.env');
+    let envContent = fs.readFileSync(envPath, 'utf-8');
+    envContent = envContent.replace(/^(GITEA_ACCESS_TOKEN=).*/m, `$1${token}`);
+    envContent = envContent.replace(/^(GITEA_API_TOKEN=).*/m, `$1${token}`);
+    fs.writeFileSync(envPath, envContent);
+    console.log(`✅ .env 파일에 토큰이 자동 등록되었습니다.`);
 
     // 3. git remote 설정 & push
     try {
