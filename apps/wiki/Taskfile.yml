@@ -20,7 +20,7 @@ tasks:
         - task wiki:joplin:pull
         - task wiki:joplin:pull TARGET_PATH="data/my_backup"
     cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:pull "{{.TARGET_PATH | default "data/joplin"}}"'
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:pull "{{.TARGET_PATH | default "data/joplin"}}"'
 
   joplin:push:
     desc: "Push local markdown book to Local Joplin App Web Clipper API."
@@ -37,7 +37,7 @@ tasks:
         - task wiki:joplin:push FROM_PATH="data/ebook/output/git_guide"
         - task wiki:joplin:push FROM_PATH="data/ebook/output/git_guide" TO_PATH="Git Guide Notebook"
     cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
 
   joplin:auth:
     desc: "Request Joplin Web Clipper API token via Grant Permission dialog and save to .env."
@@ -48,7 +48,7 @@ tasks:
       [Usage Examples]
         - task wiki:joplin:auth
     cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:auth'
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:auth'
 
   obsidian:push:
     desc: "Push local markdown book to Obsidian Vault via Local REST API."
