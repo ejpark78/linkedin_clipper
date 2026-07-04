@@ -18,10 +18,64 @@ import * as path from 'path';
 /**
  * 프로젝트 전역 설정을 파싱하고 검증하는 Config 클래스
  */
+/** LLM 백엔드 인터페이스 */
+interface LLmBackend {
+  generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null>;
+}
+
+/** Ollama 백엔드 */
+class OllamaBackend implements LLmBackend {
+  constructor(private readonly baseUrl: string, private readonly model: string) {}
+
+  async generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`${this.baseUrl}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: this.model, prompt, stream: false, options: { num_predict: options.numPredict } }),
+          signal: AbortSignal.timeout(options.timeout),
+        });
+        if (!res.ok) { if (attempt === 0) await this.restart(); else break; continue; }
+        const data = await res.json() as any;
+        const text = (data.response || '').trim();
+        if (!text) { if (attempt === 0) { await this.restart(); continue; } break; }
+        return text;
+      } catch { if (attempt === 0) { await this.restart(); continue; } }
+    }
+    return null;
+  }
+
+  private async restart(): Promise<void> {
+    try { execSync(`ollama stop ${this.model} 2>/dev/null >/dev/null`); } catch {}
+    await new Promise(r => setTimeout(r, 2000));
+  }
+}
+
+/** llama.cpp (llama-server) 백엔드 — OpenAI-compatible API */
+class LlamaCppBackend implements LLmBackend {
+  constructor(private readonly baseUrl: string) {}
+
+  async generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/v1/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, stream: false, max_tokens: options.numPredict, temperature: 0 }),
+        signal: AbortSignal.timeout(options.timeout),
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as any;
+      return (data.choices?.[0]?.text || '').trim() || null;
+    } catch { return null; }
+  }
+}
+
 class Config {
   public readonly apiUrl: string;
   public readonly accessToken: string;
   public readonly repo: string;
+  public readonly llmBackend: LLmBackend;
 
   constructor() {
     this.loadEnv();
@@ -35,7 +89,14 @@ class Config {
     }
     this.accessToken = token;
 
-    // TLS 인증서 검증은 NODE_OPTIONS="--use-system-ca" 로 위임 (mkcert CA 신뢰)
+    const backendType = process.env.LLM_BACKEND || 'ollama';
+    const llmUrl = process.env.LLM_URL || 'http://127.0.0.1:11434';
+    const llmModel = process.env.LLM_MODEL || 'gemma4:e4b-mlx';
+    if (backendType === 'llamacpp') {
+      this.llmBackend = new LlamaCppBackend(llmUrl);
+    } else {
+      this.llmBackend = new OllamaBackend(llmUrl, llmModel);
+    }
   }
 
   private loadEnv() {
@@ -890,21 +951,9 @@ ${truncatedBody}
 <start_of_turn>model
 `;
 
-    try {
-      const res = await fetch('http://127.0.0.1:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 4096 } }),
-        signal: AbortSignal.timeout(120000),
-      });
-      if (!res.ok) return null;
-      const data = await res.json() as any;
-      const response = (data.response || '').trim();
-      if (response.length > 20) return response;
-      return null;
-    } catch {
-      return null;
-    }
+    const response = await this.config.llmBackend.generate(prompt, { numPredict: 4096, timeout: 120000 });
+    if (response && response.length > 20) return response;
+    return null;
   }
 
   /**
@@ -924,37 +973,18 @@ Body: ${truncated}
 <start_of_turn>model
 `;
 
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await this.config.llmBackend.generate(prompt, { numPredict: 512, timeout: 30000 });
+
+    if (raw) {
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
       try {
-        const res = await fetch('http://127.0.0.1:11434/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 512 } }),
-          signal: AbortSignal.timeout(30000),
-        });
-        if (res.ok) {
-          const data = await res.json() as any;
-          let raw = (data.response || '').trim();
-          if (!raw) {
-            if (attempt === 0) {
-              try { execSync('ollama stop gemma4:e4b-mlx 2>/dev/null >/dev/null'); } catch {}
-              await new Promise(r => setTimeout(r, 2000));
-              continue;
-            }
-            break;
-          }
-          raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-          const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') {
-            return {
-              type: parsed.type && ['feature', 'bug', 'chore'].includes(parsed.type) ? parsed.type : null,
-              area: parsed.area && parsed.area !== 'null' && ['agent', 'wiki', 'crawler', 'ebook', 'viewer', 'infra'].includes(parsed.area) ? parsed.area : null,
-            };
-          }
+        const parsed = JSON.parse(cleaned);
+        if (parsed && typeof parsed === 'object') {
+          const type = parsed.type && ['feature', 'bug', 'chore'].includes(parsed.type) ? parsed.type : null;
+          const area = parsed.area && parsed.area !== 'null' && ['agent', 'wiki', 'crawler', 'ebook', 'viewer', 'infra'].includes(parsed.area) ? parsed.area : null;
+          if (type || area) return { type, area };
         }
-      } catch {
-        if (attempt === 0) { await new Promise(r => setTimeout(r, 1000)); continue; }
-      }
+      } catch {}
     }
 
     // Rule-based fallback
