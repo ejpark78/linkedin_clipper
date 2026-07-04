@@ -754,6 +754,143 @@ ${statLines.split('\n').map(l => `- ${l}`).join('\n') || '(none)'}
       console.error('❌ 소급 매핑 실패:', err.message);
     }
   }
+
+  public async formatIssueWithOllama(title: string, body: string): Promise<string | null> {
+    const truncatedBody = body.length > 4000 ? body.substring(0, 4000) + '\n\n...(truncated)' : body;
+
+    const prompt = `<start_of_turn>user
+Reformat this Gitea issue into these 4 sections:
+
+# {TITLE}
+
+## 🎯 Goal
+## 🧠 Context Memory
+## ✅ Solution
+## 🔗 References
+
+Rules:
+1. Copy ALL existing text into the appropriate section.
+2. Infer goal from the title and content.
+3. Keep section descriptions as subheadings when present.
+4. Do not add new text.
+5. Return ONLY the reformatted markdown.
+
+Title: ${title}
+---BODY---
+${truncatedBody}
+---END---
+<end_of_turn>
+<start_of_turn>model
+`;
+
+    try {
+      const res = await fetch('http://127.0.0.1:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 4096 } }),
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as any;
+      const response = (data.response || '').trim();
+      if (response.length > 20) return response;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  public async formatAllIssues(): Promise<void> {
+    console.log('🔄 전체 이슈 포맷 마이그레이션 시작 (Issue #156)...');
+
+    // 1. 삭제 대상 이슈 close 처리
+    const deleteIds = ['97', '130', '131', '111', '112'];
+    const allIssues = await this.getIssues();
+    const existingIds = new Set(allIssues.map(i => String(i.number)));
+
+    for (const id of deleteIds) {
+      if (existingIds.has(id)) {
+        try {
+          await this.createComment(id, '🧹 테스트/빈 본문 이슈로 확인되어 이슈 포맷 마이그레이션(#156) 과정에서 정리하였습니다.');
+          await this.closeIssue(id);
+          console.log(`   ✅ #${id} close 완료`);
+        } catch (e) {
+          console.error(`   ❌ #${id} close 실패:`, (e as Error).message);
+        }
+      } else {
+        console.log(`   ℹ️ #${id} 는 이미 존재하지 않음`);
+      }
+    }
+
+    // 2. 변환 대상 필터링
+    const issues = existingIds.size > 0
+      ? allIssues
+      : await this.getIssues();
+
+    const toConvert = issues.filter(i => {
+      if (deleteIds.includes(String(i.number))) return false;
+      if (!i.body || i.body.trim().length === 0) return true;
+      const hasAllSections = i.body.includes('## 🎯 Goal') &&
+                             i.body.includes('## 🧠 Context Memory') &&
+                             i.body.includes('## ✅ Solution') &&
+                             i.body.includes('## 🔗 References');
+      return !hasAllSections;
+    });
+
+    console.log(`   📄 전체 ${issues.length}개, 변환 대상 ${toConvert.length}개`);
+
+    // 3. 변환 실행
+    let success = 0, fallback = 0, skipped = 0;
+
+    for (const issue of toConvert) {
+      const id = String(issue.number);
+      const title = issue.title || '';
+      const body = issue.body || '';
+
+      // 이미 변환된 경우 스킵
+      if (body.includes('## 🎯 Goal') && body.includes('## 🧠 Context Memory') &&
+          body.includes('## ✅ Solution') && body.includes('## 🔗 References')) {
+        skipped++;
+        continue;
+      }
+
+      process.stdout.write(`   ⏳ #${id} 변환 중... (${body.length}자)`);
+
+      const converted = await this.formatIssueWithOllama(title, body);
+
+      if (converted && converted.length > 20) {
+        await this.updateIssue(id, title, converted);
+        console.log(` ✅`);
+        success++;
+      } else {
+        const fallbackBody = this.buildFallbackBody(title, body);
+        await this.updateIssue(id, title, fallbackBody);
+        console.log(` ⚠️ fallback`);
+        fallback++;
+      }
+
+      await new Promise(r => setTimeout(r, 800));
+    }
+
+    console.log(`\n📊 변환 완료: 성공 ${success}, fallback ${fallback}, skip ${skipped}`);
+  }
+
+  private buildFallbackBody(title: string, body: string): string {
+    const sections = body.split('\n## ').filter(s => s.trim());
+    let goal = body;
+    let context = 'N/A';
+    let solution = 'N/A';
+    let refs = 'N/A';
+
+    if (sections.length > 1) {
+      goal = sections[0].replace(/^#+\s*/, '').trim();
+      const remaining = sections.slice(1);
+      context = remaining.slice(0, Math.ceil(remaining.length / 2)).join('\n\n## ').trim();
+      solution = remaining.slice(Math.ceil(remaining.length / 2)).join('\n\n## ').trim();
+    }
+
+    return `# ${title}\n\n## 🎯 Goal\n${goal}\n\n## 🧠 Context Memory\n${context}\n\n## ✅ Solution\n${solution}\n\n## 🔗 References\n${refs}`;
+  }
 }
 
 /**
@@ -953,8 +1090,12 @@ class GiteaController {
         await client.issueSave();
         break;
 
+      case 'format-issues':
+        await client.formatAllIssues();
+        break;
+
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
         process.exit(1);
     }
   }
