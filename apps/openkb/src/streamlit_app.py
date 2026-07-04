@@ -72,11 +72,7 @@ def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
                 pass
         if has_children:
             with st.expander(f"📁 {entry.name}", expanded=False):
-                c1, c2 = st.columns([0.05, 0.95])
-                with c1:
-                    checked = st.checkbox("Select", key=f"sel_{key}", label_visibility="collapsed")
-                with c2:
-                    st.markdown("**Select this folder**")
+                checked = st.checkbox(f"Select this folder  📁 {entry.name}", key=f"sel_{key}")
                 if checked:
                     st.session_state.selected_paths.add(key)
                 else:
@@ -108,27 +104,28 @@ def _show_engine_help() -> None:
         return
     if engine == "llama.cpp":
         st.info(
-            "llama.cpp 서버가 실행되지 않았습니다.\n\n"
-            "1. GGUF 모델 다운로드: `huggingface-cli download <model>`\n"
-            "2. 서버 실행: `llama-server -m <gguf_path> --host 127.0.0.1 --port 8080`\n\n"
-            "또는 CLI에서 자동 실행:\n"
-            "`task openkb:compile --engine llama.cpp --model <gguf_path>`"
+            "llama.cpp 서버 연결에 실패했습니다.\n\n"
+            "**GGUF 모델 경로 찾기:**\n"
+            "`ls ~/.cache/huggingface/hub/models--*/snapshots/*/*.gguf`\n\n"
+            "**서버 실행:**\n"
+            "`llama-server -m ~/path/to/model.gguf --host 127.0.0.1 --port 8080`\n\n"
+            "**CLI 자동 실행 (권장):**\n"
+            "`task openkb:compile --engine llama.cpp --model ~/path/to/model.gguf`"
         )
     elif engine == "unsloth":
         st.info(
-            "⚠️ **Docker 컨테이너에서 접근 불가**\n\n"
-            "Unsloth Studio가 `127.0.0.1`에만 바인딩되어 있어\n"
-            "컨테이너 내부에서 접속할 수 없습니다.\n\n"
-            "**해결**: 다음 명령어로 재시작하세요:\n"
-            "`unsloth studio -H 0.0.0.0 -p 8888`\n\n"
-            "또는 호스트에서 직접 실행:\n"
-            "`task openkb:compile --engine unsloth --model <model>`"
+            "Unsloth Studio API 연결에 실패했습니다.\n"
+            "(컨테이너 내부에서 `/v1/models` 엔드포인트 미지원)\n\n"
+            "**호스트에서 직접 실행:**\n"
+            "`task openkb:compile --engine unsloth --model <model>`\n\n"
+            "※ Unsloth Studio가 실행 중인지 확인:\n"
+            "`curl http://127.0.0.1:8888/api/health`"
         )
     else:
         st.info(
             "Ollama 서버 연결에 실패했습니다.\n\n"
             "호스트에서 실행: `ollama serve`\n"
-            "Docker인 경우 `0.0.0.0` 바인딩 필요:\n"
+            "Docker인 경우:\n"
             "`OLLAMA_HOST=0.0.0.0 ollama serve`"
         )
 
