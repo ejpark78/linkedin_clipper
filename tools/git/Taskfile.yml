@@ -71,7 +71,8 @@ tasks:
         GITEA_USER="${USERNAME:-${GITEA_ADMIN_USER:-gitea-admin}}"
         GITEA_PASS="${GITEA_ADMIN_PASSWORD:-admin12345}"
         TOKEN_NAME="${TOKEN_NAME:-opencode-token-$(date +%s)}"
-        TOKEN=$(curl -sk -u "$GITEA_USER:$GITEA_PASS" -X POST "https://gitea.localhost/api/v1/users/$GITEA_USER/tokens" \
+        GITEA_API="${GITEA_API_URL:-https://gitea.localhost/api/v1}"
+        TOKEN=$(curl -sk -u "$GITEA_USER:$GITEA_PASS" -X POST "$GITEA_API/users/$GITEA_USER/tokens" \
           -H 'Content-Type: application/json' \
           -d "{\"name\":\"$TOKEN_NAME\",\"scopes\":[\"all\"]}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha1',''))")
         if [ -n "$TOKEN" ]; then

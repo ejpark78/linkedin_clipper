@@ -402,7 +402,7 @@ class GiteaClient {
     try {
       const teaUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
       const teaPass = process.env.GITEA_ADMIN_PASSWORD || 'admin12345';
-      execSync(`tea logins add --name local-gitea --url https://gitea.localhost --user ${teaUser} --password ${teaPass} --insecure`, { stdio: 'inherit' });
+      execSync(`tea logins add --name local-gitea --url https://${this.gitHost} --user ${teaUser} --password ${teaPass} --insecure`, { stdio: 'inherit' });
     } catch (e) {
       const err = e as Error;
       console.error('❌ tea 로그인 추가 실패:', err.message);
@@ -921,13 +921,13 @@ ${statLines.split('\n').map(l => `- ${l}`).join('\n') || '(none)'}
 
         if (reportComment) {
           // 1. 완료 보고 댓글이 존재할 시, 해당 댓글 하단에 덧붙임
-          const retroactiveLink = `[br][br]### 🔗 Gitea Commit Diff 링크 (소급 매핑)[br]- [Commit Diff #${commitHash.substring(0, 8)}](https://gitea.localhost/${this.config.repo}/commit/${commitHash})`;
+          const retroactiveLink = `[br][br]### 🔗 Gitea Commit Diff 링크 (소급 매핑)[br]- [Commit Diff #${commitHash.substring(0, 8)}](https://${this.gitHost}/${this.config.repo}/commit/${commitHash})`;
           const updatedBody = reportComment.body + retroactiveLink;
           await this.updateComment(String(reportComment.id), updatedBody);
           console.log(`      ✅ 댓글 ID #${reportComment.id} 에 Commit Diff 링크 소급 주입 완료!`);
         } else {
           // 2. 완료 보고 댓글이 존재하지 않는 과거 이슈 (#1~#91 등) ➡ 이슈 본문(body) 가장 하단에 직접 주입
-          const retroactiveLink = `[br][br]### 🔗 Gitea Commit Diff 링크 (소급 매핑)[br]- [Commit Diff #${commitHash.substring(0, 8)}](https://gitea.localhost/${this.config.repo}/commit/${commitHash})`;
+          const retroactiveLink = `[br][br]### 🔗 Gitea Commit Diff 링크 (소급 매핑)[br]- [Commit Diff #${commitHash.substring(0, 8)}](https://${this.gitHost}/${this.config.repo}/commit/${commitHash})`;
           const updatedIssueBody = issue.body + retroactiveLink;
           const formattedBody = this.formatText(updatedIssueBody);
           await this.updateIssue(String(issueId), issue.title, formattedBody);
