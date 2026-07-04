@@ -172,11 +172,10 @@ tasks:
       - npm run push
 
   merge:
-    desc: "현재 브랜치를 develop/main에 병합"
+    desc: "현재 브랜치를 develop → main 순으로 병합"
     summary: |
-      현재 브랜치 타입에 따라 자동 병합합니다.
-      - feature/* → develop
-      - hotfix/* → main → develop
+      현재 브랜치를 develop에 병합한 후, develop을 main에 병합합니다.
+      브랜치 타입과 무관하게 항상 양쪽(main + develop)에 반영됩니다.
 
       [Variables]
         - BRANCH: (옵션) 병합할 브랜치명 (미지정 시 현재 브랜치)
@@ -190,21 +189,10 @@ tasks:
         if [ -z "$BRANCH" ]; then
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
         fi
-        echo "🔀 Merging $BRANCH..."
-        case "$BRANCH" in
-          feature/*)
-            git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff
-            ;;
-          hotfix/*)
-            git checkout main && git pull github main && git merge "$BRANCH" --no-ff
-            git checkout develop && git pull github develop && git merge main --no-ff
-            ;;
-          *)
-            echo "❌ 브랜치 패턴이 feature/* 또는 hotfix/* 가 아닙니다: $BRANCH"
-            exit 1
-            ;;
-        esac
-        echo "✅ Merge 완료: $BRANCH"
+        echo "🔀 Merging $BRANCH → develop → main"
+        git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff
+        git checkout main && git pull github main && git merge develop --no-ff
+        echo "✅ Merge 완료: $BRANCH → develop → main"
 
   prune:
     desc: "Merge된 feature 브랜치 및 원격 ref 정리"
