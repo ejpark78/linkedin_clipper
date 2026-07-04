@@ -33,9 +33,13 @@ def _refresh_models() -> None:
     engine = st.session_state.engine
     try:
         if engine == "llama.cpp":
-            models = LLMClient.find_gguf_models()
-            if models:
-                st.session_state.model_options = [label for label, _ in models]
+            gguf = LLMClient.find_gguf_models()
+            if gguf:
+                st.session_state.model_options = [label for label, _ in gguf]
+                return
+            fetched = LLMClient.list_models("llama.cpp", None)
+            if fetched:
+                st.session_state.model_options = fetched
                 return
         else:
             fetched = LLMClient.list_models(engine, None)
