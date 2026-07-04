@@ -25,7 +25,7 @@ class PipelineConfig {
   public readonly issueId: string | null;
   public readonly apiUrl: string;
   public readonly accessToken: string | undefined;
-  public readonly repo: string = 'gitea-admin/scraper';
+  public readonly repo: string;
 
   constructor() {
     const args = process.argv.slice(2);
@@ -34,10 +34,10 @@ class PipelineConfig {
 
     this.loadEnv();
     this.apiUrl = process.env.GITEA_API_URL || 'https://gitea.localhost/api/v1';
+    this.repo = process.env.GITEA_REPO || 'gitea-admin/scraper';
     this.accessToken = process.env.GITEA_ACCESS_TOKEN || process.env.GITEA_API_TOKEN;
 
-    // Self-signed 인증서 오류 우회
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+        // TLS 인증서 검증은 NODE_OPTIONS="--use-system-ca" 로 위임 (mkcert CA 신뢰)
   }
 
   private parseIssueId(args: string[]): string | null {
@@ -451,7 +451,8 @@ Diff stats:\n${stat || 'none'}`,
       console.warn('⚠️  Warning: GITEA_ACCESS_TOKEN이 유효하지 않아 Push를 진행할 수 없습니다.');
       return;
     }
-    const pushUrl = `https://gitea-admin:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
+    const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
+    const pushUrl = `https://${pushUser}:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
     this.git.runCmd(`git push "${pushUrl}" develop --no-verify`);
     console.log('✅ 원격 저장소 동기화가 정상 완료되었습니다.');
   }
@@ -462,7 +463,8 @@ Diff stats:\n${stat || 'none'}`,
       console.warn('⚠️  Warning: GITEA_ACCESS_TOKEN이 유효하지 않아 Push를 진행할 수 없습니다.');
       return;
     }
-    const pushUrl = `https://gitea-admin:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
+    const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
+    const pushUrl = `https://${pushUser}:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
     this.git.runCmd(`git push "${pushUrl}" "${branchName}" --no-verify`);
     console.log('✅ 원격 저장소 동기화가 정상 완료되었습니다.');
   }

@@ -21,11 +21,12 @@ import * as path from 'path';
 class Config {
   public readonly apiUrl: string;
   public readonly accessToken: string;
-  public readonly repo: string = 'gitea-admin/scraper';
+  public readonly repo: string;
 
   constructor() {
     this.loadEnv();
     this.apiUrl = process.env.GITEA_API_URL || 'https://gitea.localhost/api/v1';
+    this.repo = process.env.GITEA_REPO || 'gitea-admin/scraper';
     
     const token = process.env.GITEA_ACCESS_TOKEN || process.env.GITEA_API_TOKEN;
     if (!token) {
@@ -34,8 +35,7 @@ class Config {
     }
     this.accessToken = token;
 
-    // Self-signed 인증서 오류 우회 설정
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    // TLS 인증서 검증은 NODE_OPTIONS="--use-system-ca" 로 위임 (mkcert CA 신뢰)
   }
 
   private loadEnv() {
@@ -275,7 +275,9 @@ class GiteaClient {
       // 삭제할 로그인이 없어도 무시
     }
     try {
-      execSync('tea logins add --name local-gitea --url https://gitea.localhost --user gitea-admin --password admin12345 --insecure', { stdio: 'inherit' });
+      const teaUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
+      const teaPass = process.env.GITEA_ADMIN_PASSWORD || 'admin12345';
+      execSync(`tea logins add --name local-gitea --url https://gitea.localhost --user ${teaUser} --password ${teaPass} --insecure`, { stdio: 'inherit' });
     } catch (e) {
       const err = e as Error;
       console.error('❌ tea 로그인 추가 실패:', err.message);
@@ -320,8 +322,8 @@ class GiteaClient {
   public async generateToken(): Promise<void> {
     console.log('🔑 Gitea API를 통해 신규 토큰을 발급합니다...');
     const baseUrl = this.config.apiUrl;
-    const username = 'gitea-admin';
-    const password = 'admin12345';
+    const username = process.env.GITEA_ADMIN_USER || 'gitea-admin';
+    const password = process.env.GITEA_ADMIN_PASSWORD || 'admin12345';
     const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
 
     try {
@@ -368,6 +370,7 @@ class GiteaClient {
         console.log(`✅ 새 토큰이 생성되었습니다!`);
         console.log(`   토큰: ${newToken.sha1}`);
         console.log(`   이름: ${newToken.name}`);
+        console.log(`\n.env 파일에 다음을 등록하세요:\n  GITEA_ACCESS_TOKEN=${newToken.sha1}\n`);
       } else {
         console.log('⚠️ 토큰이 생성되었으나 SHA1 값을 확인할 수 없습니다.');
       }
@@ -381,8 +384,8 @@ class GiteaClient {
   public async initGitea(): Promise<void> {
     console.log('Gitea 초기 설정을 시작합니다...');
     const baseUrl = this.config.apiUrl;
-    const username = 'gitea-admin';
-    const password = 'admin12345';
+    const username = process.env.GITEA_ADMIN_USER || 'gitea-admin';
+    const password = process.env.GITEA_ADMIN_PASSWORD || 'admin12345';
     const basicAuth = Buffer.from(`${username}:${password}`).toString('base64');
     const authHeader = { 'Authorization': `Basic ${basicAuth}` };
 
@@ -492,6 +495,7 @@ class GiteaClient {
     }
     const dumpData: DumpIssue[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     console.log(`📥 ${dumpData.length}개 이슈 복원 시작...`);
+    dumpData.sort((a, b) => a.original_number - b.original_number);
     const mapping: { original: number; new: number }[] = [];
 
     for (const item of dumpData) {
@@ -502,6 +506,12 @@ class GiteaClient {
       });
       console.log(`   ✅ Issue #${item.original_number} → #${data.number}`);
       mapping.push({ original: item.original_number, new: data.number });
+
+      if (item.state === 'closed') {
+        await this.request(`/repos/${this.config.repo}/issues/${data.number}`, 'PATCH', {
+          state: 'closed',
+        });
+      }
 
       for (const comment of item.comments) {
         await this.createComment(String(data.number), comment.body);

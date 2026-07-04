@@ -1,5 +1,8 @@
 version: '3'
 
+env:
+  NODE_OPTIONS: "--use-system-ca"
+
 tasks:
   up:
     desc: Gitea 컨테이너 실행 및 관리자 계정 확인
@@ -12,8 +15,10 @@ tasks:
       - '{{.COMPOSE}} --profile tools up -d gitea'
       - sleep 5
       - |
-        if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "gitea-admin"; then
-          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username gitea-admin --password admin12345 --email admin@example.com || true
+        GITEA_USER="${GITEA_ADMIN_USER:-gitea-admin}"
+        GITEA_PASS="${GITEA_ADMIN_PASSWORD:-admin12345}"
+        if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "$GITEA_USER"; then
+          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username "$GITEA_USER" --password "$GITEA_PASS" --email admin@example.com || true
         fi
 
   repo:init:
@@ -33,7 +38,7 @@ tasks:
       [Usage Examples]
         - task git:init
     cmds:
-      - task: traefik:mkcert
+      - task traefik:mkcert
       - task: up
       - echo "Gitea 컨테이너가 시작되었습니다. 초기화를 계속합니다..."
       - task: repo:init
@@ -101,6 +106,8 @@ tasks:
 
       [Usage Examples]
         - task git:issue:restore FILE_PATH="data/dumps/gitea/issues.json"
+    requires:
+      vars: [FILE_PATH]
     cmds:
       - npm run gitea issue:restore "{{.FILE_PATH}}"
 
@@ -165,11 +172,10 @@ tasks:
       - npm run push
 
   merge:
-    desc: "현재 브랜치를 develop/main에 병합"
+    desc: "현재 브랜치를 develop → main 순으로 병합"
     summary: |
-      현재 브랜치 타입에 따라 자동 병합합니다.
-      - feature/* → develop
-      - hotfix/* → main → develop
+      현재 브랜치를 develop에 병합한 후, develop을 main에 병합합니다.
+      브랜치 타입과 무관하게 항상 양쪽(main + develop)에 반영됩니다.
 
       [Variables]
         - BRANCH: (옵션) 병합할 브랜치명 (미지정 시 현재 브랜치)
@@ -183,21 +189,10 @@ tasks:
         if [ -z "$BRANCH" ]; then
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
         fi
-        echo "🔀 Merging $BRANCH..."
-        case "$BRANCH" in
-          feature/*)
-            git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff
-            ;;
-          hotfix/*)
-            git checkout main && git pull github main && git merge "$BRANCH" --no-ff
-            git checkout develop && git pull github develop && git merge main --no-ff
-            ;;
-          *)
-            echo "❌ 브랜치 패턴이 feature/* 또는 hotfix/* 가 아닙니다: $BRANCH"
-            exit 1
-            ;;
-        esac
-        echo "✅ Merge 완료: $BRANCH"
+        echo "🔀 Merging $BRANCH → develop → main"
+        git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff
+        git checkout main && git pull github main && git merge develop --no-ff
+        echo "✅ Merge 완료: $BRANCH → develop → main"
 
   prune:
     desc: "Merge된 feature 브랜치 및 원격 ref 정리"

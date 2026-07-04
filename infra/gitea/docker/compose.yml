@@ -21,9 +21,6 @@ services:
       - GITEA__server__SSH_PORT=${GITEA_SERVER_SSH_PORT:-2222}
       - GITEA__server__DOMAIN=${GITEA_SERVER_DOMAIN:-gitea.localhost}
       - GITEA__security__INSTALL_LOCK=${GITEA_SECURITY_INSTALL_LOCK:-true}
-      - GITEA__security__ADMIN_USERNAME=${GITEA_SECURITY_ADMIN_USERNAME:-gitea-admin}
-      - GITEA__security__ADMIN_PASSWORD=${GITEA_SECURITY_ADMIN_PASSWORD:-admin12345}
-      - GITEA__security__ADMIN_EMAIL=${GITEA_SECURITY_ADMIN_EMAIL:-admin@example.com}
       - GITEA__actions__ENABLED=${GITEA_ACTIONS_ENABLED:-true}
       - GITEA__repository.unit__DISABLED_REPOSITORY_UNITS=${GITEA_REPOSITORY_UNIT_DISABLED_REPOSITORY_UNITS:-}
       - GITEA__repository.unit__DEFAULT_REPOSITORY_UNITS=${GITEA_REPOSITORY_UNIT_DEFAULT_REPOSITORY_UNITS:-code,issues,pulls,releases,wiki}
