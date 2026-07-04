@@ -912,7 +912,8 @@ ${truncatedBody}
    * Ollama 실패 시 rule-based 결과를 반환합니다.
    */
   public async classifyIssueLabels(title: string, body: string): Promise<{ type: string | null; area: string | null }> {
-    const truncated = (title + '\n' + body).substring(0, 2000);
+    const combo = title + '\n' + body;
+    const truncated = combo.substring(0, 2000);
     const prompt = `<start_of_turn>user
 Classify this issue into Type (feature|bug|chore) and Area (agent|wiki|crawler|ebook|viewer|infra|null).
 Return ONLY a JSON object with keys "type" and "area". No other text.
@@ -923,32 +924,45 @@ Body: ${truncated}
 <start_of_turn>model
 `;
 
-    try {
-      const res = await fetch('http://127.0.0.1:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 512 } }),
-        signal: AbortSignal.timeout(30000),
-      });
-      if (res.ok) {
-        const data = await res.json() as any;
-        let raw = (data.response || '').trim();
-        raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          return {
-            type: parsed.type && ['feature', 'bug', 'chore'].includes(parsed.type) ? parsed.type : null,
-            area: parsed.area && parsed.area !== 'null' && ['agent', 'wiki', 'crawler', 'ebook', 'viewer', 'infra'].includes(parsed.area) ? parsed.area : null,
-          };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch('http://127.0.0.1:11434/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'gemma4:8b', prompt, stream: false, options: { num_predict: 512 } }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (res.ok) {
+          const data = await res.json() as any;
+          let raw = (data.response || '').trim();
+          if (!raw) {
+            if (attempt === 0) {
+              try { execSync('ollama stop gemma4:8b 2>/dev/null >/dev/null'); } catch {}
+              await new Promise(r => setTimeout(r, 2000));
+              continue;
+            }
+            break;
+          }
+          raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              type: parsed.type && ['feature', 'bug', 'chore'].includes(parsed.type) ? parsed.type : null,
+              area: parsed.area && parsed.area !== 'null' && ['agent', 'wiki', 'crawler', 'ebook', 'viewer', 'infra'].includes(parsed.area) ? parsed.area : null,
+            };
+          }
+        }
+      } catch {
+        if (attempt === 0) {
+          try { execSync('ollama stop gemma4:8b 2>/dev/null >/dev/null'); } catch {}
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
         }
       }
-    } catch {
-      // Ollama 실패 → fallback
     }
 
     // Rule-based fallback
     const result: { type: string | null; area: string | null } = { type: null, area: null };
-    const combo = title + '\n' + body;
     if (/^feat\b/i.test(title)) result.type = 'feature';
     else if (/^fix\b/i.test(title)) result.type = 'bug';
     else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) result.type = 'chore';
