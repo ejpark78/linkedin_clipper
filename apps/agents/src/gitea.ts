@@ -28,6 +28,11 @@ class OllamaBackend implements LLmBackend {
   constructor(private readonly baseUrl: string, private readonly model: string) {}
 
   async generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null> {
+    // Ollama 상태 확인 (500ms ping, 실패 시 바로 null)
+    try {
+      const ping = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(500) });
+      if (!ping.ok) return null;
+    } catch { return null; }
     // 이전 실행의 다른 모델 정리
     try { execSync(`ollama ps 2>/dev/null | tail -n +2 | grep -v "^${this.model} " | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null >/dev/null`); } catch {}
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -36,7 +41,7 @@ class OllamaBackend implements LLmBackend {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: this.model, prompt, stream: false, options: { num_predict: options.numPredict } }),
-          signal: AbortSignal.timeout(options.timeout),
+          signal: AbortSignal.timeout(Math.min(options.timeout, 8000)),
         });
         if (!res.ok) { if (attempt === 0) await this.restart(); else break; continue; }
         const data = await res.json() as any;
@@ -1001,9 +1006,15 @@ Body: ${truncated}
 
     // Rule-based fallback
     const result: { type: string | null; area: string | null } = { type: null, area: null };
-    if (/^feat\b/i.test(title)) result.type = 'feature';
-    else if (/^fix\b/i.test(title)) result.type = 'bug';
-    else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) result.type = 'chore';
+    const titleLc = title.toLowerCase();
+    if (/^\[feat/i.test(title) || /^feat\b/i.test(title)) result.type = 'feature';
+    else if (/^\[fix/i.test(title) || /^fix\b/i.test(title)) result.type = 'bug';
+    else if (/^\[(refactor|chore|test)\b/i.test(title) || /^(refactor|chore|docs|test|style)\b/i.test(title)) result.type = 'chore';
+    else if (/\[scr-\d+\]/i.test(title)) {
+      if (/\bfix\b/i.test(title)) result.type = 'bug';
+      else if (/\bfeat/i.test(title)) result.type = 'feature';
+      else result.type = 'chore';
+    }
     if (/apps\/agents(?:\/|$)/.test(combo)) result.area = 'agent';
     else if (/apps\/wiki(?:\/|$)/.test(combo)) result.area = 'wiki';
     else if (/apps\/crawler(?:\/|$)/.test(combo)) result.area = 'crawler';
