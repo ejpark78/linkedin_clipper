@@ -1030,7 +1030,7 @@ ${truncatedBody}
       const existingIds = new Set(currentLabels.map(l => l.id));
       const newIds = [...existingIds, ...labelIds.filter(id => !existingIds.has(id))];
 
-      await this.request(`/repos/${this.config.repo}/issues/${issue.number}`, 'PATCH', {
+      await this.request(`/repos/${this.config.repo}/issues/${issue.number}/labels`, 'PUT', {
         labels: newIds,
       });
       updated++;
