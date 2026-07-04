@@ -97,8 +97,8 @@ class Config {
 
   constructor() {
     this.loadEnv();
-    this.apiUrl = process.env.GITEA_API_URL || 'https://gitea.localhost/api/v1';
-    this.repo = process.env.GITEA_REPO || 'gitea-admin/scraper';
+    this.apiUrl = process.env.GITEA_API_URL || 'https://git.localhost/api/v1';
+    this.repo = process.env.GITEA_REPO || 'gitea/scraper';
     
     const token = process.env.GITEA_ACCESS_TOKEN || process.env.GITEA_API_TOKEN;
     if (!token) {
@@ -808,7 +808,8 @@ For each decision, provide a markdown table row in this exact format (without ex
 | decision | rationale |
 Only output the table rows, nothing else.`;
 
-      const ollamaRes = await fetch('http://127.0.0.1:11434/api/generate', {
+      const llmUrl = process.env.LLM_URL || 'http://127.0.0.1:11434';
+      const ollamaRes = await fetch(`${llmUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: process.env.LLM_MODEL || 'qwen3.5:9b-mlx', prompt, stream: false, options: { num_predict: 500 } }),

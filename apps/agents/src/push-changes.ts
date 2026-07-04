@@ -24,7 +24,7 @@ class ReleaseConfig {
 
   constructor() {
     this.loadEnv();
-    this.repo = process.env.GITEA_REPO || 'gitea-admin/scraper';
+    this.repo = process.env.GITEA_REPO || 'gitea/scraper';
     this.accessToken = process.env.GITEA_ACCESS_TOKEN || process.env.GITEA_API_TOKEN;
   }
 
@@ -111,7 +111,7 @@ class ReleaseHelper {
     }
 
     const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
-    const gitHost = new URL(process.env.GITEA_API_URL || 'https://gitea.localhost/api/v1').host;
+    const gitHost = new URL(process.env.GITEA_API_URL || 'https://git.localhost/api/v1').host;
     const pushUrl = `https://${pushUser}:${this.config.accessToken}@${gitHost}/${this.config.repo}.git`;
 
     console.log("🚀 로컬 'develop' 브랜치를 origin에 push 중...");

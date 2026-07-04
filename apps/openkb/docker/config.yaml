@@ -1,4 +1,4 @@
-model: ollama/gemma4:e4b-mlx
+model: ollama/qwen3.5:9b-mlx
 api_base: http://host.docker.internal:11434
 api_key: anything
 language: ko
