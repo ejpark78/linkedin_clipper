@@ -1014,12 +1014,12 @@ ${truncatedBody}
       else if (/^fix\b/i.test(title)) labels.push('bug');
       else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) labels.push('chore');
 
-      if (/apps\/agents\//.test(body)) labels.push('agent');
-      if (/apps\/wiki\//.test(body)) labels.push('wiki');
-      if (/apps\/crawler\//.test(body)) labels.push('crawler');
-      if (/apps\/ebook\//.test(body)) labels.push('ebook');
-      if (/apps\/viewer\//.test(body)) labels.push('viewer');
-      if (/(^|\/)infra\//.test(body)) labels.push('infra');
+      if (/apps\/agents(?:\/|$)/.test(body)) labels.push('agent');
+      if (/apps\/wiki(?:\/|$)/.test(body)) labels.push('wiki');
+      if (/apps\/crawler(?:\/|$)/.test(body)) labels.push('crawler');
+      if (/apps\/ebook(?:\/|$)/.test(body)) labels.push('ebook');
+      if (/apps\/viewer(?:\/|$)/.test(body)) labels.push('viewer');
+      if (/infra\//.test(body)) labels.push('infra');
 
       if (labels.length === 0) continue;
 
