@@ -22,13 +22,24 @@ tasks:
   mkcert:
     desc: Generate local Traefik certificates with mkcert.
     summary: |
-      Automatically generate trusted SSL certificates for *.localhost and route domains on the host using mkcert.
+      Automatically generate trusted SSL certificates by scanning docker compose
+      for all Traefik Host() rules.
 
       [Usage Examples]
         - task traefik:mkcert
     cmds:
-      - command -v mkcert >/dev/null 2>&1 || { echo "호스트에 mkcert가 설치되어 있지 않습니다."; exit 1; }
+      - command -v mkcert >/dev/null 2>&1 || { echo "⛔ 호스트에 mkcert가 설치되어 있지 않습니다."; exit 1; }
       - mkcert -install
       - mkdir -p data/.services/traefik/certs
-      - mkcert -cert-file data/.services/traefik/certs/local-cert.pem -key-file data/.services/traefik/certs/local-key.pem localhost gitea.localhost git.localhost route.localhost viewer.localhost docs.localhost kb.localhost mcp.localhost me.localhost redis.localhost search.localhost "*.localhost" 127.0.0.1
+      - |
+        HOSTS=$( {{.COMPOSE}} config 2>/dev/null \
+          | grep "Host(\`" \
+          | sed 's/.*Host(`//' \
+          | sed 's/`).*//' \
+          | sort -u \
+          | tr '\n' ' ' )
+        echo "🔍 Detected hosts: $HOSTS"
+        mkcert -cert-file data/.services/traefik/certs/local-cert.pem \
+               -key-file data/.services/traefik/certs/local-key.pem \
+               localhost 127.0.0.1 "*.localhost" $HOSTS
 
