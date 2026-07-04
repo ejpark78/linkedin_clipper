@@ -329,7 +329,7 @@ class ReleaseCoordinator {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'gemma4:e4b-mlx',
+          model: process.env.LLM_MODEL || 'qwen3.5:9b-mlx',
           prompt: `You are a developer writing a Gitea issue summary. From these commits, create a concise title (first line) and description.
 Commits:\n${commits || 'none'}
 Diff stats:\n${stat || 'none'}`,
