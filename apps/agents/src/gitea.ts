@@ -25,15 +25,16 @@ interface LLmBackend {
 
 /** Ollama 백엔드 */
 class OllamaBackend implements LLmBackend {
+  private broken = false;
+
   constructor(private readonly baseUrl: string, private readonly model: string) {}
 
   async generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null> {
-    // Ollama 상태 확인 (500ms ping, 실패 시 바로 null)
+    if (this.broken) return null;
     try {
       const ping = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(500) });
-      if (!ping.ok) return null;
-    } catch { return null; }
-    // 이전 실행의 다른 모델 정리
+      if (!ping.ok) { this.broken = true; return null; }
+    } catch { this.broken = true; return null; }
     try { execSync(`ollama ps 2>/dev/null | tail -n +2 | grep -v "^${this.model} " | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null >/dev/null`); } catch {}
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -43,12 +44,12 @@ class OllamaBackend implements LLmBackend {
           body: JSON.stringify({ model: this.model, prompt, stream: false, options: { num_predict: options.numPredict } }),
           signal: AbortSignal.timeout(Math.min(options.timeout, 8000)),
         });
-        if (!res.ok) { if (attempt === 0) await this.restart(); else break; continue; }
+        if (!res.ok) { if (attempt === 0) await this.restart(); else { this.broken = true; break; } continue; }
         const data = await res.json() as any;
         const text = (data.response || '').trim();
-        if (!text) { if (attempt === 0) { await this.restart(); continue; } break; }
+        if (!text) { if (attempt === 0) { await this.restart(); continue; } else { this.broken = true; break; } }
         return text;
-      } catch { if (attempt === 0) { await this.restart(); continue; } }
+      } catch { if (attempt === 0) { await this.restart(); continue; } else { this.broken = true; break; } }
     }
     return null;
   }
