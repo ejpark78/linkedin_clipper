@@ -36,10 +36,10 @@ tasks:
       [Usage Examples]
         - task git:init
     cmds:
-      - task: traefik:mkcert
-      - task: up
+      - task traefik:mkcert
+      - task git:up
       - echo "Gitea 컨테이너가 시작되었습니다. 초기화를 계속합니다..."
-      - task: repo:init
+      - task git:repo:init
 
   down:
     desc: Stop Gitea and runner.
