@@ -308,7 +308,12 @@ tasks:
       [Usage Examples]
         - task git:issue:close ISSUE_ID="142"
     cmds:
-      - npm run gitea close-issue "{{.ISSUE_ID}}"
+      - |
+        if [ -z "{{.ISSUE_ID}}" ]; then
+          echo "❌ ISSUE_ID가 필요합니다. 사용법: task git:issue:close ISSUE_ID=\"142\""
+          exit 1
+        fi
+        npm run gitea close-issue "{{.ISSUE_ID}}"
 
   issue:reopen:
     desc: "Gitea 이슈 재오픈"
@@ -321,7 +326,12 @@ tasks:
       [Usage Examples]
         - task git:issue:reopen ISSUE_ID="142"
     cmds:
-      - npm run gitea reopen-issue "{{.ISSUE_ID}}"
+      - |
+        if [ -z "{{.ISSUE_ID}}" ]; then
+          echo "❌ ISSUE_ID가 필요합니다. 사용법: task git:issue:reopen ISSUE_ID=\"142\""
+          exit 1
+        fi
+        npm run gitea reopen-issue "{{.ISSUE_ID}}"
 
   issue:show:
     desc: "Gitea 이슈 본문 조회"
