@@ -36,7 +36,8 @@ tasks:
         if {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q " $GITEA_USER "; then
           echo "✅ 유저 '$GITEA_USER' 가 이미 존재합니다."
         else
-          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username "$GITEA_USER" --password "$GITEA_PASS" --email admin@example.com
+          GITEA_EMAIL="${GITEA_ADMIN_EMAIL:-admin@example.com}"
+          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username "$GITEA_USER" --password "$GITEA_PASS" --email "$GITEA_EMAIL"
           echo "✅ 새 admin 유저 '$GITEA_USER' 가 생성되었습니다."
         fi
 
