@@ -205,17 +205,15 @@ export class JoplinWebClipperService {
 
   /**
    * 기존 토큰이 유효한지 확인합니다.
-   * GET /auth/check?token=xxx
+   * GET /folders?token=xxx&limit=1 — 실제 API 호출로 검증
    */
   public static async validateToken(
     apiUrl: string,
     token: string
   ): Promise<boolean> {
     try {
-      const response = await fetch(`${apiUrl}/auth/check?token=${encodeURIComponent(token)}`);
-      if (!response.ok) return false;
-      const data = (await response.json()) as any;
-      return data.status === 'accepted';
+      const response = await fetch(`${apiUrl}/folders?token=${encodeURIComponent(token)}&limit=1`);
+      return response.ok;
     } catch {
       return false;
     }
