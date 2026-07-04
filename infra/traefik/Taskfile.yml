@@ -32,7 +32,7 @@ tasks:
       - mkcert -install
       - mkdir -p data/.services/traefik/certs
       - |
-        HOSTS=$( {{.COMPOSE}} config 2>/dev/null \
+        HOSTS=$( {{.COMPOSE}} --profile '*' config 2>/dev/null \
           | grep "Host(\`" \
           | sed 's/.*Host(`//' \
           | sed 's/`).*//' \
