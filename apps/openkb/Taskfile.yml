@@ -19,10 +19,10 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -e PYTHONUNBUFFERED=1 -e OLLAMA_MODEL="{{.MODEL}}" -e LLM_ENGINE="{{.ENGINE}}" -e UNSLOTH_API_KEY="{{.UNSLOTH_API_KEY}}" -e RAW="{{.RAW}}" -e SAMPLE="{{.SAMPLE}}" --entrypoint poe openkb -C /app compile {{.CLI_ARGS}}'
 
-  tui:
-    desc: "대화형 TUI 모드로 OpenKB 컴파일"
+  compile:gui:
+    desc: "Streamlit GUI로 OpenKB 컴파일 (https://kb.localhost)"
     cmds:
-      - '{{.COMPOSE}} run -it --rm {{.RUN_USER}} -e PYTHONUNBUFFERED=1 --entrypoint poe openkb -C /app compile --tui'
+      - '{{.COMPOSE}} run --rm --service-ports {{.RUN_USER}} -e PYTHONUNBUFFERED=1 openkb-streamlit'
 
   compile-direct:
     desc: "호스트에서 직접 OpenKB 컴파일 (uv run 사용)"

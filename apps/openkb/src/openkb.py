@@ -755,19 +755,18 @@ def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: st
 
 
 # ===========================================================================
-# TUI (Textual 기반 Midnight Commander 스타일)
+# Streamlit GUI
 # ===========================================================================
-def run_tui(**defaults: Any) -> dict[str, Any]:
+def run_streamlit(**defaults: Any) -> None:
     try:
-        # src/를 sys.path 에 추가하여 local openkb.py 가 우선 로드되도록 함
         _src = str(Path(__file__).parent.resolve())
         if _src not in sys.path:
             sys.path.insert(0, _src)
-        from tui_app import run_tui as _textual_run
+        from streamlit_app import main
     except ImportError as e:
-        print(f"⚠️ TUI not available: {e}")
-        return defaults
-    return _textual_run()
+        print(f"⚠️ Streamlit GUI not available: {e}")
+        return
+    main()
 
 
 # ===========================================================================
@@ -791,18 +790,12 @@ def run_tui(**defaults: Any) -> dict[str, Any]:
 @click.option("--no-cache", is_flag=True, help="캐시 사용 안함")
 @click.option("--no-clean", is_flag=True, help="출력 디렉토리 청소 안함")
 @click.option("--llama-port", type=int, default=8080, help="llama.cpp 서버 포트 (기본값: 8080)")
-@click.option("--tui", is_flag=True, help="대화형 TUI 모드")
+@click.option("--streamlit", is_flag=True, help="Streamlit GUI 모드")
 def compile(**kwargs):
     """OpenKB Compile Pipeline - 에이전트 기록과 Joplin 노트를 지식베이스로 컴파일합니다."""
-    tui_mode = kwargs.pop("tui", False)
-    if tui_mode:
-        try:
-            selections = run_tui(**kwargs)
-            compile_command(**selections)
-        except Exception as e:
-            print(f"\n❌ TUI error: {e}")
-            print("   Falling back to CLI defaults.")
-            compile_command(**kwargs)
+    streamlit_mode = kwargs.pop("streamlit", False)
+    if streamlit_mode:
+        run_streamlit(**kwargs)
     else:
         compile_command(**kwargs)
 

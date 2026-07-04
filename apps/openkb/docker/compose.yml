@@ -24,3 +24,36 @@ services:
     volumes:
       - ${HOST_PROJECT_PATH:-.}/data:/data
     working_dir: /data/openkb
+
+  openkb-streamlit:
+    image: scraper/openkb:latest
+    container_name: scraper-openkb-streamlit
+    profiles:
+      - tools
+    ports:
+      - "8501:8501"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-anything}
+      - LLM_API_KEY=${LLM_API_KEY:-anything}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-http://host.docker.internal:11434/v1}
+      - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
+      - HOME=${OPENKB_HOME:-/data/openkb}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOST_PROJECT_PATH:-.}/data:/data
+    working_dir: /data/openkb
+    command:
+      - streamlit
+      - run
+      - src/streamlit_app.py
+      - --server.port=8501
+      - --server.headless=true
+      - --server.fileWatcherType=none
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openkb.rule=Host(`kb.localhost`)"
+      - "traefik.http.routers.openkb.entrypoints=websecure"
+      - "traefik.http.routers.openkb.tls=true"
+      - "traefik.http.services.openkb.loadbalancer.server.port=8501"
