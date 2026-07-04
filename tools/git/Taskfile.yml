@@ -5,21 +5,81 @@ env:
 
 tasks:
   up:
-    desc: Gitea 컨테이너 실행 및 관리자 계정 확인
+    desc: Gitea 컨테이너 실행
     summary: |
-      Gitea 컨테이너를 시작하고 로컬 관리자 계정(gitea-admin)이 존재하는지 확인합니다.
+      Gitea 컨테이너를 시작하고 헬스체크가 통과할 때까지 대기합니다.
 
       [Usage Examples]
         - task git:up
     cmds:
       - '{{.COMPOSE}} --profile tools up -d gitea'
       - sleep 5
+
+  user:create:
+    desc: ".env의 GITEA_ADMIN_USER/PASSWORD로 admin 계정 생성"
+    summary: |
+      Gitea 컨테이너 내부에 admin 계정을 생성합니다.
+      이미 존재하는 계정이면 건너뜁니다.
+
+      [Variables]
+        - USERNAME: (옵션) 생성할 유저명 (미지정 시 .env의 GITEA_ADMIN_USER)
+        - PASSWORD: (옵션) 비밀번호 (미지정 시 .env의 GITEA_ADMIN_PASSWORD)
+
+      [Usage Examples]
+        - task git:user:create
+        - task git:user:create USERNAME="ejpark" PASSWORD="mypass"
+    cmds:
       - |
         set -a; [ -f .env ] && source .env; set +a
-        GITEA_USER="${GITEA_ADMIN_USER:-gitea-admin}"
+        GITEA_USER="${USERNAME:-${GITEA_ADMIN_USER:-gitea-admin}}"
+        GITEA_PASS="${PASSWORD:-${GITEA_ADMIN_PASSWORD:-admin12345}}"
+        if {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q " $GITEA_USER "; then
+          echo "✅ 유저 '$GITEA_USER' 가 이미 존재합니다."
+        else
+          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username "$GITEA_USER" --password "$GITEA_PASS" --email admin@example.com
+          echo "✅ 새 admin 유저 '$GITEA_USER' 가 생성되었습니다."
+        fi
+
+  user:list:
+    desc: "Gitea 전체 유저 목록 조회"
+    summary: |
+      Gitea 컨테이너의 모든 유저를 ID/이름/이메일/Admin 여부로 출력합니다.
+
+      [Usage Examples]
+        - task git:user:list
+    cmds:
+      - |
+        {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list
+
+  user:token:
+    desc: "Gitea 유저의 새 API 토큰 발급"
+    summary: |
+      지정된 유저의 새 API 토큰을 발급하고 출력합니다.
+      .env의 GITEA_ACCESS_TOKEN을 갱신하려면 --update-env 플래그를 추가하세요.
+
+      [Variables]
+        - USERNAME: (옵션) 토큰을 발급할 유저명 (미지정 시 .env의 GITEA_ADMIN_USER)
+        - TOKEN_NAME: (옵션) 토큰 이름 (기본값: opencode-token-<timestamp>)
+
+      [Usage Examples]
+        - task git:user:token
+        - task git:user:token USERNAME="ejpark"
+    cmds:
+      - |
+        set -a; [ -f .env ] && source .env; set +a
+        GITEA_USER="${USERNAME:-${GITEA_ADMIN_USER:-gitea-admin}}"
         GITEA_PASS="${GITEA_ADMIN_PASSWORD:-admin12345}"
-        if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "$GITEA_USER"; then
-          {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user create --admin --username "$GITEA_USER" --password "$GITEA_PASS" --email admin@example.com || true
+        TOKEN_NAME="${TOKEN_NAME:-opencode-token-$(date +%s)}"
+        TOKEN=$(curl -sk -u "$GITEA_USER:$GITEA_PASS" -X POST "https://gitea.localhost/api/v1/users/$GITEA_USER/tokens" \
+          -H 'Content-Type: application/json' \
+          -d "{\"name\":\"$TOKEN_NAME\",\"scopes\":[\"all\"]}" | python3 -c "import sys,json; print(json.load(sys.stdin).get('sha1',''))")
+        if [ -n "$TOKEN" ]; then
+          echo "🔑 새 토큰: $TOKEN"
+          echo "   유저: $GITEA_USER"
+          echo "   이름: $TOKEN_NAME"
+        else
+          echo "❌ 토큰 발급 실패"
+          exit 1
         fi
 
   repo:init:
@@ -29,19 +89,22 @@ tasks:
       - npm run gitea init
 
   init:
-    desc: Gitea 초기 설정 (인증서 → 컨테이너 실행 → repo 생성 → 토큰 발급 → push)
+    desc: Gitea 초기 설정 (인증서 → 컨테이너 실행 → 계정 생성 → repo 생성 → push)
     summary: |
       Gitea 워크플로우를 한 번에 초기화합니다.
       1. mkcert 인증서 생성 (없을 때만)
-      2. Gitea 컨테이너 실행 및 관리자 계정 생성
-      3. scraper repo 생성 + API 토큰 발급 + git remote + push
+      2. Gitea 컨테이너 실행
+      3. admin 계정 생성
+      4. scraper repo 생성 + API 토큰 발급 + git remote + push
 
       [Usage Examples]
         - task git:init
     cmds:
       - task traefik:mkcert
       - task: up
-      - echo "Gitea 컨테이너가 시작되었습니다. 초기화를 계속합니다..."
+      - echo "Gitea 컨테이너가 시작되었습니다. 계정을 생성합니다..."
+      - task: user:create
+      - echo "계정 생성 완료. repo를 초기화합니다..."
       - task: repo:init
 
   down:
