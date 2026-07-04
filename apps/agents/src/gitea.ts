@@ -28,6 +28,8 @@ class OllamaBackend implements LLmBackend {
   constructor(private readonly baseUrl: string, private readonly model: string) {}
 
   async generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null> {
+    // 이전 실행의 다른 모델 정리
+    try { execSync(`ollama ps 2>/dev/null | tail -n +2 | grep -v "^${this.model} " | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null >/dev/null`); } catch {}
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(`${this.baseUrl}/api/generate`, {
@@ -47,20 +49,17 @@ class OllamaBackend implements LLmBackend {
   }
 
   private async restart(): Promise<void> {
+    // 먼저 모든 모델 정리
+    try { execSync('ollama ps 2>/dev/null | tail -n +2 | awk \'{print $1}\' | xargs -I{} ollama stop {} 2>/dev/null >/dev/null'); } catch {}
+    await new Promise(r => setTimeout(r, 2000));
+    // 서버 자체가 먹통인지 확인
     try {
-      execSync(`ollama stop ${this.model} 2>/dev/null >/dev/null`);
-      await new Promise(r => setTimeout(r, 2000));
-    } catch {}
-    // 모델 stop이 안 먹히면 Ollama 서버 재시작
-    if (this.model) {
-      try {
-        const test = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
-        const testJson = await test.json() as any;
-        if (!testJson?.models?.length) throw new Error('stuck');
-      } catch {
-        try { execSync('pkill -f "ollama serve" 2>/dev/null; pkill -f "ollama runner" 2>/dev/null; sleep 2; ollama serve >/dev/null 2>&1 &'); } catch {}
-        await new Promise(r => setTimeout(r, 3000));
-      }
+      const test = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
+      const testJson = await test.json() as any;
+      if (!testJson?.models?.length) throw new Error('stuck');
+    } catch {
+      try { execSync('pkill -f "ollama serve" 2>/dev/null; pkill -f "ollama runner" 2>/dev/null; sleep 2; ollama serve >/dev/null 2>&1 &'); } catch {}
+      await new Promise(r => setTimeout(r, 3000));
     }
   }
 }
