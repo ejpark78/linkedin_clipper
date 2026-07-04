@@ -134,6 +134,16 @@ class GiteaClient {
     return text.replace(/\[br\]/g, '\n');
   }
 
+  /** Gitea Web UI의 host (예: git.localhost) */
+  private get gitHost(): string {
+    return new URL(this.config.apiUrl).host;
+  }
+
+  /** Gitea Web UI의 origin (예: https://git.localhost) */
+  private get gitOrigin(): string {
+    return `${new URL(this.config.apiUrl).protocol}//${this.gitHost}`;
+  }
+
   private runGitCmd(cmd: string): string {
     try {
       return execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -445,10 +455,11 @@ class GiteaClient {
     console.log(`✅ .env 파일에 토큰이 자동 등록되었습니다.`);
 
     // 3. git remote 설정 & push
+    const gitDomain = new URL(this.config.apiUrl).host;
     try {
       execSync('git remote remove gitea 2>/dev/null', { stdio: 'ignore' });
     } catch {}
-    execSync(`git remote add gitea https://gitea:${token}@gitea.localhost/${this.config.repo}.git`, { stdio: 'inherit' });
+    execSync(`git remote add gitea https://gitea:${token}@${this.gitHost}/${this.config.repo}.git`, { stdio: 'inherit' });
     execSync('git push gitea develop', { stdio: 'inherit' });
     console.log('\nGitea 초기 설정이 완료되었습니다!');
   }
@@ -575,7 +586,7 @@ class GiteaClient {
       }
     }
 
-    const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
+    const wikiUrl = `https://gitea:${token}@${this.gitHost}/${this.config.repo}.wiki.git`;
     const isGitRepo = fs.existsSync(path.join(tmpDir, '.git'));
     if (!isGitRepo) {
       execSync(`cd ${tmpDir} && git init`, { stdio: 'inherit' });
@@ -593,7 +604,7 @@ class GiteaClient {
     const wikiDir = path.join(dir, 'wiki');
     fs.mkdirSync(wikiDir, { recursive: true });
     const token = this.config.accessToken;
-    const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
+    const wikiUrl = `https://gitea:${token}@${this.gitHost}/${this.config.repo}.wiki.git`;
     console.log(`📥 Wiki clone 중... ${wikiUrl}`);
     execSync(`cd ${dir} && git clone ${wikiUrl} wiki 2>/dev/null || echo "Wiki empty or not available"`, { stdio: 'inherit' });
     console.log(`✅ Wiki dumped to ${wikiDir}`);
@@ -605,7 +616,7 @@ class GiteaClient {
       return;
     }
     const token = this.config.accessToken;
-    const wikiUrl = `https://gitea:${token}@gitea.localhost/${this.config.repo}.wiki.git`;
+    const wikiUrl = `https://gitea:${token}@${this.gitHost}/${this.config.repo}.wiki.git`;
     console.log(`📤 Wiki push 중...`);
     execSync(`cd ${wikiDir} && git push --mirror ${wikiUrl}`, { stdio: 'inherit' });
     console.log('✅ Wiki 복원 완료!');

@@ -17,7 +17,7 @@ services:
     environment:
       - GITEA__database__DB_TYPE=${GITEA_DATABASE_DB_TYPE:-sqlite3}
       - GITEA__database__PATH=${GITEA_DATABASE_PATH:-/data/gitea/gitea.db}
-      - GITEA__server__ROOT_URL=${GITEA_SERVER_ROOT_URL:-https://gitea.localhost/}
+      - GITEA__server__ROOT_URL=${GITEA_SERVER_ROOT_URL:-https://${GITEA_SERVER_DOMAIN:-gitea.localhost}/}
       - GITEA__server__SSH_PORT=${GITEA_SERVER_SSH_PORT:-2222}
       - GITEA__server__DOMAIN=${GITEA_SERVER_DOMAIN:-gitea.localhost}
       - GITEA__security__INSTALL_LOCK=${GITEA_SECURITY_INSTALL_LOCK:-true}
@@ -36,7 +36,7 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gitea.rule=Host(`gitea.localhost`)"
+      - "traefik.http.routers.gitea.rule=Host(`${GITEA_SERVER_DOMAIN:-gitea.localhost}`)"
       - "traefik.http.routers.gitea.entrypoints=websecure"
       - "traefik.http.routers.gitea.tls=true"
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"

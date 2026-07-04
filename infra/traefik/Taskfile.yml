@@ -30,5 +30,5 @@ tasks:
       - command -v mkcert >/dev/null 2>&1 || { echo "호스트에 mkcert가 설치되어 있지 않습니다."; exit 1; }
       - mkcert -install
       - mkdir -p data/.services/traefik/certs
-      - mkcert -cert-file data/.services/traefik/certs/local-cert.pem -key-file data/.services/traefik/certs/local-key.pem localhost gitea.localhost route.localhost viewer.localhost docs.localhost me.localhost redis.localhost search.localhost "*.localhost" 127.0.0.1
+      - mkcert -cert-file data/.services/traefik/certs/local-cert.pem -key-file data/.services/traefik/certs/local-key.pem localhost gitea.localhost git.localhost route.localhost viewer.localhost docs.localhost me.localhost redis.localhost search.localhost "*.localhost" 127.0.0.1
 
