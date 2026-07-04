@@ -43,7 +43,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ${HOST_PROJECT_PATH:-.}/data:/data
-    working_dir: /data/openkb
+    working_dir: /app
     command:
       - streamlit
       - run
