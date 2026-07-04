@@ -8,7 +8,6 @@ import io
 import sys
 import threading
 import time
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -23,11 +22,9 @@ def _init_session_state() -> None:
     if "engine" not in st.session_state:
         st.session_state.engine = "ollama"
     if "prev_engine" not in st.session_state:
-        st.session_state.prev_engine = "ollama"
+        st.session_state.prev_engine = None
     if "model_options" not in st.session_state:
         st.session_state.model_options = ["-- 선택 --"]
-    if "model_default" not in st.session_state:
-        st.session_state.model_default = "-- 선택 --"
     if "compile_running" not in st.session_state:
         st.session_state.compile_running = False
 
@@ -39,18 +36,15 @@ def _refresh_models() -> None:
             models = LLMClient.find_gguf_models()
             if models:
                 st.session_state.model_options = [label for label, _ in models]
-                st.session_state.model_default = st.session_state.model_options[0]
                 return
         else:
             fetched = LLMClient.list_models(engine, None)
             if fetched:
                 st.session_state.model_options = fetched
-                st.session_state.model_default = fetched[0]
                 return
     except Exception:
         pass
     st.session_state.model_options = ["(모델 없음)"]
-    st.session_state.model_default = "(모델 없음)"
 
 
 def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
@@ -107,6 +101,27 @@ def _get_model_value() -> str | None:
     return model
 
 
+def _build_cli_cmd() -> str:
+    parts = ["task openkb:compile"]
+    engine = st.session_state.engine
+    model = _get_model_value()
+    if model:
+        parts.append(f"--engine {engine}")
+        parts.append(f"--model {model}")
+    paths = sorted(st.session_state.selected_paths)
+    if paths:
+        for p in paths:
+            try:
+                rel = Path(p).relative_to(PROJECT_ROOT)
+                parts.append(f"-i {rel}")
+            except ValueError:
+                parts.append(f"-i {p}")
+    sample = st.session_state.get("sample_limit", 0)
+    if sample and int(sample) > 0:
+        parts.append(f"--sample {int(sample)}")
+    return " \\\n  ".join(parts)
+
+
 def _gather_selections() -> dict[str, Any]:
     result: dict[str, Any] = {}
     result["engine"] = st.session_state.engine
@@ -114,10 +129,8 @@ def _gather_selections() -> dict[str, Any]:
     paths = sorted(st.session_state.selected_paths)
     if paths:
         result["input_paths"] = tuple(paths)
-    df: date | None = st.session_state.get("date_from")
-    dt: date | None = st.session_state.get("date_to")
-    result["date_from"] = df.isoformat() if df else None
-    result["date_to"] = dt.isoformat() if dt else None
+    result["date_from"] = None
+    result["date_to"] = None
     out = st.session_state.get("output_path", "").strip()
     result["output_path"] = out or None
     sample = st.session_state.get("sample_limit", 0)
@@ -212,15 +225,11 @@ def main() -> None:
             st.session_state.model_options,
             key="model_select",
         )
-        dc1, dc2 = st.columns(2)
-        with dc1:
-            st.date_input("Date from", value=None, key="date_from")
-        with dc2:
-            st.date_input("Date to", value=None, key="date_to")
         st.text_input("Output Path", value=str(RAW_STORE), key="output_path")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
-        st.markdown("---")
+        st.code(_build_cli_cmd(), language="bash")
+
         compile_btn = st.button("▶ Compile", type="primary", use_container_width=True)
 
         if compile_btn and not st.session_state.compile_running:
