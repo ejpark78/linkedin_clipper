@@ -927,8 +927,8 @@ Body: ${truncated}
       const res = await fetch('http://127.0.0.1:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'qwen2.5-coder:14b', prompt, stream: false, options: { num_predict: 64 } }),
-        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 512 } }),
+        signal: AbortSignal.timeout(30000),
       });
       if (res.ok) {
         const data = await res.json() as any;
