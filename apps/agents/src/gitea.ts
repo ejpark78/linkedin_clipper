@@ -507,6 +507,12 @@ class GiteaClient {
       console.log(`   ✅ Issue #${item.original_number} → #${data.number}`);
       mapping.push({ original: item.original_number, new: data.number });
 
+      if (item.state === 'closed') {
+        await this.request(`/repos/${this.config.repo}/issues/${data.number}`, 'PATCH', {
+          state: 'closed',
+        });
+      }
+
       for (const comment of item.comments) {
         await this.createComment(String(data.number), comment.body);
       }
