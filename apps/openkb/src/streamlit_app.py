@@ -75,13 +75,16 @@ def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
             except PermissionError:
                 pass
         if has_children:
-            with st.expander(f"📁 {entry.name}", expanded=False):
-                checked = st.checkbox(f"Select this folder  📁 {entry.name}", key=f"sel_{key}")
-                if checked:
-                    st.session_state.selected_paths.add(key)
-                else:
-                    st.session_state.selected_paths.discard(key)
-                _render_tree(entry, depth + 1, max_depth)
+            c1, c2 = st.columns([0.04, 0.96])
+            with c1:
+                checked = st.checkbox(" ", key=f"sel_{key}", label_visibility="collapsed")
+            if checked:
+                st.session_state.selected_paths.add(key)
+            else:
+                st.session_state.selected_paths.discard(key)
+            with c2:
+                with st.expander(f"📁 {entry.name}", expanded=False):
+                    _render_tree(entry, depth + 1, max_depth)
         else:
             checked = st.checkbox(f"📁 {entry.name}", key=f"sel_{key}")
             if checked:
