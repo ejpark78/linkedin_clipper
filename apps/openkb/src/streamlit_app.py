@@ -101,6 +101,31 @@ def _get_model_value() -> str | None:
     return model
 
 
+def _show_engine_help() -> None:
+    engine = st.session_state.engine
+    model = st.session_state.get("model_select", "")
+    if model != "(모델 없음)":
+        return
+    if engine == "llama.cpp":
+        st.info(
+            "llama.cpp 서버가 실행되지 않았습니다.\n\n"
+            "1. GGUF 모델 다운로드: `huggingface-cli download <model>`\n"
+            "2. 서버 실행: `llama-server -m <gguf_path> --host 127.0.0.1 --port 8080`\n\n"
+            "또는 CLI에서 자동 실행:\n"
+            "`task openkb:compile --engine llama.cpp --model <gguf_path>`"
+        )
+    elif engine == "unsloth":
+        st.info(
+            "Unsloth Studio 서버가 실행되지 않았습니다.\n\n"
+            "Unsloth Studio를 실행하세요:\n"
+            "`unsloth studio --port 8888`\n\n"
+            "또는 환경변수 `UNSLOTH_API_KEY` 설정 후 CLI 실행:\n"
+            "`task openkb:compile --engine unsloth --model <model>`"
+        )
+    else:
+        st.info("Ollama 서버가 실행되지 않았습니다.\n\n`ollama serve`")
+
+
 def _build_cli_cmd() -> str:
     parts = ["task openkb:compile"]
     engine = st.session_state.engine
@@ -225,6 +250,9 @@ def main() -> None:
             st.session_state.model_options,
             key="model_select",
         )
+
+        _show_engine_help()
+
         st.text_input("Output Path", value=str(RAW_STORE), key="output_path")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
