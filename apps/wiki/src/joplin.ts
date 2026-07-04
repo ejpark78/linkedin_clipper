@@ -7,6 +7,8 @@ import { Writable } from 'stream';
 
 const execAsync = promisify(exec);
 
+const DEFAULT_JOPLIN_API_URL = 'http://host.docker.internal:41184';
+
 // ==============================================================================
 // 📋 Interfaces
 // ==============================================================================
@@ -268,9 +270,77 @@ export class JoplinWebClipperService {
   private readonly token: string;
   private readonly apiUrl: string;
 
-  constructor(token: string, apiUrl: string = 'http://host.docker.internal:41184') {
+  constructor(token: string, apiUrl: string = DEFAULT_JOPLIN_API_URL) {
     this.token = token;
     this.apiUrl = apiUrl;
+  }
+
+  /**
+   * Joplin Desktop에 Grant Permission 대화상자를 띄우고 토큰을 발급받습니다.
+   * wikidocs-exporter의 getJoplinTokenWithApproval() 로직과 동일한 2-step auth flow입니다.
+   * 
+   * Step 1: POST /auth → 임시 auth_token 획득
+   * Step 2: GET /auth/check?auth_token=xxx 폴링 (최대 timeoutMs)
+   *         User가 Joplin에서 "Allow" 클릭 시 token 반환
+   */
+  public static async requestAuthToken(
+    apiUrl: string = DEFAULT_JOPLIN_API_URL,
+    timeoutMs: number = 60000
+  ): Promise<string> {
+    console.log('🔑 Joplin Desktop에 권한 요청 대화상자를 띄웁니다.');
+    console.log('   Joplin 앱에서 "Allow"를 클릭해주세요.');
+
+    const authResponse = await fetch(`${apiUrl}/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!authResponse.ok) {
+      const errText = await authResponse.text();
+      throw new Error(`Joplin 인증 요청 실패: ${authResponse.statusText}\n${errText}`);
+    }
+
+    const authData = (await authResponse.json()) as any;
+    const authToken: string = authData.auth_token;
+    if (!authToken) {
+      throw new Error('Joplin 인증 응답에 auth_token이 없습니다.');
+    }
+
+    const maxAttempts = Math.max(1, Math.floor(timeoutMs / 1000));
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const checkResponse = await fetch(`${apiUrl}/auth/check?auth_token=${encodeURIComponent(authToken)}`);
+      if (!checkResponse.ok) continue;
+
+      const checkData = (await checkResponse.json()) as any;
+      if (checkData.status === 'accepted') {
+        console.log('✅ Joplin 권한이 승인되었습니다.');
+        return checkData.token;
+      }
+      if (checkData.status === 'rejected') {
+        throw new Error('Joplin에서 접근이 거부되었습니다.');
+      }
+    }
+
+    throw new Error('Joplin 인증 시간이 초과되었습니다. 앱에서 "Allow"를 클릭했는지 확인해주세요.');
+  }
+
+  /**
+   * 기존 토큰이 유효한지 확인합니다.
+   * GET /auth/check?token=xxx
+   */
+  public static async validateToken(
+    apiUrl: string,
+    token: string
+  ): Promise<boolean> {
+    try {
+      const response = await fetch(`${apiUrl}/auth/check?token=${encodeURIComponent(token)}`);
+      if (!response.ok) return false;
+      const data = (await response.json()) as any;
+      return data.status === 'accepted';
+    } catch {
+      return false;
+    }
   }
 
   private sanitizeFilename(filename: string): string {
@@ -493,20 +563,67 @@ export class JoplinTaskRunner {
   }
 
   /**
+   * 토큰이 없거나 유효하지 않을 때 Grant Permission auth flow를 통해 토큰을 해결합니다.
+   * 실패 시 기존 interactive prompt로 fallback합니다.
+   */
+  private async resolveToken(apiUrl: string): Promise<string> {
+    let token = process.env.JOPLIN_TOKEN;
+
+    if (token) {
+      const isValid = await JoplinWebClipperService.validateToken(apiUrl, token);
+      if (isValid) return token;
+      console.log('🔑 Joplin API 토큰이 유효하지 않습니다. 재발급을 시도합니다.');
+    }
+
+    try {
+      token = await JoplinWebClipperService.requestAuthToken(apiUrl);
+      await this.saveTokenToEnv(token);
+      return token;
+    } catch (authErr: any) {
+      console.log(`⚠️ 자동 토큰 발급 실패: ${authErr.message}`);
+      console.log('   대화형 입력으로 전환합니다.');
+    }
+
+    token = await PasswordPrompt.getPassword('Enter Joplin Web Clipper Token: ');
+    if (!token.trim()) {
+      throw new Error('Joplin Web Clipper Token 입력이 누락되었습니다.');
+    }
+    return token.trim();
+  }
+
+  /**
+   * 획득한 토큰을 .env 파일에 저장하여 다음 실행부터 재사용합니다.
+   */
+  private async saveTokenToEnv(token: string): Promise<void> {
+    const envPath = '/app/.env';
+    try {
+      let content = '';
+      if (fs.existsSync(envPath)) {
+        content = fs.readFileSync(envPath, 'utf-8');
+      }
+
+      const key = 'JOPLIN_TOKEN';
+      const regex = new RegExp(`^${key}=.*`, 'm');
+      if (regex.test(content)) {
+        content = content.replace(regex, `${key}=${token}`);
+      } else {
+        content += `\n${key}=${token}\n`;
+      }
+
+      fs.writeFileSync(envPath, content, 'utf-8');
+      console.log('💾 JOPLIN_TOKEN이 .env 파일에 저장되었습니다.');
+    } catch (err: any) {
+      console.warn(`⚠️ .env 파일 저장 실패: ${err.message} (토큰은 메모리에서만 유지됩니다)`);
+    }
+  }
+
+  /**
    * [3] client:pull
    * 호스트 데스크톱 Joplin App Web Clipper API를 사용해 데이터를 백업/가져옵니다.
    */
   public async runClientPull(targetPath: string): Promise<void> {
-    let token = process.env.JOPLIN_TOKEN;
-    const apiUrl = process.env.JOPLIN_API_URL || 'http://host.docker.internal:41184';
-
-    if (!token) {
-      console.log('🔑 Joplin Web Clipper API 토큰 환경 변수가 누락되었습니다.');
-      token = await PasswordPrompt.getPassword('Enter Joplin Web Clipper Token: ');
-      if (!token.trim()) {
-        throw new Error('Joplin Web Clipper Token 입력이 누락되어 가져오기를 취소합니다.');
-      }
-    }
+    const apiUrl = process.env.JOPLIN_API_URL || DEFAULT_JOPLIN_API_URL;
+    const token = await this.resolveToken(apiUrl);
 
     const clipperService = new JoplinWebClipperService(token, apiUrl);
     const folders = await clipperService.getFolders();
@@ -592,16 +709,8 @@ export class JoplinTaskRunner {
    * 로컬 마크다운 서적을 호스트 데스크톱 Joplin App Web Clipper API로 전송(push)합니다.
    */
   public async runClientPush(fromPath: string, toPath?: string): Promise<void> {
-    let token = process.env.JOPLIN_TOKEN;
-    const apiUrl = process.env.JOPLIN_API_URL || 'http://host.docker.internal:41184';
-
-    if (!token) {
-      console.log('🔑 Joplin Web Clipper API 토큰 환경 변수가 누락되었습니다.');
-      token = await PasswordPrompt.getPassword('Enter Joplin Web Clipper Token: ');
-      if (!token.trim()) {
-        throw new Error('Joplin Web Clipper Token 입력이 누락되어 푸시를 취소합니다.');
-      }
-    }
+    const apiUrl = process.env.JOPLIN_API_URL || DEFAULT_JOPLIN_API_URL;
+    const token = await this.resolveToken(apiUrl);
 
     console.log(`[JoplinTaskRunner] Scanning local markdown directories in: ${fromPath}`);
     const book = MarkdownBookLoader.loadBook(fromPath);

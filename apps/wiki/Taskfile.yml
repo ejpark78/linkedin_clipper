@@ -75,6 +75,17 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:client:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
 
+  joplin:auth:
+    desc: "Request Joplin Web Clipper API token via Grant Permission dialog and save to .env."
+    summary: |
+      Joplin Desktop에 Grant Permission 대화상자를 띄워 Web Clipper API 토큰을 발급받고
+      .env 파일에 JOPLIN_TOKEN으로 저장합니다.
+      
+      [Usage Examples]
+        - task wiki:joplin:auth
+    cmds:
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:auth'
+
   obsidian:push:
     desc: "Push local markdown book to Obsidian Vault via Local REST API."
     summary: |

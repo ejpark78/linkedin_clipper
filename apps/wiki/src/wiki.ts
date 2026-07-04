@@ -1,4 +1,5 @@
-import { JoplinTaskRunner, PasswordPrompt, MarkdownBookLoader } from './joplin';
+import * as fs from 'fs';
+import { JoplinTaskRunner, JoplinWebClipperService, PasswordPrompt, MarkdownBookLoader } from './joplin';
 import { ObsidianClipperService } from './obsidian';
 
 async function main() {
@@ -7,7 +8,7 @@ async function main() {
 
   try {
     if (!command) {
-      console.error('사용할 명령어를 선택하세요. (지원 명령어: joplin:server:pull, joplin:server:push, joplin:client:pull, joplin:client:push, obsidian:push)');
+      console.error('사용할 명령어를 선택하세요. (지원 명령어: joplin:server:pull, joplin:server:push, joplin:client:pull, joplin:client:push, joplin:auth, obsidian:push)');
       process.exit(1);
     }
 
@@ -37,6 +38,23 @@ async function main() {
           process.exit(1);
         }
         await runner.runClientPush(fromPath, toPath);
+      } else if (joplinCommand === 'auth') {
+        const apiUrl = process.env.JOPLIN_API_URL || 'http://host.docker.internal:41184';
+        console.log('[Wiki Entrypoint] Joplin Grant Permission auth flow 시작...');
+        const token = await JoplinWebClipperService.requestAuthToken(apiUrl);
+        const envPath = '/app/.env';
+        let content = '';
+        if (fs.existsSync(envPath)) {
+          content = fs.readFileSync(envPath, 'utf-8');
+        }
+        const regex = /^JOPLIN_TOKEN=.*/m;
+        if (regex.test(content)) {
+          content = content.replace(regex, `JOPLIN_TOKEN=${token}`);
+        } else {
+          content += `\nJOPLIN_TOKEN=${token}\n`;
+        }
+        fs.writeFileSync(envPath, content, 'utf-8');
+        console.log('✅ JOPLIN_TOKEN이 .env 파일에 저장되었습니다.');
       } else {
         console.error(`알 수 없는 Joplin 명령어입니다: ${joplinCommand}`);
         process.exit(1);
@@ -70,7 +88,7 @@ async function main() {
       console.log('[Wiki Entrypoint] Obsidian push completed.');
     } else {
       console.error(`알 수 없는 명령어입니다: ${command}`);
-      console.error('지원 명령어: joplin:server:pull, joplin:server:push, joplin:client:pull, joplin:client:push, obsidian:push');
+      console.error('지원 명령어: joplin:server:pull, joplin:server:push, joplin:client:pull, joplin:client:push, joplin:auth, obsidian:push');
       process.exit(1);
     }
   } catch (err: any) {
