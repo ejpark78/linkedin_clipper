@@ -237,10 +237,12 @@ def main() -> None:
 
     with right_col:
         st.subheader("⚙️ Settings")
+        engines = ["ollama", "llama.cpp"]
+        eng_idx = engines.index(st.session_state.engine) if st.session_state.engine in engines else 0
         st.radio(
             "LLM Engine",
-            ["ollama", "llama.cpp"],
-            index=["ollama", "llama.cpp"].index(st.session_state.engine) if st.session_state.engine in ("ollama", "llama.cpp") else 0,
+            engines,
+            index=eng_idx,
             horizontal=True,
             key="engine",
         )
@@ -294,7 +296,11 @@ def _run_compile() -> None:
     final = buf.getvalue()
     if final:
         status.text(final)
-    status.update(label="✅ Compile complete", state="complete")
+    failed = "❌" in final or "aborted" in final or "Error" in final
+    if failed:
+        status.update(label="❌ Compile failed", state="error")
+    else:
+        status.update(label="✅ Compile complete", state="complete")
     st.session_state.compile_running = False
 
 
