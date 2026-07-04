@@ -80,7 +80,7 @@ def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
             with st.expander(f"📁 {entry.name}", expanded=False):
                 c1, c2 = st.columns([0.05, 0.95])
                 with c1:
-                    checked = st.checkbox("", key=f"sel_{key}", label_visibility="collapsed")
+                    checked = st.checkbox("Select", key=f"sel_{key}", label_visibility="collapsed")
                 with c2:
                     st.markdown("**Select this folder**")
                 if checked:
