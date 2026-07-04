@@ -112,15 +112,6 @@ def _show_engine_help() -> None:
             "**CLI 자동 실행 (권장):**\n"
             "`task openkb:compile --engine llama.cpp --model ~/path/to/model.gguf`"
         )
-    elif engine == "unsloth":
-        st.info(
-            "Unsloth Studio API 연결에 실패했습니다.\n"
-            "(컨테이너 내부에서 `/v1/models` 엔드포인트 미지원)\n\n"
-            "**호스트에서 직접 실행:**\n"
-            "`task openkb:compile --engine unsloth --model <model>`\n\n"
-            "※ Unsloth Studio가 실행 중인지 확인:\n"
-            "`curl http://127.0.0.1:8888/api/health`"
-        )
     else:
         st.info(
             "Ollama 서버 연결에 실패했습니다.\n\n"
@@ -244,8 +235,8 @@ def main() -> None:
         st.subheader("⚙️ Settings")
         st.radio(
             "LLM Engine",
-            ["ollama", "llama.cpp", "unsloth"],
-            index=["ollama", "llama.cpp", "unsloth"].index(st.session_state.engine),
+            ["ollama", "llama.cpp"],
+            index=["ollama", "llama.cpp"].index(st.session_state.engine) if st.session_state.engine in ("ollama", "llama.cpp") else 0,
             horizontal=True,
             key="engine",
         )
