@@ -1075,8 +1075,11 @@ Body: ${truncated}
       const issue = issues[idx];
       const title = issue.title || '';
       const body = (issue.body || '') + title;
+      const currentLabels: { id: number; name: string }[] = (issue as any).labels || [];
 
-      process.stdout.write(`\r⏳ [${idx + 1}/${total}] classifying...`);
+      if (currentLabels.length > 0) continue;
+
+      process.stdout.write(`\r⏳ [${idx + 1}/${total}] classifying #${issue.number}...`);
 
       const ollamaResult = await this.classifyIssueLabels(title, body);
       const labels: string[] = [];
@@ -1088,12 +1091,8 @@ Body: ${truncated}
       const labelIds = labels.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
       if (labelIds.length === 0) continue;
 
-      const currentLabels: { id: number }[] = (issue as any).labels || [];
-      const existingIds = new Set(currentLabels.map(l => l.id));
-      const newIds = [...existingIds, ...labelIds.filter(id => !existingIds.has(id))];
-
       await this.request(`/repos/${this.config.repo}/issues/${issue.number}/labels`, 'PUT', {
-        labels: newIds,
+        labels: labelIds,
       });
       updated++;
     }
