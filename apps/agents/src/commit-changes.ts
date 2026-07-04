@@ -308,12 +308,74 @@ class ReleaseCoordinator {
     return 'chore: commit changes';
   }
 
+  private async autoCreateIssue(branchName: string): Promise<string> {
+    console.log('🔍 Gitea 이슈 번호가 없어 자동 생성합니다...');
+    const commits = this.git.runCmd('git log --oneline -10', true);
+    const stat = this.git.runCmd('git diff --stat HEAD~5..HEAD', true);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const apiUrl = this.config.apiUrl;
+    const token = this.config.accessToken;
+    if (!token) {
+      console.log('⚠️ GITEA_ACCESS_TOKEN이 없어 이슈를 생성할 수 없습니다.');
+      return '';
+    }
+
+    let title = `session: ${today}`;
+    let body = `## 📋 Commits\n\`\`\`\n${commits || '(no recent commits)'}\n\`\`\`\n\n## 📁 Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``;
+
+    try {
+      const ollamaRes = await fetch('http://127.0.0.1:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gemma4:e4b-mlx',
+          prompt: `You are a developer writing a Gitea issue summary. From these commits, create a concise title (first line) and description.
+Commits:\n${commits || 'none'}
+Diff stats:\n${stat || 'none'}`,
+          stream: false,
+          options: { num_predict: 200 },
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (ollamaRes.ok) {
+        const data = await ollamaRes.json() as any;
+        const response = (data.response || '').trim();
+        if (response) {
+          const lines = response.split('\n');
+          title = lines[0].replace(/^#+\s*/, '').slice(0, 100) || title;
+          body = lines.slice(1).join('\n').trim() || body;
+        }
+      }
+    } catch {
+      // Ollama unavailable, use fallback template
+    }
+
+    try {
+      const createRes = await fetch(`${apiUrl}/repos/${this.config.repo}/issues`, {
+        method: 'POST',
+        headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body }),
+      });
+      if (createRes.ok) {
+        const issue = await createRes.json() as any;
+        console.log(`✅ 이슈 자동 생성됨: #${issue.number} - ${title}`);
+        console.log(`🔗 ${issue.html_url}`);
+        return String(issue.number);
+      }
+    } catch (e) {
+      const err = e as Error;
+      console.warn('⚠️ 이슈 자동 생성 실패:', err.message);
+    }
+    return '';
+  }
+
   public async execute(): Promise<void> {
     const statusPorcelain = this.git.runCmd('git status --porcelain', true);
     const branchName = this.git.runCmd('git rev-parse --abbrev-ref HEAD');
 
     if (branchName === 'main') {
-      console.error('❌ ERROR: Direct commit to \'main\' branch is strictly prohibited by Git Flow guidelines.');
+      console.error('❌ ERROR: Direct commit to `main` branch is strictly prohibited by Git Flow guidelines.');
       process.exit(1);
     }
 
@@ -323,6 +385,11 @@ class ReleaseCoordinator {
     if (!parsedIssueId) {
       if (featureMatch) parsedIssueId = featureMatch[1];
       else if (hotfixMatch) parsedIssueId = hotfixMatch[1];
+    }
+
+    // Auto-create issue if missing
+    if (!parsedIssueId && this.config.accessToken) {
+      parsedIssueId = await this.autoCreateIssue(branchName);
     }
 
     if (statusPorcelain) {
