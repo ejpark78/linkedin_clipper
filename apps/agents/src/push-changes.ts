@@ -20,10 +20,11 @@ import * as path from 'path';
  */
 class ReleaseConfig {
   public readonly accessToken: string | undefined;
-  public readonly repo: string = 'gitea-admin/scraper';
+  public readonly repo: string;
 
   constructor() {
     this.loadEnv();
+    this.repo = process.env.GITEA_REPO || 'gitea-admin/scraper';
     this.accessToken = process.env.GITEA_ACCESS_TOKEN || process.env.GITEA_API_TOKEN;
   }
 
@@ -109,7 +110,8 @@ class ReleaseHelper {
       this.git.runCmd('git checkout develop');
     }
 
-    const pushUrl = `https://gitea-admin:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
+    const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
+    const pushUrl = `https://${pushUser}:${this.config.accessToken}@gitea.localhost/${this.config.repo}.git`;
 
     console.log("🚀 로컬 'develop' 브랜치를 origin에 push 중...");
     this.git.runCmd(`git push "${pushUrl}" develop`);
