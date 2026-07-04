@@ -47,8 +47,21 @@ class OllamaBackend implements LLmBackend {
   }
 
   private async restart(): Promise<void> {
-    try { execSync(`ollama stop ${this.model} 2>/dev/null >/dev/null`); } catch {}
-    await new Promise(r => setTimeout(r, 2000));
+    try {
+      execSync(`ollama stop ${this.model} 2>/dev/null >/dev/null`);
+      await new Promise(r => setTimeout(r, 2000));
+    } catch {}
+    // 모델 stop이 안 먹히면 Ollama 서버 재시작
+    if (this.model) {
+      try {
+        const test = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
+        const testJson = await test.json() as any;
+        if (!testJson?.models?.length) throw new Error('stuck');
+      } catch {
+        try { execSync('pkill -f "ollama serve" 2>/dev/null; pkill -f "ollama runner" 2>/dev/null; sleep 2; ollama serve >/dev/null 2>&1 &'); } catch {}
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
   }
 }
 
