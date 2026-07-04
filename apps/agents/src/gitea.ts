@@ -472,7 +472,7 @@ class GiteaClient {
   }
 
   /** repo에 기본 라벨(Type 3 + Area 6)을 생성합니다. */
-  private async seedDefaultLabels(): Promise<void> {
+  public async seedDefaultLabels(): Promise<void> {
     const labels = [
       { name: 'bug',     color: '#d73a4a', description: '버그 수정' },
       { name: 'feature', color: '#a2eeef', description: '새 기능' },
@@ -989,9 +989,15 @@ ${truncatedBody}
    */
   public async retroactiveLabelIssues(): Promise<void> {
     console.log('🏷️  전체 이슈 rule-based 라벨링 시작...');
-    const issues = await this.getIssues();
 
-    const repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
+    let repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
+    if (repoLabels.length === 0) {
+      console.log('📭 라벨이 없습니다. seedDefaultLabels()로 기본 라벨을 생성합니다...');
+      await this.seedDefaultLabels();
+      repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
+    }
+
+    const issues = await this.getIssues();
     const nameToId = new Map<string, number>();
     for (const rl of repoLabels) {
       nameToId.set(rl.name, rl.id);
@@ -1167,6 +1173,10 @@ class GiteaController {
         await client.retroactiveLabelIssues();
         break;
 
+      case 'seed-labels':
+        await client.seedDefaultLabels();
+        break;
+
       case 'update-title':
         if (args.length < 3) {
           console.error('Usage: npm run gitea update-title <issueId> <newTitle>');
@@ -1260,7 +1270,7 @@ class GiteaController {
         break;
 
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, retroactive-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, retroactive-labels, seed-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
         process.exit(1);
     }
   }
