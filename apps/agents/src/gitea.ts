@@ -34,18 +34,7 @@ class Config {
     }
     this.accessToken = token;
 
-    // Gitea CA 인증서가 설정되어 있으면 NODE_EXTRA_CA_CERTS로 등록, 없으면 인증 검증 우회
-    const caCertPath = process.env.GITEA_CA_CERT_PATH;
-    if (caCertPath) {
-      const resolvedPath = path.resolve(process.cwd(), caCertPath);
-      if (fs.existsSync(resolvedPath)) {
-        process.env.NODE_EXTRA_CA_CERTS = resolvedPath;
-      } else {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-      }
-    } else {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    }
+    // TLS 인증서 검증은 NODE_OPTIONS="--use-system-ca" 로 위임 (mkcert CA 신뢰)
   }
 
   private loadEnv() {

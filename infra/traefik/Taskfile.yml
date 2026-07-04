@@ -31,4 +31,4 @@ tasks:
       - mkcert -install
       - mkdir -p data/.services/traefik/certs
       - mkcert -cert-file data/.services/traefik/certs/local-cert.pem -key-file data/.services/traefik/certs/local-key.pem localhost gitea.localhost route.localhost viewer.localhost docs.localhost me.localhost redis.localhost search.localhost "*.localhost" 127.0.0.1
-      - cp "$$(mkcert -CAROOT)/rootCA.pem" data/.services/traefik/certs/rootCA.pem
+
