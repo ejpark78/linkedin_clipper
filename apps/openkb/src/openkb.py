@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -108,13 +109,20 @@ class LLMClient:
                 continue
             name_parts = model_dir.name.replace("models--", "").split("--")
             display = "/".join(name_parts)
-            blobs_dir = model_dir / "blobs"
-            if blobs_dir.exists():
-                for blob in blobs_dir.iterdir():
-                    if blob.is_file() and not blob.name.startswith("."):
-                        size_gb = blob.stat().st_size / (1024**3)
-                        label = f"{display} ({size_gb:.1f}GB)"
-                        results.append((label, str(blob)))
+            snaps = model_dir / "snapshots"
+            if not snaps.exists():
+                continue
+            for commit_dir in snaps.iterdir():
+                if not commit_dir.is_dir():
+                    continue
+                gguf_files = [f for f in commit_dir.iterdir()
+                              if f.suffix == ".gguf" and not f.name.startswith("mmproj")
+                              and f.is_file()]
+                if not gguf_files:
+                    continue
+                total_size = sum(f.stat().st_size for f in gguf_files) / (1024**3)
+                label = f"{display} ({total_size:.1f}GB)"
+                results.append((label, str(gguf_files[0])))
         return results
 
     @staticmethod
@@ -747,190 +755,19 @@ def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: st
 
 
 # ===========================================================================
-# TUI 대화형 모드
+# TUI (Textual 기반 Midnight Commander 스타일)
 # ===========================================================================
 def run_tui(**defaults: Any) -> dict[str, Any]:
     try:
-        from prompt_toolkit.shortcuts import input_dialog, message_dialog, radiolist_dialog
-    except ImportError:
-        print("⚠️ prompt_toolkit not available. Run in CLI mode or install prompt_toolkit.")
+        # src/를 sys.path 에 추가하여 local openkb.py 가 우선 로드되도록 함
+        _src = str(Path(__file__).parent.resolve())
+        if _src not in sys.path:
+            sys.path.insert(0, _src)
+        from tui_app import run_tui as _textual_run
+    except ImportError as e:
+        print(f"⚠️ TUI not available: {e}")
         return defaults
-
-    result: dict[str, Any] = {}
-
-    # --- 1. 엔진 선택 ---
-    engine_choices = [
-        ("ollama", "Ollama (localhost:11434)"),
-        ("llama.cpp", "llama.cpp (port 8080 / 자동 실행)"),
-        ("unsloth", "Unsloth Studio (localhost:8888)"),
-    ]
-    sel = radiolist_dialog(
-        title="🔧 LLM 엔진 선택",
-        text="사용할 LLM 백엔드를 선택하세요:",
-        values=engine_choices,
-        default=defaults.get("engine", "ollama"),
-    ).run()
-    if sel is None:
-        return defaults
-    result["engine"] = sel
-
-    # --- 2. API Key (Unsloth) ---
-    api_key = defaults.get("api_key") or os.environ.get("UNSLOTH_API_KEY")
-    if sel == "unsloth" and not api_key:
-        api_key = input_dialog(
-            title="🔑 Unsloth Studio API Key",
-            text="Unsloth Studio의 API Key를 입력하세요 (Settings > API Keys):",
-        ).run()
-        if api_key is None:
-            return defaults
-    result["api_key"] = api_key
-
-    # --- 3. 모델 선택 ---
-    result["model"] = _tui_select_model(sel, api_key, defaults.get("model"))
-
-    # --- 4. 입력 대상 ---
-    inputs = _tui_select_inputs(defaults.get("input_paths", ()))
-    if inputs.get("input_paths") is not None:
-        result["input_paths"] = inputs["input_paths"]
-    if inputs.get("agents") is not None:
-        result["agents"] = inputs["agents"]
-    if inputs.get("joplin_notebooks") is not None:
-        result["joplin_notebooks"] = inputs["joplin_notebooks"]
-
-    # --- 5. 날짜 범위 ---
-    date_from = input_dialog(
-        title="📅 시작일 (선택)",
-        text="시작 날짜를 입력하세요 (YYYY-MM-DD, 생략 가능):",
-        default=defaults.get("date_from") or "",
-    ).run()
-    date_to = input_dialog(
-        title="📅 종료일 (선택)",
-        text="종료 날짜를 입력하세요 (YYYY-MM-DD, 생략 가능):",
-        default=defaults.get("date_to") or "",
-    ).run()
-    if date_from is not None:
-        result["date_from"] = _parse_date(date_from) if date_from.strip() else None
-    if date_to is not None:
-        result["date_to"] = _parse_date(date_to) if date_to.strip() else None
-
-    # --- 6. 출력 경로 ---
-    out = input_dialog(
-        title="📁 출력 경로",
-        text="출력 raw store 경로를 입력하세요:\n(없으면 새 디렉토리가 자동 생성됩니다)",
-        default=defaults.get("output_path") or str(RAW_STORE),
-    ).run()
-    if out is not None and out.strip():
-        result["output_path"] = out.strip()
-        Path(result["output_path"]).mkdir(parents=True, exist_ok=True)
-
-    # --- 7. SAMPLE ---
-    sample_str = input_dialog(
-        title="🧪 Sample 제한 (선택)",
-        text="처리할 최대 파일 수를 입력하세요 (생략 시 전체 처리):",
-        default=str(defaults.get("sample") or ""),
-    ).run()
-    if sample_str is not None and sample_str.strip().isdigit():
-        result["sample"] = int(sample_str)
-    else:
-        result["sample"] = None
-
-    message_dialog(
-        title="✅ 설정 완료",
-        text=f"엔진: {result['engine']}\n"
-             f"모델: {result.get('model', 'auto')}\n"
-             f"출력: {result.get('output_path', str(RAW_STORE))}\n\n"
-             "컴파일을 시작합니다.",
-    ).run()
-
-    return result
-
-
-def _tui_select_model(engine: str, api_key: str | None, default_model: str | None) -> str | None:
-    from prompt_toolkit.shortcuts import input_dialog, message_dialog, radiolist_dialog
-
-    if engine == "llama.cpp":
-        gguf_list = LLMClient.find_gguf_models()
-        if gguf_list:
-            values = [(p, label) for label, p in gguf_list]
-            sel = radiolist_dialog(
-                title="🔧 모델 선택 (GGUF)",
-                text="HuggingFace Cache에서 발견된 GGUF 모델:",
-                values=values,
-            ).run()
-            return sel
-
-        sel = radiolist_dialog(
-            title="🔧 llama.cpp 모델",
-            text="캐시된 GGUF 모델이 없습니다.\n직접 GGUF 파일 경로를 입력하시겠습니까?",
-            values=[("__manual__", "직접 경로 입력")],
-        ).run()
-        if sel == "__manual__":
-            path = input_dialog(title="GGUF 경로", text="GGUF 파일 경로:").run()
-            return path
-        return None
-
-    models = LLMClient.list_models(engine, api_key)
-    if not models:
-        if engine == "unsloth":
-            message_dialog(
-                title="⚠️ 연결 실패",
-                text="Unsloth Studio API 연결에 실패했습니다.\n"
-                     "Studio가 실행 중이고 API Key가 올바른지 확인하세요.",
-            ).run()
-        return default_model
-
-    values = [(m, m) for m in models]
-    default_sel = default_model if default_model in models else values[0][0] if values else None
-    sel = radiolist_dialog(
-        title="🔧 모델 선택",
-        text=f"{engine} 에서 사용 가능한 모델:",
-        values=values,
-        default=default_sel,
-    ).run()
-    return sel or default_model
-
-
-def _tui_select_inputs(default_paths: tuple[str, ...]) -> dict[str, Any]:
-    from prompt_toolkit.shortcuts import checkboxlist_dialog
-
-    result: dict[str, Any] = {}
-
-    # Agent 타입
-    agent_choices = [
-        "agy", "codex", "opencode",
-    ]
-    if any("agents" in str(p) for p in default_paths) or not default_paths:
-        default_agents = ("agy", "codex", "opencode")
-    else:
-        default_agents = ()
-
-    sel_agents = checkboxlist_dialog(
-        title="🤖 Agent 타입 선택",
-        text="컴파일할 Agent 세션 타입을 선택하세요 (모두 해제 시 생략):",
-        values=[(a, a) for a in agent_choices],
-        default=[a for a in default_agents if a in agent_choices],
-    ).run()
-    if sel_agents:
-        result["agents"] = tuple(sel_agents)
-        result["input_paths"] = ("data/agents",)
-
-    # Joplin 노트북
-    if JOPLIN_DIR.exists():
-        notebooks = sorted(d.name for d in JOPLIN_DIR.iterdir() if d.is_dir())
-        if notebooks:
-            sel_joplin = checkboxlist_dialog(
-                title="📓 Joplin 노트북 선택",
-                text="컴파일할 Joplin 노트북을 선택하세요 (모두 해제 시 생략):",
-                values=[(n, n) for n in notebooks],
-            ).run()
-            if sel_joplin:
-                result["joplin_notebooks"] = tuple(sel_joplin)
-                if "input_paths" not in result:
-                    result["input_paths"] = ("data/joplin",)
-                else:
-                    result["input_paths"] = result["input_paths"] + ("data/joplin",)
-
-    return result
+    return _textual_run()
 
 
 # ===========================================================================
