@@ -401,21 +401,30 @@ export class JoplinTaskRunner {
     const folders = await clipperService.getFolders();
     console.log(`[JoplinTaskRunner] Found ${folders.length} notebooks in 데스크톱 Joplin. Commencing import...`);
 
+    const folderMap = new Map<string, any>();
+    for (const f of folders) {
+      folderMap.set(f.id, f);
+    }
+
     const resolvedTargetDir = path.resolve(targetPath);
 
-    for (let i = 0; i < folders.length; i++) {
-      const folder = folders[i];
-      const progressPrefix = `[${i + 1}/${folders.length}]`;
-      console.log(`${progressPrefix} Processing notebook "${folder.title}"...`);
-
-      const cleanFolderName = JoplinTaskRunner.sanitizeDir(folder.title);
-      const targetDir = path.join(resolvedTargetDir, cleanFolderName);
+    for (const folder of folders) {
+      const relParts: string[] = [];
+      let current: any = folder;
+      while (current) {
+        relParts.unshift(JoplinTaskRunner.sanitizeDir(current.title));
+        current = current.parent_id ? folderMap.get(current.parent_id) : null;
+      }
+      const targetDir = path.join(resolvedTargetDir, ...relParts);
       const imagesDir = path.join(targetDir, 'images');
+
+      const progressPrefix = `[${relParts.join(' / ')}]`;
+      console.log(`${progressPrefix} Processing notebook "${folder.title}"...`);
 
       try {
         const notes = await clipperService.getNotesInFolder(folder.id);
         if (!notes || notes.length === 0) {
-          console.log(`   ${progressPrefix} No notes found in notebook "${folder.title}". Skipping.`);
+          console.log(`   ${progressPrefix} No notes found. Skipping.`);
           continue;
         }
 
@@ -428,10 +437,9 @@ export class JoplinTaskRunner {
           try {
             const cleanTitle = JoplinTaskRunner.sanitizeDir(note.title) || `Untitled_${note.id}`;
             const filePath = path.join(targetDir, `${cleanTitle}.md`);
-            
+
             let bodyContent = note.body || '';
 
-            // 이미지 리소스 다운로드 및 상대 경로 매핑 (:/리소스ID)
             const resourceRegex = /\(:\/([a-zA-Z0-9]{32})\)/g;
             let match;
             const processedResources = new Set<string>();
@@ -467,9 +475,9 @@ export class JoplinTaskRunner {
             console.error(`      Failed to save note ${note.title}:`, noteErr.message);
           }
         }
-        console.log(`   ${progressPrefix} Notebook "${folder.title}" processed (${successCount} notes saved).`);
+        console.log(`   ${progressPrefix} ${successCount} notes saved.`);
       } catch (err: any) {
-        console.error(`   ${progressPrefix} Failed to pull notebook "${folder.title}": ${err.message}`);
+        console.error(`   ${progressPrefix} Failed: ${err.message}`);
       }
     }
 
