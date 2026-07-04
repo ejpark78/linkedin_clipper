@@ -4,7 +4,6 @@ Textual 기반 Midnight Commander 스타일 TUI for OpenKB Compiler.
 from __future__ import annotations
 
 import asyncio
-import re
 from pathlib import Path
 
 from textual import work
@@ -13,9 +12,7 @@ from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
-    Checkbox,
     Input,
-    Label,
     RadioButton,
     RadioSet,
     Select,
@@ -25,7 +22,6 @@ from textual.widgets import (
 from textual.widgets.tree import TreeNode
 
 from openkb import (  # noqa: E402  # local src/openkb.py, not installed package
-    JOPLIN_DIR,
     PROJECT_ROOT,
     RAW_STORE,
     LLMClient,
@@ -33,10 +29,11 @@ from openkb import (  # noqa: E402  # local src/openkb.py, not installed package
 
 
 class DirectoryTree(Tree):
-    """파일 시스템 트리 뷰."""
+    """파일 시스템 트리 뷰 (Space/Click으로 선택)."""
 
     def __init__(self, **kwargs) -> None:
         super().__init__("data", **kwargs)
+        self._selected: set[str] = set()
 
     def on_mount(self) -> None:
         self._populate()
@@ -63,9 +60,27 @@ class DirectoryTree(Tree):
             if child.name.startswith("."):
                 continue
             if child.is_dir():
-                prefix = "📁"
-                branch = node.add(f"{prefix} {child.name}", data=str(child))
+                branch = node.add(f"📁 {child.name}", data=str(child))
                 self._add_items(branch, child, depth + 1)
+
+    def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+        path = event.node.data
+        if path and Path(path).is_dir():
+            self._toggle_node(event.node)
+
+    def _toggle_node(self, node: TreeNode) -> None:
+        path = node.data
+        if not path:
+            return
+        if path in self._selected:
+            self._selected.discard(path)
+            node.label = node.label.replace("☑ ", "📁 ", 1) if "☑ " in str(node.label) else node.label
+        else:
+            self._selected.add(path)
+            node.label = node.label.replace("📁 ", "☑ ", 1) if "📁 " in str(node.label) else node.label
+
+    def get_selected_paths(self) -> list[str]:
+        return [p for p in sorted(self._selected)]
 
 
 class EngineRadio(RadioSet):
@@ -206,21 +221,6 @@ class OpenKbConfig(App[dict]):  # type: ignore[type-arg]
             yield Static(" 🤖 Model ", classes="section-label")
             yield ModelSelect(id="model-select", prompt="Model")
 
-            yield Static(" 📋 Inputs ", classes="section-label")
-            yield Label("Agent Types:")
-            with Horizontal(classes="inline-group"):
-                yield Checkbox("agy", value=True, id="chk-agy")
-                yield Checkbox("codex", value=True, id="chk-codex")
-                yield Checkbox("opencode", value=True, id="chk-opencode")
-
-            yield Label("Joplin Notebooks:")
-            nb_widgets = []
-            if JOPLIN_DIR.exists():
-                for nb in sorted(d.name for d in JOPLIN_DIR.iterdir() if d.is_dir()):
-                    safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", nb)
-                    nb_widgets.append(Checkbox(nb, id=f"nb-{safe_id}"))
-            yield Horizontal(*nb_widgets, classes="inline-group", id="joplin-nb")
-
             yield Static(" 📅 Date Range ", classes="section-label")
             with Horizontal(classes="inline-group"):
                 yield Input(placeholder="from (YYYY-MM-DD)", id="date-from")
@@ -275,19 +275,10 @@ class OpenKbConfig(App[dict]):  # type: ignore[type-arg]
         ms = self.query_one("#model-select", ModelSelect)
         result["model"] = str(ms.value) if ms.value else None
 
-        agents = []
-        for aid in ("chk-agy", "chk-codex", "chk-opencode"):
-            chk = self.query_one(f"#{aid}", Checkbox)
-            if chk.value:
-                agents.append(aid.replace("chk-", ""))
-        result["agents"] = tuple(agents) if agents else None
-
-        notebooks = []
-        nb_cont = self.query_one("#joplin-nb", Horizontal)
-        for chk in nb_cont.query(Checkbox):
-            if chk.value:
-                notebooks.append(chk.label)
-        result["joplin_notebooks"] = tuple(notebooks) if notebooks else None
+        tree = self.query_one("#dir-tree", DirectoryTree)
+        sel_paths = tree.get_selected_paths()
+        if sel_paths:
+            result["input_paths"] = tuple(sel_paths)
 
         df = self.query_one("#date-from", Input)
         dt = self.query_one("#date-to", Input)
