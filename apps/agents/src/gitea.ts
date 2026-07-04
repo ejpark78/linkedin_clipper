@@ -142,6 +142,20 @@ class GiteaClient {
     }
   }
 
+  /**
+   * 본문 내 commit diff 링크의 domain/owner/repo를 현재 설정 기준으로 치환합니다.
+   * https://OLD_DOMAIN/OLD_OWNER/OLD_REPO/commit/HASH
+   *   → https://CURRENT_DOMAIN/CURRENT_OWNER/CURRENT_REPO/commit/HASH
+   */
+  private normalizeCommitLinks(text: string): string {
+    const domain = this.config.apiUrl.replace(/\/api\/v1\/?$/, '');
+    const [owner, repo] = this.config.repo.split('/');
+    return text.replace(
+      /https:\/\/[^\/]+\/[^\/]+\/[^\/]+\/commit\//g,
+      `${domain}/${owner}/${repo}/commit/`
+    );
+  }
+
   public async getIssues(): Promise<IssueResponse[]> {
     let allIssues: IssueResponse[] = [];
     let page = 1;
@@ -506,7 +520,8 @@ class GiteaClient {
     const mapping: { original: number; new: number }[] = [];
 
     for (const item of dumpData) {
-      const bodyWithRef = `> Originally #${item.original_number}\n\n---\n\n${item.body}`;
+      const normalizedBody = this.normalizeCommitLinks(item.body);
+      const bodyWithRef = `> Originally #${item.original_number}\n\n---\n\n${normalizedBody}`;
       const data = await this.request<IssueResponse>(`/repos/${this.config.repo}/issues`, 'POST', {
         title: item.title,
         body: bodyWithRef,
@@ -521,7 +536,8 @@ class GiteaClient {
       }
 
       for (const comment of item.comments) {
-        await this.createComment(String(data.number), comment.body);
+        const normalizedComment = this.normalizeCommitLinks(comment.body);
+        await this.createComment(String(data.number), normalizedComment);
       }
     }
 
