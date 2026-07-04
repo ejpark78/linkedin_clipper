@@ -36,8 +36,18 @@ class PipelineConfig {
     this.apiUrl = process.env.GITEA_API_URL || 'https://gitea.localhost/api/v1';
     this.accessToken = process.env.GITEA_ACCESS_TOKEN || process.env.GITEA_API_TOKEN;
 
-    // Self-signed 인증서 오류 우회
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    // Gitea CA 인증서가 설정되어 있으면 NODE_EXTRA_CA_CERTS로 등록, 없으면 인증 검증 우회
+    const caCertPath = process.env.GITEA_CA_CERT_PATH;
+    if (caCertPath) {
+      const resolvedPath = path.resolve(process.cwd(), caCertPath);
+      if (fs.existsSync(resolvedPath)) {
+        process.env.NODE_EXTRA_CA_CERTS = resolvedPath;
+      } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      }
+    } else {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
   }
 
   private parseIssueId(args: string[]): string | null {
