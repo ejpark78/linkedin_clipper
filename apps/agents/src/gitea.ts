@@ -439,16 +439,17 @@ class GiteaClient {
     fs.mkdirSync(dir, { recursive: true });
     console.log(`📦 Gitea repo dump 시작... 대상: ${dir}`);
 
-    const issuesFile = path.join(dir, 'issues.json');
+    const issuesFile = path.join(dir, 'issues.jsonl');
     const wikiDir = path.join(dir, 'wiki');
 
     await this.dumpIssueToFile(issuesFile);
     await this.dumpWiki(wikiDir);
 
+    const lineCount = fs.readFileSync(issuesFile, 'utf-8').trim().split('\n').filter(Boolean).length;
     const info = {
       repo: this.config.repo,
       exported_at: new Date().toISOString(),
-      issue_count: JSON.parse(fs.readFileSync(issuesFile, 'utf-8')).length,
+      issue_count: lineCount,
       wiki_page_count: fs.existsSync(wikiDir) ? fs.readdirSync(wikiDir).filter(f => f.endsWith('.md')).length : 0,
     };
     fs.writeFileSync(path.join(dir, 'info.json'), JSON.stringify(info, null, 2));
@@ -456,24 +457,24 @@ class GiteaClient {
   }
 
   public async repoRestore(dumpDir: string): Promise<void> {
-    await this.restoreIssue(path.join(dumpDir, 'issues.json'));
+    await this.restoreIssue(path.join(dumpDir, 'issues.jsonl'));
     await this.restoreWiki(path.join(dumpDir, 'wiki'));
   }
 
   public async dumpIssue(targetDir: string, issueId?: string): Promise<void> {
     const dir = path.resolve(targetDir);
     fs.mkdirSync(dir, { recursive: true });
-    const filePath = path.join(dir, 'issues.json');
+    const filePath = path.join(dir, 'issues.jsonl');
     await this.dumpIssueToFile(filePath, issueId);
     console.log(`✅ Issues dumped to ${filePath}`);
   }
 
   private async dumpIssueToFile(filePath: string, issueId?: string): Promise<void> {
     const issues = issueId ? [await this.getIssue(issueId)] : await this.getIssues();
-    const dumpData: DumpIssue[] = [];
+    const lines: string[] = [];
     for (const issue of issues) {
       const comments = await this.getComments(String(issue.number));
-      dumpData.push({
+      lines.push(JSON.stringify({
         original_number: issue.number,
         title: issue.title,
         body: issue.body,
@@ -483,9 +484,9 @@ class GiteaClient {
           body: c.body,
           created_at: (c as any).created_at || '',
         })),
-      });
+      }));
     }
-    fs.writeFileSync(filePath, JSON.stringify(dumpData, null, 2));
+    fs.writeFileSync(filePath, lines.join('\n'));
   }
 
   public async restoreIssue(filePath: string): Promise<void> {
@@ -493,7 +494,8 @@ class GiteaClient {
       console.error(`❌ 파일 없음: ${filePath}`);
       return;
     }
-    const dumpData: DumpIssue[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const raw = fs.readFileSync(filePath, 'utf-8').trim();
+    const dumpData: DumpIssue[] = raw.split('\n').filter(Boolean).map(line => JSON.parse(line));
     console.log(`📥 ${dumpData.length}개 이슈 복원 시작...`);
     dumpData.sort((a, b) => a.original_number - b.original_number);
     const mapping: { original: number; new: number }[] = [];
