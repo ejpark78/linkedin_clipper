@@ -15,6 +15,7 @@ tasks:
       - '{{.COMPOSE}} --profile tools up -d gitea'
       - sleep 5
       - |
+        set -a; [ -f .env ] && source .env; set +a
         GITEA_USER="${GITEA_ADMIN_USER:-gitea-admin}"
         GITEA_PASS="${GITEA_ADMIN_PASSWORD:-admin12345}"
         if ! {{.COMPOSE}} exec -T -u 1000 gitea gitea admin user list | grep -q "$GITEA_USER"; then
