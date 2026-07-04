@@ -106,6 +106,8 @@ tasks:
 
       [Usage Examples]
         - task git:issue:restore FILE_PATH="data/dumps/gitea/issues.json"
+    requires:
+      vars: [FILE_PATH]
     cmds:
       - npm run gitea issue:restore "{{.FILE_PATH}}"
 

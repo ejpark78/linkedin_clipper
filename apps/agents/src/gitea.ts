@@ -495,6 +495,7 @@ class GiteaClient {
     }
     const dumpData: DumpIssue[] = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     console.log(`📥 ${dumpData.length}개 이슈 복원 시작...`);
+    dumpData.sort((a, b) => a.original_number - b.original_number);
     const mapping: { original: number; new: number }[] = [];
 
     for (const item of dumpData) {
