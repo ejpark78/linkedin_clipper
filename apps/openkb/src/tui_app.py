@@ -43,14 +43,11 @@ class DirectoryTree(Tree):
     def _populate(self) -> None:
         self.clear()
         root = self.root
-        root.data = str(Path.cwd())
-        root.label = f"📁 {Path.cwd().name}"
-        paths = [("data/agents", "🤖 agents"), ("data/joplin", "📓 joplin")]
-        for rel, label_text in paths:
-            p = Path(rel)
-            if p.exists():
-                branch = root.add(label_text, data=str(p.resolve()))
-                self._add_items(branch, p, depth=0)
+        root.data = "data"
+        root.label = "📁 data"
+        data_dir = Path("data")
+        if data_dir.exists():
+            self._add_items(root, data_dir, depth=0)
         root.expand()
 
     def _add_items(self, node: TreeNode, path: Path, depth: int = 0) -> None:
