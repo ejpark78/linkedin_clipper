@@ -33,6 +33,9 @@ from openkb import (  # noqa: E402  # local src/openkb.py, not installed package
 class DirectoryTree(Tree):
     """파일 시스템 트리 뷰."""
 
+    def __init__(self, **kwargs) -> None:
+        super().__init__("data", **kwargs)
+
     def on_mount(self) -> None:
         self._populate()
 
@@ -210,10 +213,11 @@ class OpenKbConfig(App[dict]):  # type: ignore[type-arg]
                 yield Checkbox("opencode", value=True, id="chk-opencode")
 
             yield Label("Joplin Notebooks:")
-            nb_container = Horizontal(classes="inline-group", id="joplin-nb")
+            nb_widgets = []
             if JOPLIN_DIR.exists():
                 for nb in sorted(d.name for d in JOPLIN_DIR.iterdir() if d.is_dir()):
-                    nb_container.mount(Checkbox(nb, id=f"nb-{nb}"))
+                    nb_widgets.append(Checkbox(nb, id=f"nb-{nb}"))
+            yield Horizontal(*nb_widgets, classes="inline-group", id="joplin-nb")
 
             yield Static(" 📅 Date Range ", classes="section-label")
             with Horizontal(classes="inline-group"):
