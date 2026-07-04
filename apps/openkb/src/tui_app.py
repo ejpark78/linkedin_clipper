@@ -26,6 +26,7 @@ from textual.widgets.tree import TreeNode
 
 from openkb import (  # noqa: E402  # local src/openkb.py, not installed package
     JOPLIN_DIR,
+    PROJECT_ROOT,
     RAW_STORE,
     LLMClient,
 )
@@ -43,11 +44,10 @@ class DirectoryTree(Tree):
     def _populate(self) -> None:
         self.clear()
         root = self.root
-        root.data = "data"
-        root.label = "📁 data"
-        data_dir = Path("data")
-        if data_dir.exists():
-            self._add_items(root, data_dir, depth=0)
+        root.data = str(PROJECT_ROOT)
+        root.label = f"📁 {PROJECT_ROOT.name}"
+        if PROJECT_ROOT.exists():
+            self._add_items(root, PROJECT_ROOT, depth=0)
         root.expand()
 
     def _add_items(self, node: TreeNode, path: Path, depth: int = 0) -> None:
