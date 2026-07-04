@@ -982,7 +982,6 @@ ${truncatedBody}
 
     return `# ${title}\n\n## 🎯 Goal\n${goal}\n\n## 🧠 Context Memory\n${context}\n\n## ✅ Solution\n${solution}\n\n## 🔗 References\n${refs}`;
   }
-}
 
   /**
    * 기존 전체 이슈에 제목 prefix + 변경 파일 경로 기반으로 라벨을 소급 적용합니다.
@@ -992,7 +991,6 @@ ${truncatedBody}
     console.log('🏷️  전체 이슈 rule-based 라벨링 시작...');
     const issues = await this.getIssues();
 
-    // repo label 목록 (name → id)
     const repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
     const nameToId = new Map<string, number>();
     for (const rl of repoLabels) {
@@ -1006,12 +1004,10 @@ ${truncatedBody}
 
       const labels: string[] = [];
 
-      // Type 결정 (제목 prefix)
       if (/^feat\b/i.test(title)) labels.push('feature');
       else if (/^fix\b/i.test(title)) labels.push('bug');
       else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) labels.push('chore');
 
-      // Area 결정 (변경 파일 경로)
       if (/apps\/agents\//.test(body)) labels.push('agent');
       if (/apps\/wiki\//.test(body)) labels.push('wiki');
       if (/apps\/crawler\//.test(body)) labels.push('crawler');
@@ -1024,7 +1020,6 @@ ${truncatedBody}
       const labelIds = labels.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
       if (labelIds.length === 0) continue;
 
-      // 현재 이슈의 기존 라벨과 합집합 (중복 제거)
       const currentLabels: { id: number }[] = (issue as any).labels || [];
       const existingIds = new Set(currentLabels.map(l => l.id));
       const newIds = [...existingIds, ...labelIds.filter(id => !existingIds.has(id))];
