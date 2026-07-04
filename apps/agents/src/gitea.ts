@@ -209,13 +209,29 @@ class GiteaClient {
     await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title: formattedTitle, body: formattedBody });
   }
 
-  public async createIssue(title: string, body: string): Promise<void> {
+  public async createIssue(title: string, body: string, skipLabel?: boolean): Promise<number> {
     console.log(`🚀 Gitea 이슈 생성 중... [${title}]`);
     const formattedTitle = this.formatText(title);
     const formattedBody = this.formatText(body);
     const data = await this.request<IssueResponse>(`/repos/${this.config.repo}/issues`, 'POST', { title: formattedTitle, body: formattedBody });
     console.log(`✅ 이슈가 성공적으로 생성되었습니다! [Issue #${data.number}]`);
     console.log(`🔗 URL: ${data.html_url}`);
+
+    if (!skipLabel) {
+      const labels = await this.classifyIssueLabels(title, body);
+      if (labels && (labels.type || labels.area)) {
+        const repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
+        const nameToId = new Map(repoLabels.map((l: any) => [l.name, l.id]));
+        const labelIds: number[] = [];
+        if (labels.type && nameToId.has(labels.type)) labelIds.push(nameToId.get(labels.type)!);
+        if (labels.area && nameToId.has(labels.area)) labelIds.push(nameToId.get(labels.area)!);
+        if (labelIds.length > 0) {
+          await this.request(`/repos/${this.config.repo}/issues/${data.number}/labels`, 'PUT', { labels: labelIds });
+          console.log(`🏷️  라벨 자동 분류: ${labels.type}${labels.area ? ', ' + labels.area : ''}`);
+        }
+      }
+    }
+    return data.number;
   }
 
   public async createComment(issueId: string, body: string): Promise<void> {
@@ -891,6 +907,56 @@ ${truncatedBody}
     }
   }
 
+  /**
+   * Ollama로 이슈 제목+본문을 분석하여 Type(feature|bug|chore)과 Area(agent|wiki|crawler|ebook|viewer|infra|null) 추정.
+   * Ollama 실패 시 rule-based 결과를 반환합니다.
+   */
+  public async classifyIssueLabels(title: string, body: string): Promise<{ type: string | null; area: string | null }> {
+    const truncated = (title + '\n' + body).substring(0, 2000);
+    const prompt = `<start_of_turn>user
+Classify this issue into Type (feature|bug|chore) and Area (agent|wiki|crawler|ebook|viewer|infra|null).
+Return ONLY a JSON object with keys "type" and "area". No other text.
+
+Title: ${title}
+Body: ${truncated}
+<end_of_turn>
+<start_of_turn>model
+`;
+
+    try {
+      const res = await fetch('http://127.0.0.1:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'qwen2.5-coder:14b', prompt, stream: false, options: { num_predict: 64 } }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        const raw = (data.response || '').trim();
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return { type: parsed.type || null, area: parsed.area || null };
+        }
+      }
+    } catch {
+      // Ollama 실패 → fallback
+    }
+
+    // Rule-based fallback
+    const result: { type: string | null; area: string | null } = { type: null, area: null };
+    const combo = title + '\n' + body;
+    if (/^feat\b/i.test(title)) result.type = 'feature';
+    else if (/^fix\b/i.test(title)) result.type = 'bug';
+    else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) result.type = 'chore';
+    if (/apps\/agents(?:\/|$)/.test(combo)) result.area = 'agent';
+    else if (/apps\/wiki(?:\/|$)/.test(combo)) result.area = 'wiki';
+    else if (/apps\/crawler(?:\/|$)/.test(combo)) result.area = 'crawler';
+    else if (/apps\/ebook(?:\/|$)/.test(combo)) result.area = 'ebook';
+    else if (/apps\/viewer(?:\/|$)/.test(combo)) result.area = 'viewer';
+    else if (/infra\//.test(combo)) result.area = 'infra';
+    return result;
+  }
+
   public async formatAllIssues(): Promise<void> {
     console.log('🔄 전체 이슈 포맷 마이그레이션 시작 (Issue #156)...');
 
@@ -1003,23 +1069,19 @@ ${truncatedBody}
       nameToId.set(rl.name, rl.id);
     }
 
+    const total = issues.length;
     let updated = 0;
-    for (const issue of issues) {
+    for (let idx = 0; idx < total; idx++) {
+      const issue = issues[idx];
       const title = issue.title || '';
       const body = (issue.body || '') + title;
 
+      process.stdout.write(`\r⏳ [${idx + 1}/${total}] classifying...`);
+
+      const ollamaResult = await this.classifyIssueLabels(title, body);
       const labels: string[] = [];
-
-      if (/^feat\b/i.test(title)) labels.push('feature');
-      else if (/^fix\b/i.test(title)) labels.push('bug');
-      else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) labels.push('chore');
-
-      if (/apps\/agents(?:\/|$)/.test(body)) labels.push('agent');
-      if (/apps\/wiki(?:\/|$)/.test(body)) labels.push('wiki');
-      if (/apps\/crawler(?:\/|$)/.test(body)) labels.push('crawler');
-      if (/apps\/ebook(?:\/|$)/.test(body)) labels.push('ebook');
-      if (/apps\/viewer(?:\/|$)/.test(body)) labels.push('viewer');
-      if (/infra\//.test(body)) labels.push('infra');
+      if (ollamaResult.type) labels.push(ollamaResult.type);
+      if (ollamaResult.area) labels.push(ollamaResult.area);
 
       if (labels.length === 0) continue;
 
@@ -1035,7 +1097,8 @@ ${truncatedBody}
       });
       updated++;
     }
-    console.log(`✅ ${updated}개 이슈에 라벨이 소급 적용되었습니다.`);
+    process.stdout.write('\n');
+    console.log(`✅ ${updated}/${total}개 이슈에 라벨이 소급 적용되었습니다.`);
   }
 }
 
@@ -1080,9 +1143,11 @@ class GiteaController {
           console.error('Usage: npm run gitea create-issue <title> <body>');
           console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea create-issue <title>');
           console.error('  Stdin: echo "body" | npm run gitea create-issue <title> --stdin');
+          console.error('  Options: --no-label  (라벨 자동 분류 비활성화)');
           process.exit(1);
         }
-        await client.createIssue(title, body);
+        const skipLabel = args.includes('--no-label');
+        await client.createIssue(title, body, skipLabel);
         break;
       }
 
