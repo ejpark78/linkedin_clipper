@@ -367,6 +367,7 @@ class GiteaClient {
         console.log(`✅ 새 토큰이 생성되었습니다!`);
         console.log(`   토큰: ${newToken.sha1}`);
         console.log(`   이름: ${newToken.name}`);
+        console.log(`\n.env 파일에 다음을 등록하세요:\n  GITEA_ACCESS_TOKEN=${newToken.sha1}\n`);
       } else {
         console.log('⚠️ 토큰이 생성되었으나 SHA1 값을 확인할 수 없습니다.');
       }
