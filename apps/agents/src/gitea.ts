@@ -932,10 +932,14 @@ Body: ${truncated}
       });
       if (res.ok) {
         const data = await res.json() as any;
-        const raw = (data.response || '').trim();
+        let raw = (data.response || '').trim();
+        raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
-          return { type: parsed.type || null, area: parsed.area || null };
+          return {
+            type: parsed.type && ['feature', 'bug', 'chore'].includes(parsed.type) ? parsed.type : null,
+            area: parsed.area && parsed.area !== 'null' && ['agent', 'wiki', 'crawler', 'ebook', 'viewer', 'infra'].includes(parsed.area) ? parsed.area : null,
+          };
         }
       }
     } catch {
