@@ -83,6 +83,9 @@ class EngineRadio(RadioSet):
 class ModelSelect(Select):
     """엔진별 모델 선택 드롭다운."""
 
+    def __init__(self, prompt: str = "Model", **kwargs) -> None:
+        super().__init__([], prompt=prompt, **kwargs)
+
     def populate(self, engine: str, api_key: str | None = None) -> None:
         models: list[tuple[str, str]] = []
         if engine == "llama.cpp":
