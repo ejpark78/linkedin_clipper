@@ -103,7 +103,7 @@ class Config {
 
     const backendType = process.env.LLM_BACKEND || 'ollama';
     const llmUrl = process.env.LLM_URL || 'http://127.0.0.1:11434';
-    const llmModel = process.env.LLM_MODEL || 'gemma4:e4b-mlx';
+    const llmModel = process.env.LLM_MODEL || 'qwen3.5:9b-mlx';
     if (backendType === 'llamacpp') {
       this.llmBackend = new LlamaCppBackend(llmUrl);
     } else {
@@ -805,7 +805,7 @@ Only output the table rows, nothing else.`;
       const ollamaRes = await fetch('http://127.0.0.1:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'gemma4:e4b-mlx', prompt, stream: false, options: { num_predict: 500 } }),
+        body: JSON.stringify({ model: process.env.LLM_MODEL || 'qwen3.5:9b-mlx', prompt, stream: false, options: { num_predict: 500 } }),
         signal: AbortSignal.timeout(15000),
       });
       if (ollamaRes.ok) {
