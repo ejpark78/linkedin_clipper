@@ -4,6 +4,7 @@ Textual 기반 Midnight Commander 스타일 TUI for OpenKB Compiler.
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 
 from textual import work
@@ -219,7 +220,8 @@ class OpenKbConfig(App[dict]):  # type: ignore[type-arg]
             nb_widgets = []
             if JOPLIN_DIR.exists():
                 for nb in sorted(d.name for d in JOPLIN_DIR.iterdir() if d.is_dir()):
-                    nb_widgets.append(Checkbox(nb, id=f"nb-{nb}"))
+                    safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", nb)
+                    nb_widgets.append(Checkbox(nb, id=f"nb-{safe_id}"))
             yield Horizontal(*nb_widgets, classes="inline-group", id="joplin-nb")
 
             yield Static(" 📅 Date Range ", classes="section-label")

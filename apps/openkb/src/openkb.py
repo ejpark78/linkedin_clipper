@@ -796,8 +796,13 @@ def compile(**kwargs):
     """OpenKB Compile Pipeline - 에이전트 기록과 Joplin 노트를 지식베이스로 컴파일합니다."""
     tui_mode = kwargs.pop("tui", False)
     if tui_mode:
-        selections = run_tui(**kwargs)
-        compile_command(**selections)
+        try:
+            selections = run_tui(**kwargs)
+            compile_command(**selections)
+        except Exception as e:
+            print(f"\n❌ TUI error: {e}")
+            print("   Falling back to CLI defaults.")
+            compile_command(**kwargs)
     else:
         compile_command(**kwargs)
 
