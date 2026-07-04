@@ -116,14 +116,21 @@ def _show_engine_help() -> None:
         )
     elif engine == "unsloth":
         st.info(
-            "Unsloth Studio 서버가 실행되지 않았습니다.\n\n"
-            "Unsloth Studio를 실행하세요:\n"
-            "`unsloth studio --port 8888`\n\n"
-            "또는 환경변수 `UNSLOTH_API_KEY` 설정 후 CLI 실행:\n"
+            "⚠️ **Docker 컨테이너에서 접근 불가**\n\n"
+            "Unsloth Studio가 `127.0.0.1`에만 바인딩되어 있어\n"
+            "컨테이너 내부에서 접속할 수 없습니다.\n\n"
+            "**해결**: 다음 명령어로 재시작하세요:\n"
+            "`unsloth studio -H 0.0.0.0 -p 8888`\n\n"
+            "또는 호스트에서 직접 실행:\n"
             "`task openkb:compile --engine unsloth --model <model>`"
         )
     else:
-        st.info("Ollama 서버가 실행되지 않았습니다.\n\n`ollama serve`")
+        st.info(
+            "Ollama 서버 연결에 실패했습니다.\n\n"
+            "호스트에서 실행: `ollama serve`\n"
+            "Docker인 경우 `0.0.0.0` 바인딩 필요:\n"
+            "`OLLAMA_HOST=0.0.0.0 ollama serve`"
+        )
 
 
 def _build_cli_cmd() -> str:
