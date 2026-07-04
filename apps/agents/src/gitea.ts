@@ -58,12 +58,18 @@ class Config {
 
 }
 
+interface LabelInfo {
+  name: string;
+  color: string;
+}
+
 interface DumpIssue {
   original_number: number;
   title: string;
   body: string;
   state: string;
   created_at: string;
+  labels: LabelInfo[];
   comments: { body: string; created_at: string }[];
 }
 
@@ -461,7 +467,32 @@ class GiteaClient {
     } catch {}
     execSync(`git remote add gitea https://gitea:${token}@${this.gitHost}/${this.config.repo}.git`, { stdio: 'inherit' });
     execSync('git push gitea develop', { stdio: 'inherit' });
+    await this.seedDefaultLabels();
     console.log('\nGitea 초기 설정이 완료되었습니다!');
+  }
+
+  /** repo에 기본 라벨(Type 3 + Area 6)을 생성합니다. */
+  private async seedDefaultLabels(): Promise<void> {
+    const labels = [
+      { name: 'bug',     color: '#d73a4a', description: '버그 수정' },
+      { name: 'feature', color: '#a2eeef', description: '새 기능' },
+      { name: 'chore',   color: '#bfdadc', description: '리팩터링/잡일/문서' },
+      { name: 'agent',   color: '#0075ca', description: 'agents 앱' },
+      { name: 'wiki',    color: '#0e8a16', description: 'wiki 앱 (joplin/obsidian)' },
+      { name: 'crawler', color: '#e4e669', description: 'crawler 앱' },
+      { name: 'ebook',   color: '#f0ad4e', description: 'ebook 앱' },
+      { name: 'viewer',  color: '#5319e7', description: 'viewer 앱' },
+      { name: 'infra',   color: '#b60205', description: 'Docker/인프라 설정' },
+    ];
+    console.log('🏷️  기본 라벨 생성 중...');
+    for (const label of labels) {
+      try {
+        await this.request(`/repos/${this.config.repo}/labels`, 'POST', label);
+      } catch {
+        // 이미 존재하면 무시
+      }
+    }
+    console.log('✅ 기본 라벨 생성 완료!');
   }
 
   public async repoDump(targetDir: string): Promise<void> {
@@ -504,12 +535,17 @@ class GiteaClient {
     const lines: string[] = [];
     for (const issue of issues) {
       const comments = await this.getComments(String(issue.number));
+      const issueLabels: LabelInfo[] = ((issue as any).labels || []).map((l: any) => ({
+        name: l.name || '',
+        color: l.color || '',
+      }));
       lines.push(JSON.stringify({
         original_number: issue.number,
         title: issue.title,
         body: issue.body,
         state: (issue as any).state || 'open',
         created_at: (issue as any).created_at || '',
+        labels: issueLabels,
         comments: comments.map(c => ({
           body: c.body,
           created_at: (c as any).created_at || '',
@@ -530,12 +566,23 @@ class GiteaClient {
     dumpData.sort((a, b) => a.original_number - b.original_number);
     const mapping: { original: number; new: number }[] = [];
 
+    // repo의 현재 label 목록 캐싱 (name → id)
+    const repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
+    const labelNameToId = new Map<string, number>();
+    for (const rl of repoLabels) {
+      labelNameToId.set(rl.name, rl.id);
+    }
+
     for (const item of dumpData) {
       const normalizedBody = this.normalizeCommitLinks(item.body);
       const bodyWithRef = `> Originally #${item.original_number}\n\n---\n\n${normalizedBody}`;
+      const labelIds: number[] = (item.labels || [])
+        .map(l => labelNameToId.get(l.name))
+        .filter((id): id is number => id !== undefined);
       const data = await this.request<IssueResponse>(`/repos/${this.config.repo}/issues`, 'POST', {
         title: item.title,
         body: bodyWithRef,
+        labels: labelIds.length > 0 ? labelIds : undefined,
       });
       console.log(`   ✅ Issue #${item.original_number} → #${data.number}`);
       mapping.push({ original: item.original_number, new: data.number });
@@ -937,6 +984,60 @@ ${truncatedBody}
   }
 }
 
+  /**
+   * 기존 전체 이슈에 제목 prefix + 변경 파일 경로 기반으로 라벨을 소급 적용합니다.
+   * (rule-based, no AI 필요)
+   */
+  public async retroactiveLabelIssues(): Promise<void> {
+    console.log('🏷️  전체 이슈 rule-based 라벨링 시작...');
+    const issues = await this.getIssues();
+
+    // repo label 목록 (name → id)
+    const repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
+    const nameToId = new Map<string, number>();
+    for (const rl of repoLabels) {
+      nameToId.set(rl.name, rl.id);
+    }
+
+    let updated = 0;
+    for (const issue of issues) {
+      const title = issue.title || '';
+      const body = (issue.body || '') + title;
+
+      const labels: string[] = [];
+
+      // Type 결정 (제목 prefix)
+      if (/^feat\b/i.test(title)) labels.push('feature');
+      else if (/^fix\b/i.test(title)) labels.push('bug');
+      else if (/^(refactor|chore|docs|test|style)\b/i.test(title)) labels.push('chore');
+
+      // Area 결정 (변경 파일 경로)
+      if (/apps\/agents\//.test(body)) labels.push('agent');
+      if (/apps\/wiki\//.test(body)) labels.push('wiki');
+      if (/apps\/crawler\//.test(body)) labels.push('crawler');
+      if (/apps\/ebook\//.test(body)) labels.push('ebook');
+      if (/apps\/viewer\//.test(body)) labels.push('viewer');
+      if (/(^|\/)infra\//.test(body)) labels.push('infra');
+
+      if (labels.length === 0) continue;
+
+      const labelIds = labels.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
+      if (labelIds.length === 0) continue;
+
+      // 현재 이슈의 기존 라벨과 합집합 (중복 제거)
+      const currentLabels: { id: number }[] = (issue as any).labels || [];
+      const existingIds = new Set(currentLabels.map(l => l.id));
+      const newIds = [...existingIds, ...labelIds.filter(id => !existingIds.has(id))];
+
+      await this.request(`/repos/${this.config.repo}/issues/${issue.number}`, 'PATCH', {
+        labels: newIds,
+      });
+      updated++;
+    }
+    console.log(`✅ ${updated}개 이슈에 라벨이 소급 적용되었습니다.`);
+  }
+}
+
 /**
  * 스크립트 실행의 진입점을 제어하는 Controller
  */
@@ -1067,6 +1168,10 @@ class GiteaController {
         await client.retroactiveCommitLinks();
         break;
 
+      case 'retroactive-labels':
+        await client.retroactiveLabelIssues();
+        break;
+
       case 'update-title':
         if (args.length < 3) {
           console.error('Usage: npm run gitea update-title <issueId> <newTitle>');
@@ -1160,7 +1265,7 @@ class GiteaController {
         break;
 
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, retroactive-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
         process.exit(1);
     }
   }
