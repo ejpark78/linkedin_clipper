@@ -1100,12 +1100,33 @@ class GiteaController {
         await client.issueSave();
         break;
 
+      case 'list-issues': {
+        const allIssues = await client.getIssues();
+        const state = args[1] || 'open';
+        const limit = parseInt(args[2], 10) || 20;
+        const filtered = state === 'all' ? allIssues : allIssues.filter(i => i.state === state);
+        const sliced = filtered.slice(0, limit);
+        if (sliced.length === 0) {
+          console.log('📭 표시할 이슈가 없습니다.');
+          break;
+        }
+        console.log(`📋 최근 이슈 ${sliced.length}개 (전체 ${filtered.length}개, state=${state}):\n`);
+        sliced.forEach(i => {
+          const label = i.state === 'closed' ? '✅' : '🟢';
+          const date = (i.created_at || '').slice(0, 10);
+          const title = i.title.length > 50 ? i.title.slice(0, 47) + '...' : i.title;
+          console.log(`  ${label} #${String(i.number).padStart(3)}  ${date}  ${title}`);
+        });
+        console.log(`\n💡 상세: task git:issue:show ISSUE_ID="번호"`);
+        break;
+      }
+
       case 'format-issues':
         await client.formatAllIssues();
         break;
 
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
         process.exit(1);
     }
   }

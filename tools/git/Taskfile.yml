@@ -333,6 +333,23 @@ tasks:
         fi
         npm run gitea reopen-issue "{{.ISSUE_ID}}"
 
+  issue:list:
+    desc: "Gitea 이슈 목록 조회"
+    summary: |
+      저장소의 이슈 목록을 번호/작성일/제목으로 출력합니다.
+      기본값은 최근 열린(open) 이슈 20개를 보여줍니다.
+
+      [Variables]
+        - STATE: (옵션) 필터 상태 (open, closed, all / 기본값: open)
+        - LIMIT: (옵션) 표시할 개수 (기본값: 20)
+
+      [Usage Examples]
+        - task git:issue:list
+        - task git:issue:list STATE="all"
+        - task git:issue:list STATE="closed" LIMIT="5"
+    cmds:
+      - npm run gitea list-issues "{{.STATE}}" "{{.LIMIT}}"
+
   issue:show:
     desc: "Gitea 이슈 본문 조회"
     summary: |
