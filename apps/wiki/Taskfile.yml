@@ -6,43 +6,7 @@ tasks:
     cmds:
       - '{{.COMPOSE}} build wiki-tool'
 
-  joplin:server:pull:
-    desc: "Pull/export notebooks from Joplin Server to local Markdown."
-    summary: |
-      Sync Joplin CLI and pull/export notebooks from Joplin Server.
-      
-      [Variables]
-        - TARGET_PATH: 로컬 마크다운 문서집이 내보내져 저장될 호스트 경로 (기본값: "data/joplin")
-        - JOPLIN_SERVER_URL: Joplin Server의 원격 URL (예: https://notes.domain.com)
-        - JOPLIN_USERNAME: Joplin Server 계정 이메일 ID
-        - JOPLIN_PASSWORD: Joplin Server 계정 비밀번호 (누락 시 대화형 프롬프트 제공)
-        - JOPLIN_DEC_PASSWORD: Joplin E2EE 복호화 마스터 패스워드 (옵션)
-        
-      [Usage Examples]
-        - task wiki:joplin:server:pull
-        - task wiki:joplin:server:pull TARGET_PATH="data/custom_pull"
-    cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_SERVER_URL -e JOPLIN_USERNAME -e JOPLIN_PASSWORD -e JOPLIN_DEC_PASSWORD wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:server:pull "{{.TARGET_PATH | default "data/joplin"}}"'
-
-  joplin:server:push:
-    desc: "Push local markdown book to Joplin Server via CLI import/sync."
-    summary: |
-      Push local markdown book to Joplin Server via CLI import/sync.
-      
-      [Variables]
-        - FROM_PATH: (필수) 업로드할 로컬 마크다운 서적 디렉터리 경로
-        - TO_PATH: (옵션) 생성될 Joplin 노트북 폴더 이름 (미입력 시 책 제목으로 자동 생성)
-        - JOPLIN_SERVER_URL: Joplin Server의 원격 URL
-        - JOPLIN_USERNAME: Joplin Server 계정 이메일 ID
-        - JOPLIN_PASSWORD: Joplin Server 계정 비밀번호 (누락 시 대화형 프롬프트 제공)
-        
-      [Usage Examples]
-        - task wiki:joplin:server:push FROM_PATH="data/ebook/output/python_guide"
-        - task wiki:joplin:server:push FROM_PATH="data/ebook/output/python_guide" TO_PATH="Python Programming Wiki"
-    cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_SERVER_URL -e JOPLIN_USERNAME -e JOPLIN_PASSWORD -e JOPLIN_DEC_PASSWORD wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:server:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
-
-  joplin:client:pull:
+  joplin:pull:
     desc: "Pull/download markdown notebooks from Local Joplin App Web Clipper API."
     summary: |
       Pull/download markdown notebooks from Local Joplin App Web Clipper API.
@@ -53,12 +17,12 @@ tasks:
         - JOPLIN_API_URL: 호스트 데스크톱 Joplin 앱 Web Clipper API URL (기본값: http://host.docker.internal:41184)
         
       [Usage Examples]
-        - task wiki:joplin:client:pull
-        - task wiki:joplin:client:pull TARGET_PATH="data/my_backup"
+        - task wiki:joplin:pull
+        - task wiki:joplin:pull TARGET_PATH="data/my_backup"
     cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:client:pull "{{.TARGET_PATH | default "data/joplin"}}"'
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:pull "{{.TARGET_PATH | default "data/joplin"}}"'
 
-  joplin:client:push:
+  joplin:push:
     desc: "Push local markdown book to Local Joplin App Web Clipper API."
     summary: |
       Push local markdown book to Local Joplin App Web Clipper API.
@@ -70,10 +34,10 @@ tasks:
         - JOPLIN_API_URL: 호스트 데스크톱 Joplin 앱 Web Clipper API URL (기본값: http://host.docker.internal:41184)
         
       [Usage Examples]
-        - task wiki:joplin:client:push FROM_PATH="data/ebook/output/git_guide"
-        - task wiki:joplin:client:push FROM_PATH="data/ebook/output/git_guide" TO_PATH="Git Guide Notebook"
+        - task wiki:joplin:push FROM_PATH="data/ebook/output/git_guide"
+        - task wiki:joplin:push FROM_PATH="data/ebook/output/git_guide" TO_PATH="Git Guide Notebook"
     cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:client:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e JOPLIN_TOKEN -e JOPLIN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
 
   joplin:auth:
     desc: "Request Joplin Web Clipper API token via Grant Permission dialog and save to .env."

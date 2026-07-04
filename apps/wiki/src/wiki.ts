@@ -8,7 +8,7 @@ async function main() {
 
   try {
     if (!command) {
-      console.error('사용할 명령어를 선택하세요. (지원 명령어: joplin:server:pull, joplin:server:push, joplin:client:pull, joplin:client:push, joplin:auth, obsidian:push)');
+      console.error('사용할 명령어를 선택하세요. (지원 명령어: joplin:pull, joplin:push, joplin:auth, obsidian:push)');
       process.exit(1);
     }
 
@@ -16,28 +16,17 @@ async function main() {
       const joplinCommand = command.replace('joplin:', '');
       const runner = new JoplinTaskRunner();
 
-      if (joplinCommand === 'server:pull') {
+      if (joplinCommand === 'pull') {
         const targetPath = args[1] || 'data/joplin';
-        await runner.runServerPull(targetPath);
-      } else if (joplinCommand === 'server:push') {
+        await runner.runPull(targetPath);
+      } else if (joplinCommand === 'push') {
         const fromPath = args[1];
         const toPath = args[2];
         if (!fromPath) {
-          console.error('Usage: task wiki:joplin:server:push FROM_PATH=<path> [TO_PATH=<name>]');
+          console.error('Usage: task wiki:joplin:push FROM_PATH=<path> [TO_PATH=<name>]');
           process.exit(1);
         }
-        await runner.runServerPush(fromPath, toPath);
-      } else if (joplinCommand === 'client:pull') {
-        const targetPath = args[1] || 'data/joplin';
-        await runner.runClientPull(targetPath);
-      } else if (joplinCommand === 'client:push') {
-        const fromPath = args[1];
-        const toPath = args[2];
-        if (!fromPath) {
-          console.error('Usage: task wiki:joplin:client:push FROM_PATH=<path> [TO_PATH=<name>]');
-          process.exit(1);
-        }
-        await runner.runClientPush(fromPath, toPath);
+        await runner.runPush(fromPath, toPath);
       } else if (joplinCommand === 'auth') {
         const apiUrl = process.env.JOPLIN_API_URL || 'http://host.docker.internal:41184';
         console.log('[Wiki Entrypoint] Joplin Grant Permission auth flow 시작...');
@@ -88,7 +77,7 @@ async function main() {
       console.log('[Wiki Entrypoint] Obsidian push completed.');
     } else {
       console.error(`알 수 없는 명령어입니다: ${command}`);
-      console.error('지원 명령어: joplin:server:pull, joplin:server:push, joplin:client:pull, joplin:client:push, joplin:auth, obsidian:push');
+      console.error('지원 명령어: joplin:pull, joplin:push, joplin:auth, obsidian:push');
       process.exit(1);
     }
   } catch (err: any) {

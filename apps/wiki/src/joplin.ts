@@ -1,11 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
 import * as readline from 'readline';
 import { Writable } from 'stream';
-
-const execAsync = promisify(exec);
 
 const DEFAULT_JOPLIN_API_URL = 'http://host.docker.internal:41184';
 
@@ -142,125 +138,7 @@ export class MarkdownBookLoader {
   }
 }
 
-// ==============================================================================
-// 📥 Class: JoplinCliService (Joplin CLI Interaction Service)
-// ==============================================================================
 
-export class JoplinCliService {
-  private readonly profileDir: string;
-  private readonly env: any;
-
-  constructor(profileDir: string = '/app/data/.joplin_profile') {
-    this.profileDir = profileDir;
-    this.env = {
-      ...process.env,
-      HOME: this.profileDir,
-      NODE_TLS_REJECT_UNAUTHORIZED: '0'
-    };
-  }
-
-  /**
-   * 자식 프로세스를 생성하여 CLI 출력을 스트리밍 형식으로 실행합니다.
-   */
-  private runCommandStream(command: string, args: string[]): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn(command, args, { env: this.env });
-
-      proc.stdout.on('data', (data) => {
-        process.stdout.write(data.toString());
-      });
-
-      proc.stderr.on('data', (data) => {
-        process.stderr.write(data.toString());
-      });
-
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Command "${command} ${args.join(' ')}" failed with exit code ${code}`));
-        }
-      });
-
-      proc.on('error', (err) => {
-        reject(err);
-      });
-    });
-  }
-
-  /**
-   * Joplin CLI에 서버 연동 자격 증명 설정을 반영합니다.
-   */
-  public async configureCredentials(
-    serverUrl: string,
-    username: string,
-    password: string,
-    decPassword?: string
-  ): Promise<void> {
-    if (!fs.existsSync(this.profileDir)) {
-      fs.mkdirSync(this.profileDir, { recursive: true });
-    }
-
-    console.log(`[JoplinCliService] Configuring target sync server: ${serverUrl}`);
-    await execAsync('joplin config sync.target 9', { env: this.env });
-    await execAsync(`joplin config sync.9.path "${serverUrl.trim()}"`, { env: this.env });
-    await execAsync(`joplin config sync.9.username "${username.trim()}"`, { env: this.env });
-    await execAsync(`joplin config sync.9.password "${password.trim()}"`, { env: this.env });
-
-    if (decPassword) {
-      console.log('[JoplinCliService] Configuring E2EE decryption password...');
-      await execAsync(`joplin encryption decrypt "${decPassword}"`, { env: this.env }).catch(err => {
-        console.warn(`[Warning] Failed to set decryption password: ${err.message}`);
-      });
-    }
-  }
-
-  /**
-   * Joplin Server 동기화(sync) 명령을 발송합니다.
-   */
-  public async sync(): Promise<void> {
-    console.log('[JoplinCliService] Running sync...');
-    await this.runCommandStream('joplin', ['sync']);
-  }
-
-  /**
-   * Joplin 로컬 DB에 등록된 노트북 목록을 스캔하여 반환합니다.
-   */
-  public async getNotebooks(): Promise<string[]> {
-    console.log('[JoplinCliService] Fetching local notebooks...');
-    const { stdout } = await execAsync('joplin ls /', { env: this.env });
-    const lines = stdout.split('\n');
-    const notebooks: string[] = [];
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      let folderName = trimmed.split('(')[0].trim();
-      if (folderName.endsWith('/')) {
-        folderName = folderName.slice(0, -1).trim();
-      }
-      if (folderName && folderName !== '..' && folderName !== '.') {
-        notebooks.push(folderName);
-      }
-    }
-    return notebooks;
-  }
-
-  /**
-   * 특정 노트북을 지정한 디렉터리에 마크다운 형태로 export합니다.
-   */
-  public async exportNotebook(notebookName: string, destDir: string): Promise<void> {
-    await this.runCommandStream('joplin', ['export', '--format', 'md', '--notebook', notebookName, destDir]);
-  }
-
-  /**
-   * 로컬 마크다운 디렉터리를 Joplin CLI DB에 임포트합니다.
-   */
-  public async importNotebook(srcDir: string, notebookName: string): Promise<void> {
-    console.log(`[JoplinCliService] Importing markdown directory "${srcDir}" to notebook "${notebookName}"...`);
-    await this.runCommandStream('joplin', ['import', '--format', 'md', srcDir, notebookName]);
-  }
-}
 
 // ==============================================================================
 // 📤 Class: JoplinWebClipperService (Joplin Web Clipper API Client)
@@ -457,112 +335,6 @@ export class JoplinTaskRunner {
   }
 
   /**
-   * [1] server:pull
-   * Joplin CLI를 이용하여 Joplin Server와 동기화하고 로컬 노트북을 export합니다.
-   */
-  public async runServerPull(targetPath: string): Promise<void> {
-    const serverUrl = process.env.JOPLIN_SERVER_URL;
-    const username = process.env.JOPLIN_USERNAME;
-    let password = process.env.JOPLIN_PASSWORD;
-    const decPassword = process.env.JOPLIN_DEC_PASSWORD;
-
-    if (!serverUrl || !username) {
-      throw new Error('Joplin CLI Server Pull을 기동하려면 JOPLIN_SERVER_URL, JOPLIN_USERNAME 환경변수가 필수입니다.');
-    }
-
-    if (!password) {
-      console.log('🔑 Joplin Password 환경 변수가 누락되었습니다.');
-      password = await PasswordPrompt.getPassword('Enter Joplin Password: ');
-      if (!password.trim()) {
-        throw new Error('Joplin 비밀번호 입력이 누락되어 동기화를 취소합니다.');
-      }
-    }
-
-    const cliService = new JoplinCliService();
-    await cliService.configureCredentials(serverUrl, username, password, decPassword);
-    await cliService.sync();
-
-    const notebooks = await cliService.getNotebooks();
-    console.log(`[JoplinTaskRunner] Found ${notebooks.length} notebooks. Commencing export...`);
-
-    const resolvedTargetDir = path.resolve(targetPath);
-    for (let i = 0; i < notebooks.length; i++) {
-      const notebook = notebooks[i];
-      const progressPrefix = `[${i + 1}/${notebooks.length}]`;
-      console.log(`${progressPrefix} Exporting notebook: "${notebook}"...`);
-
-      const cleanFolderName = JoplinTaskRunner.sanitizeDir(notebook);
-      const finalDir = path.join(resolvedTargetDir, cleanFolderName);
-      const tempExportDir = path.join(resolvedTargetDir, '.tmp_export', cleanFolderName);
-
-      try {
-        if (fs.existsSync(tempExportDir)) {
-          fs.rmSync(tempExportDir, { recursive: true, force: true });
-        }
-        fs.mkdirSync(tempExportDir, { recursive: true });
-
-        await cliService.exportNotebook(notebook, tempExportDir);
-
-        if (fs.existsSync(finalDir)) {
-          fs.rmSync(finalDir, { recursive: true, force: true });
-        }
-        fs.mkdirSync(path.dirname(finalDir), { recursive: true });
-        fs.renameSync(tempExportDir, finalDir);
-        console.log(`${progressPrefix} Exported "${notebook}" successfully.`);
-      } catch (err: any) {
-        console.error(`${progressPrefix} Failed to export "${notebook}": ${err.message}`);
-      }
-    }
-
-    const tempDirParent = path.join(resolvedTargetDir, '.tmp_export');
-    if (fs.existsSync(tempDirParent)) {
-      fs.rmSync(tempDirParent, { recursive: true, force: true });
-    }
-
-    console.log('[JoplinTaskRunner] Server sync and export completed.');
-  }
-
-  /**
-   * [2] server:push
-   * 로컬의 마크다운 서적 디렉터리를 Joplin CLI를 사용해 로컬 DB에 임포트하고, sync를 실행하여 서버로 푸시합니다.
-   */
-  public async runServerPush(fromPath: string, toPath?: string): Promise<void> {
-    const serverUrl = process.env.JOPLIN_SERVER_URL;
-    const username = process.env.JOPLIN_USERNAME;
-    let password = process.env.JOPLIN_PASSWORD;
-    const decPassword = process.env.JOPLIN_DEC_PASSWORD;
-
-    if (!serverUrl || !username) {
-      throw new Error('Joplin CLI Server Push를 기동하려면 JOPLIN_SERVER_URL, JOPLIN_USERNAME 환경변수가 필수입니다.');
-    }
-
-    if (!password) {
-      console.log('🔑 Joplin Password 환경 변수가 누락되었습니다.');
-      password = await PasswordPrompt.getPassword('Enter Joplin Password: ');
-      if (!password.trim()) {
-        throw new Error('Joplin 비밀번호 입력이 누락되어 푸시를 취소합니다.');
-      }
-    }
-
-    // 마크다운 책 정보 파싱
-    console.log(`[JoplinTaskRunner] Loading local book from: ${fromPath}`);
-    const book = MarkdownBookLoader.loadBook(fromPath);
-    const targetNotebookName = toPath || book.title;
-
-    const cliService = new JoplinCliService();
-    await cliService.configureCredentials(serverUrl, username, password, decPassword);
-
-    // Joplin CLI 로컬 DB로 임포트
-    await cliService.importNotebook(fromPath, targetNotebookName);
-
-    // 서버 동기화
-    console.log('[JoplinTaskRunner] Pushing imported notebook to server via CLI sync...');
-    await cliService.sync();
-
-    console.log('[JoplinTaskRunner] Server push completed.');
-  }
-
-  /**
    * 토큰이 없거나 유효하지 않을 때 Grant Permission auth flow를 통해 토큰을 해결합니다.
    * 실패 시 기존 interactive prompt로 fallback합니다.
    */
@@ -618,10 +390,10 @@ export class JoplinTaskRunner {
   }
 
   /**
-   * [3] client:pull
+   * [1] pull
    * 호스트 데스크톱 Joplin App Web Clipper API를 사용해 데이터를 백업/가져옵니다.
    */
-  public async runClientPull(targetPath: string): Promise<void> {
+  public async runPull(targetPath: string): Promise<void> {
     const apiUrl = process.env.JOPLIN_API_URL || DEFAULT_JOPLIN_API_URL;
     const token = await this.resolveToken(apiUrl);
 
@@ -701,14 +473,14 @@ export class JoplinTaskRunner {
       }
     }
 
-    console.log('[JoplinTaskRunner] Client pull completed.');
+    console.log('[JoplinTaskRunner] Pull completed.');
   }
 
   /**
-   * [4] client:push
+   * [2] push
    * 로컬 마크다운 서적을 호스트 데스크톱 Joplin App Web Clipper API로 전송(push)합니다.
    */
-  public async runClientPush(fromPath: string, toPath?: string): Promise<void> {
+  public async runPush(fromPath: string, toPath?: string): Promise<void> {
     const apiUrl = process.env.JOPLIN_API_URL || DEFAULT_JOPLIN_API_URL;
     const token = await this.resolveToken(apiUrl);
 
@@ -739,7 +511,7 @@ export class JoplinTaskRunner {
       }
     }
 
-    console.log('[JoplinTaskRunner] Client push completed.');
+    console.log('[JoplinTaskRunner] Push completed.');
   }
 }
 
