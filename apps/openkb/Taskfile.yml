@@ -111,7 +111,7 @@ tasks:
         --date-to         종료일 (YYYY-MM-DD)
         --sample          최대 파일 수
         --no-cache        캐시 사용 안함
-        --no-clean        출력 디렉토리 청소 안함
+        --full-rebuild    raw/ 초기화 후 전체 재처리 (증분 처리 비활성화)
         --streamlit       Streamlit GUI 모드
 
       [GUI]

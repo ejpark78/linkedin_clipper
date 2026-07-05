@@ -49,7 +49,7 @@ if OPENKB_DIR.exists():
 # 캐시
 # ===========================================================================
 class OpenKbCache:
-    cache_data: dict[str, float]
+    cache_data: dict[str, float | dict]
 
     def __init__(self, cache_path: Path) -> None:
         self.cache_path = cache_path
@@ -65,10 +65,27 @@ class OpenKbCache:
                 self.cache_data = {}
 
     def is_up_to_date(self, file_path: str, mtime_ms: float) -> bool:
-        return self.cache_data.get(file_path) == mtime_ms
+        entry = self.cache_data.get(file_path)
+        if isinstance(entry, dict):
+            return entry.get("mtime") == mtime_ms
+        return entry == mtime_ms
 
-    def update(self, file_path: str, mtime_ms: float) -> None:
-        self.cache_data[file_path] = mtime_ms
+    def update(self, file_path: str, mtime_ms: float, raw_name: str = "") -> None:
+        self.cache_data[file_path] = {"mtime": mtime_ms, "raw_name": raw_name}
+        try:
+            with open(self.cache_path, "w", encoding="utf-8") as f:
+                json.dump(self.cache_data, f, indent=2)
+        except Exception:
+            pass
+
+    def get_raw_names(self) -> set[str]:
+        return {
+            entry["raw_name"] for entry in self.cache_data.values()
+            if isinstance(entry, dict) and entry.get("raw_name")
+        }
+
+    def remove_by_source(self, file_path: str) -> None:
+        self.cache_data.pop(file_path, None)
         try:
             with open(self.cache_path, "w", encoding="utf-8") as f:
                 json.dump(self.cache_data, f, indent=2)
@@ -204,6 +221,42 @@ class LLMClient:
         return ""
 
     @staticmethod
+    def extract_metadata(
+        text: str, model: str,
+        engine: str = "ollama", api_key: str | None = None,
+    ) -> dict:
+        base = _api_url(engine)
+        prompt = _DOC_METADATA_PROMPT.format(content=text[:2000])
+        try:
+            if engine == "ollama":
+                payload = json.dumps({
+                    "model": model, "prompt": prompt, "stream": False, "format": "json",
+                }).encode("utf-8")
+                headers = {"Content-Type": "application/json"}
+                data = _request_json(f"{base}/api/generate", data=payload, headers=headers, timeout=180)
+                if data:
+                    raw = data.get("response", "").strip()
+                    return _parse_llm_metadata_response(raw)
+            else:
+                messages = [{"role": "user", "content": prompt}]
+                payload = json.dumps({
+                    "model": model, "messages": messages, "stream": False,
+                    "response_format": {"type": "json_object"},
+                }).encode("utf-8")
+                headers = {"Content-Type": "application/json"}
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                data = _request_json(f"{base}/v1/chat/completions", data=payload, headers=headers, timeout=180)
+                if data:
+                    choices = data.get("choices", [])
+                    if choices:
+                        raw = choices[0].get("message", {}).get("content", "").strip()
+                        return _parse_llm_metadata_response(raw)
+        except Exception as e:
+            print(f"⚠️ Metadata extraction failed: {e}")
+        return {}
+
+    @staticmethod
     def start_llama_server(model_path: str, port: int = 8080) -> subprocess.Popen | None:
         global _llama_server_proc
         if _llama_server_proc and _llama_server_proc.poll() is None:
@@ -283,13 +336,59 @@ def _clean_summary(raw: str) -> str:
     return clean
 
 # ===========================================================================
+# 메타데이터 추출 프롬프트
+# ===========================================================================
+_DOC_METADATA_PROMPT = """\
+Given the following document content, extract structured metadata.
+
+Return a JSON object with these fields:
+- "title": A very brief Korean summary (under 45 characters) for use as a filename
+- "description": A one-sentence description of the document's main topic
+- "category": Broad domain category (e.g., backend, frontend, ai-ml, devops, database, language, architecture, tool, design)
+- "sub_category": A more specific sub-domain within the category
+- "tags": An array of 3-7 keyword tags (technologies, patterns, concepts)
+
+Return ONLY valid JSON, no fences, no explanation.
+
+Document:
+{content}"""
+
+def _parse_llm_metadata_response(raw: str) -> dict:
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        first_nl = cleaned.find("\n")
+        cleaned = cleaned[first_nl + 1:] if first_nl != -1 else cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+    try:
+        parsed = json.loads(cleaned)
+        if not isinstance(parsed, dict):
+            return {}
+        return {
+            "title": str(parsed.get("title", "")),
+            "description": str(parsed.get("description", "")),
+            "category": str(parsed.get("category", "")),
+            "sub_category": str(parsed.get("sub_category", "")),
+            "tags": list(parsed.get("tags", [])),
+        }
+    except (json.JSONDecodeError, ValueError):
+        return {}
+
+# ===========================================================================
 # 헬퍼 함수
 # ===========================================================================
 def extract_title(
     content: str, date_folder: str, model: str,
     engine: str = "ollama", api_key: str | None = None,
-) -> str:
+) -> tuple[str, dict]:
+    """파일명(title)과 메타데이터(category, tags, description)를 추출.
+    
+    Returns:
+        (filename, metadata_dict) — 
+        metadata_dict: {"title", "description", "category", "sub_category", "tags"}
+    """
     date_part = date_folder.split("T")[0]
+    metadata: dict = {}
 
     frontmatter_title = re.search(r"^title:\s*(.+)$", content, re.MULTILINE)
     frontmatter_model = re.search(r"^model:\s*(.+)$", content, re.MULTILINE)
@@ -297,13 +396,15 @@ def extract_title(
     if frontmatter_title:
         title_value = frontmatter_title.group(1).strip()
         if title_value:
-            return f"{date_part}_{re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:40]}.md"
+            fn = f"{date_part}_{re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:40]}.md"
+            return fn, metadata
     if frontmatter_agent and frontmatter_agent.group(1).strip() == "codex":
         codex_title = re.search(r"^title:\s*Codex:\s*(.+)$", content, re.MULTILINE)
         if codex_title:
             title_value = codex_title.group(1).strip()
             if title_value:
-                return f"{date_part}_codex_{re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:36]}.md"
+                fn = f"{date_part}_codex_{re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:36]}.md"
+                return fn, metadata
     if frontmatter_model:
         model_value = frontmatter_model.group(1).strip()
         if model_value:
@@ -330,16 +431,23 @@ def extract_title(
     if not agent_response_combined:
         agent_response_combined = content[:2000]
 
-    summary = LLMClient.summarize(
-        agent_response_combined, model, extract_agent(content),
+    result = LLMClient.extract_metadata(
+        agent_response_combined, model,
         engine=engine, api_key=api_key,
     )
-    if summary:
-        if issue_match:
-            issue_no = f"#{issue_match.group(1)}"
-            if issue_no not in summary:
-                return f"{date_part}_{issue_no}_{summary}.md"
-        return f"{date_part}_{summary}.md"
+    metadata = result
+    title_text = result.get("title", "")
+
+    if title_text:
+        clean_title = _clean_summary(title_text)
+        if clean_title:
+            if issue_match:
+                issue_no = f"#{issue_match.group(1)}"
+                if issue_no not in clean_title:
+                    fn = f"{date_part}_{issue_no}_{clean_title}.md"
+                    return fn, metadata
+            fn = f"{date_part}_{clean_title}.md"
+            return fn, metadata
 
     first_request_match = re.search(r"<USER_REQUEST>([\s\S]*?)</USER_REQUEST>", content)
     first_request_text = first_request_match.group(1).strip() if first_request_match else ""
@@ -355,7 +463,7 @@ def extract_title(
         clean_title = re.sub(r"\s+", " ", clean_title).strip()[:40]
         if not clean_title:
             clean_title = "issue_task"
-        return f"{date_part}{issue_no}_{clean_title}.md"
+        return f"{date_part}{issue_no}_{clean_title}.md", metadata
 
     if first_request_text:
         first_line = first_request_text.split("\n")[0]
@@ -363,9 +471,9 @@ def extract_title(
         clean_title = re.sub(r"[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]", "", first_line)
         clean_title = re.sub(r"\s+", " ", clean_title).strip()[:40]
         if clean_title:
-            return f"{date_part}_{clean_title}.md"
+            return f"{date_part}_{clean_title}.md", metadata
 
-    return f"{date_part}_agent_session.md"
+    return f"{date_part}_agent_session.md", metadata
 
 def extract_agent(content: str) -> str | None:
     match = re.search(r"^agent:\s*(.+)$", content, re.MULTILINE)
@@ -434,6 +542,61 @@ def find_joplin_files(directory: Path) -> list[Path]:
     return results
 
 # ===========================================================================
+# 메타데이터 래핑
+# ===========================================================================
+def _wrap_with_metadata(content: str, metadata: dict) -> str:
+    """Add frontmatter and inline blockquote to content based on metadata dict."""
+    if not metadata:
+        return content
+
+    tags = metadata.get("tags", [])
+    category = metadata.get("category", "")
+    sub_category = metadata.get("sub_category", "")
+    description = metadata.get("description", "")
+
+    frontmatter_lines = []
+    if category and not re.search(r"^category:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"category: {category}")
+    if sub_category and not re.search(r"^sub_category:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"sub_category: {sub_category}")
+    if tags and not re.search(r"^tags:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"tags: {json.dumps(tags, ensure_ascii=False)}")
+    if description and not re.search(r"^description:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"description: {description}")
+
+    has_fm = content.startswith("---")
+    if frontmatter_lines:
+        new_fm_block = "\n".join(frontmatter_lines)
+        if has_fm:
+            end = content.find("---", 3)
+            if end != -1:
+                content = content[:end] + "\n" + new_fm_block + content[end:]
+        else:
+            content = f"---\n{new_fm_block}\n---\n\n{content}"
+
+    inline_parts = []
+    if category and sub_category:
+        inline_parts.append(f"> **분류:** {category} > {sub_category}")
+    elif category:
+        inline_parts.append(f"> **분류:** {category}")
+    if tags:
+        tag_str = ", ".join(tags)
+        inline_parts.append(f"> **태그:** {tag_str}")
+    if description:
+        inline_parts.append(f"> **설명:** {description}")
+
+    if inline_parts:
+        blockquote = "\n".join(inline_parts) + "\n\n"
+        body_start = content.find("\n\n", content.find("---", 3) + 3) if content.startswith("---") else -1
+        if body_start != -1:
+            content = content[:body_start + 2] + blockquote + content[body_start + 2:]
+        else:
+            content = content + "\n\n" + blockquote
+
+    return content
+
+
+# ===========================================================================
 # 핵심 컴파일 함수
 # ===========================================================================
 def compile_command(  # noqa: PLR0912, PLR0915
@@ -450,7 +613,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
     engine: str = "ollama",
     api_key: str | None = None,
     no_cache: bool = False,
-    no_clean: bool = False,
+    full_rebuild: bool = False,
     llama_port: int = 8080,
 ):
     """Compile agent transcripts and Joplin notes into OpenKB knowledge base."""
@@ -505,12 +668,13 @@ def compile_command(  # noqa: PLR0912, PLR0915
         raw_store = Path(output_path) if output_path else RAW_STORE
         cache_path = CACHE_PATH
 
-    if not no_clean:
-        print(f"🧹 Clearing {raw_store}...")
+    if full_rebuild:
+        print(f"🧹 Full rebuild: clearing {raw_store}...")
         if raw_store.exists():
             for item in raw_store.iterdir():
                 if item.is_file():
                     item.unlink()
+        cache_path.unlink(missing_ok=True)
     raw_store.mkdir(parents=True, exist_ok=True)
 
     # 입력 경로 결정
@@ -527,6 +691,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
     # 캐시 초기화
     cache = OpenKbCache(cache_path)
+    known_raw = cache.get_raw_names()
 
     # 에이전트 문서 처리
     processed_count = 0
@@ -571,7 +736,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
                     content = normalize_agent_content(content)
                     content = clean_broken_links(content, session_dir)
-                    title = extract_title(content, date_folder, model or "", engine=engine, api_key=api_key)
+                    title, metadata = extract_title(content, date_folder, model or "", engine=engine, api_key=api_key)
 
                     title_clean = title.replace(".md", "")
                     if len(title_clean) <= 12 or title_clean[10:].strip(" _") == "":
@@ -587,10 +752,11 @@ def compile_command(  # noqa: PLR0912, PLR0915
                         continue
 
                     dest = raw_store / title
+                    content = _wrap_with_metadata(content, metadata)
                     with open(dest, "w", encoding="utf-8") as f:
                         f.write(content)
                     print(f"      + Saved: {title}")
-                    cache.update(str(file_path), mtime)
+                    cache.update(str(file_path), mtime, raw_name=title)
                     saved += 1
                     processed_count += 1
 
@@ -634,15 +800,19 @@ def compile_command(  # noqa: PLR0912, PLR0915
                     with open(file_path, encoding="utf-8") as f:
                         content = f.read()
 
+                    _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
+
                     if not content.startswith("---"):
                         header = f"---\nsource: Joplin\nnotebook: {notebook_name}\n---\n\n"
                         content = header + content
+
+                    content = _wrap_with_metadata(content, metadata)
 
                     with open(dest_path, "w", encoding="utf-8") as f:
                         f.write(content)
 
                     print(f"      + Joplin: {dest_filename}")
-                    cache.update(str(file_path), mtime)
+                    cache.update(str(file_path), mtime, raw_name=dest_filename)
                     joplin_processed += 1
                 except Exception as e:
                     print(f"❌ Joplin error [{file_path}]: {e}")
@@ -655,10 +825,23 @@ def compile_command(  # noqa: PLR0912, PLR0915
     if compile_joplin:
         _copy_joplin_images(input_dirs, raw_store)
 
+    total_processed = processed_count + joplin_processed
     print(
         f"✨ Processed: {processed_count} agents, {joplin_processed} joplin "
         f"| Skipped: {skipped_count}, {joplin_skipped}"
     )
+
+    if raw_store.exists() and not full_rebuild:
+        known_raw = cache.get_raw_names()
+        for f in raw_store.iterdir():
+            if f.is_file() and f.name not in known_raw and f.name != "images":
+                print(f"   🗑️ Orphan raw file: {f.name}")
+                f.unlink()
+
+    if total_processed == 0:
+        print("⏭️ No changes detected. Skipping openkb add.")
+        LLMClient.stop_llama_server()
+        return
 
     # OpenKB compile
     print("🧠 Running openkb add...")
@@ -874,7 +1057,7 @@ def run_streamlit(**defaults: Any) -> None:
 @click.option("--date-to", default=None, help="종료일 (YYYY-MM-DD)")
 @click.option("--sample", type=int, default=None, help="카테고리당 최대 파일 수")
 @click.option("--no-cache", is_flag=True, help="캐시 사용 안함")
-@click.option("--no-clean", is_flag=True, help="출력 디렉토리 청소 안함")
+@click.option("--full-rebuild", is_flag=True, help="raw/ 초기화 후 전체 재처리 (증분 처리 비활성화)")
 @click.option("--llama-port", type=int, default=8080, help="llama.cpp 서버 포트 (기본값: 8080)")
 @click.option("--streamlit", is_flag=True, help="Streamlit GUI 모드")
 def compile(**kwargs):
