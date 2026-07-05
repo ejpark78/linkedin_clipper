@@ -14,9 +14,20 @@ import click
 # ===========================================================================
 # 환경 경로 동적 감지
 # ===========================================================================
+try:
+    _git_root = subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"],
+        stderr=subprocess.DEVNULL, text=True
+    ).strip()
+except Exception:
+    _git_root = None
+
 if Path("/data").exists():
     PROJECT_ROOT = Path("/data")
     OLLAMA_HOST = "host.docker.internal"
+elif _git_root:
+    PROJECT_ROOT = Path(_git_root) / "data"
+    OLLAMA_HOST = "127.0.0.1"
 else:
     PROJECT_ROOT = Path("/Users/ejpark/workspace/scraper/data")
     OLLAMA_HOST = "127.0.0.1"
@@ -477,6 +488,8 @@ def compile_command(  # noqa: PLR0912, PLR0915
     # 출력 경로 결정
     if output_base:
         base_dir = Path(output_base)
+        if not base_dir.is_absolute():
+            base_dir = PROJECT_ROOT / base_dir
         raw_store = base_dir / "raw"
         cache_path = base_dir / "cache.json"
         print(f"📂 Output base: {base_dir}")
