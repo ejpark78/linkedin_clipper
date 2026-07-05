@@ -25,9 +25,9 @@ services:
       - ${HOST_PROJECT_PATH:-.}/data:/data
     working_dir: /data/openkb
 
-  openkb-streamlit:
+  openkb-web:
     image: scraper/openkb:latest
-    container_name: scraper-openkb-streamlit
+    container_name: scraper-openkb-web
     profiles:
       - tools
     depends_on:

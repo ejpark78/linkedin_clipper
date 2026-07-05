@@ -53,7 +53,7 @@ tasks:
       [Usage Examples]
         - task openkb:web
     cmds:
-      - '{{.COMPOSE}} run --rm --service-ports {{.RUN_USER}} -e PYTHONUNBUFFERED=1 -e REDIS_URL="{{.REDIS_URL}}" openkb-streamlit'
+      - '{{.COMPOSE}} run --rm --service-ports {{.RUN_USER}} -e PYTHONUNBUFFERED=1 -e REDIS_URL="{{.REDIS_URL}}" openkb-web'
 
   worker:
     desc: "OpenKB Worker (processes Redis compile queue)"
