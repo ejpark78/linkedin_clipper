@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,7 @@ def run(
 
     total_processed = 0
     total_skipped = 0
+    pipeline_start = time.time()
 
     en_out = open(entities_path, "w", encoding="utf-8")
 
@@ -64,25 +66,39 @@ def run(
             files = handler.collect_files(input_dir)
             files = handler.filter_files(files, date_from, date_to, filter_args)
             print(f"  [{handler.name}] {len(files)} file(s)")
+            print(f"  📊 ETA 계산: 첫 파일 처리 후 예상 시간 표시")
 
             processed = 0
+            file_times: list[float] = []
             for file_path in files:
                 if sample and processed >= sample:
                     print(f"  Sample limit {sample} reached.")
                     break
 
+                file_start = time.time()
                 p, s = handler.process_file(
                     file_path, input_dir, raw_store, cache, no_cache,
                     model, engine, api_key,
-                    entities_writer=en_out,
+                    entities_writer=en_out, chunk_size=chunk_size,
                 )
+                file_elapsed = time.time() - file_start
                 processed += p
                 total_processed += p
                 total_skipped += s
 
+                if p and file_elapsed > 1:
+                    file_times.append(file_elapsed)
+                    remaining = len(files) - processed
+                    avg = sum(file_times) / len(file_times)
+                    eta = avg * remaining
+                    pct = processed / len(files) * 100
+                    print(f"  📊 진행률: {processed}/{len(files)} ({pct:.0f}%) - ETA: ~{eta:.0f}s ({avg:.0f}s/file)")
+
             handler.post_process([input_dir], raw_store)
 
         print(f"  Processed: {total_processed} | Skipped: {total_skipped}")
+        total_elapsed = time.time() - pipeline_start
+        print(f"  Total time: {total_elapsed:.1f}s")
         print(f"  Output: {output_path}/")
 
     finally:

@@ -6,13 +6,14 @@ import json
 import os
 import re
 import shutil
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
 from .cache import FileCache
 from .config import PreprocessConfig
-from .llm_client import extract as llm_extract
+from .llm_client import extract as llm_extract, extract_map_reduce
 
 
 class SourceHandler(ABC):
@@ -47,6 +48,7 @@ class SourceHandler(ABC):
         raw_store: Path, cache: FileCache, no_cache: bool,
         model: str | None, engine: str, api_key: str | None,
         entities_writer: Any = None,
+        chunk_size: int = 1500,
     ) -> tuple[int, int]:
         """단일 파일 처리. 반환: (processed, skipped)"""
 
@@ -107,6 +109,7 @@ class AgentHandler(SourceHandler):
         raw_store: Path, cache: FileCache, no_cache: bool,
         model: str | None, engine: str, api_key: str | None,
         entities_writer: Any = None,
+        chunk_size: int = 1500,
     ) -> tuple[int, int]:
         mtime = file_path.stat().st_mtime
         if not no_cache and cache.is_up_to_date(str(file_path), mtime):
@@ -124,7 +127,12 @@ class AgentHandler(SourceHandler):
         date_match = re.match(r"(\d{4}-\d{2}-\d{2})", date_str)
         date_val = date_match.group(1) if date_match else None
 
-        llm_result = llm_extract(content, source_type="agent", model=model, engine=engine, api_key=api_key)
+        t0 = time.time()
+        llm_result = extract_map_reduce(content, model=model, engine=engine, api_key=api_key, chunk_size=chunk_size)
+        llm_elapsed = time.time() - t0
+
+        if not llm_result.get("title") and not llm_result.get("entities"):
+            print(f"  ⚠️ LLM returned empty result for {file_path.name}")
 
         if entities_writer and llm_result.get("entities"):
             import hashlib
@@ -141,7 +149,8 @@ class AgentHandler(SourceHandler):
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / filename
         dest.write_text(_wrap_with_metadata(content, llm_result), encoding="utf-8")
-        print(f"      + Saved: {dest_dir.name}/{filename}")
+        total_elapsed = time.time() - t0
+        print(f"      + Saved: {dest_dir.name}/{filename} ({total_elapsed:.1f}s)")
         cache.update(str(file_path), mtime, raw_name=f"{dest_dir.name}/{filename}")
         return 1, 0
 
@@ -192,6 +201,7 @@ class JoplinHandler(SourceHandler):
         raw_store: Path, cache: FileCache, no_cache: bool,
         model: str | None, engine: str, api_key: str | None,
         entities_writer: Any = None,
+        chunk_size: int = 1500,
     ) -> tuple[int, int]:
         mtime = file_path.stat().st_mtime
         if not no_cache and cache.is_up_to_date(str(file_path), mtime):
@@ -203,7 +213,11 @@ class JoplinHandler(SourceHandler):
 
         rel_parent = file_path.parent.relative_to(source_dir)
 
-        llm_result = llm_extract(content, source_type="joplin", model=model, engine=engine, api_key=api_key)
+        t0 = time.time()
+        llm_result = extract_map_reduce(content, model=model, engine=engine, api_key=api_key, chunk_size=chunk_size)
+
+        if not llm_result.get("title") and not llm_result.get("entities"):
+            print(f"  ⚠️ LLM returned empty result for {file_path.name}")
 
         if entities_writer and llm_result.get("entities"):
             import hashlib
@@ -223,7 +237,8 @@ class JoplinHandler(SourceHandler):
         dest = dest_dir / file_path.name
         dest.write_text(_wrap_with_metadata(content, llm_result), encoding="utf-8")
         raw_ref = f"{rel_parent}/{file_path.name}"
-        print(f"      + Joplin: {raw_ref}")
+        total_elapsed = time.time() - t0
+        print(f"      + Joplin: {raw_ref} ({total_elapsed:.1f}s)")
         cache.update(str(file_path), mtime, raw_name=raw_ref)
         return 1, 0
 
@@ -292,6 +307,7 @@ def _wrap_with_metadata(content: str, metadata: dict) -> str:
     category: str = metadata.get("category", "")
     sub_category: str = metadata.get("sub_category", "")
     description: str = metadata.get("description", "")
+    entities: list[dict] = metadata.get("entities", [])
 
     frontmatter_lines: list[str] = []
     if category and not re.search(r"^category:\s", content, re.MULTILINE):
@@ -302,6 +318,8 @@ def _wrap_with_metadata(content: str, metadata: dict) -> str:
         frontmatter_lines.append(f"tags: {json.dumps(tags, ensure_ascii=False)}")
     if description and not re.search(r"^description:\s", content, re.MULTILINE):
         frontmatter_lines.append(f"description: {description}")
+    if entities and not re.search(r"^entities:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"entities: {json.dumps(entities, ensure_ascii=False)}")
 
     has_fm = content.startswith("---")
     if frontmatter_lines:
@@ -309,7 +327,7 @@ def _wrap_with_metadata(content: str, metadata: dict) -> str:
         if has_fm:
             end = content.find("---", 3)
             if end != -1:
-                content = content[:end] + "\n" + new_fm_block + content[end:]
+                content = content[:end] + "\n" + new_fm_block + "\n" + content[end:]
         else:
             content = f"---\n{new_fm_block}\n---\n\n{content}"
 
