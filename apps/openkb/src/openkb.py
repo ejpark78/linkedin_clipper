@@ -659,7 +659,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
     print("🧠 Running openkb add...")
     raw_contents = os.listdir(raw_store) if raw_store.exists() else []
     if raw_contents:
-        _run_openkb_add(raw_store, engine, model, api_key, output_base)
+        _run_openkb_add(raw_store, engine, model, api_key, raw_store.parent)
     else:
         print("   No files to compile.")
 
@@ -767,11 +767,11 @@ def _filter_joplin_notebook(files: list[Path], notebooks: tuple[str, ...] | None
 
 def _run_openkb_add(
     raw_store: Path, engine: str, model: str | None,
-    api_key: str | None, output_base: str | None = None,
+    api_key: str | None, output_base: Path | None = None,
 ):
     env = os.environ.copy()
     if output_base:
-        ob = Path(output_base)
+        ob = output_base
         ob.mkdir(parents=True, exist_ok=True)
         (ob / ".openkb").mkdir(parents=True, exist_ok=True)
         (ob / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
@@ -794,8 +794,8 @@ def _run_openkb_add(
             f"known_kbs:\n"
             f"- {ob}\n"
         )
-        env["OPENKB_HOME"] = str(ob)
-        env["HOME"] = str(ob)
+        env["OPENKB_HOME"] = str(ob.resolve())
+        env["HOME"] = str(ob.resolve())
     if engine == "ollama":
         env["OPENAI_API_BASE"] = f"http://{OLLAMA_HOST}:11434/v1"
     elif engine == "llama.cpp":
@@ -808,7 +808,7 @@ def _run_openkb_add(
         env["LLM_MODEL"] = model
 
     try:
-        subprocess.run(["openkb", "add", str(raw_store)], env=env, check=True)
+        subprocess.run(["openkb", "add", str(raw_store)], env=env, check=True, cwd=ob)
         print("✅ OpenKB compile complete.")
     except subprocess.CalledProcessError as e:
         print(f"❌ openkb add failed: {e}")
