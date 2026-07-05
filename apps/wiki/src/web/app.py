@@ -247,7 +247,7 @@ def _render_setup_tab() -> None:
         st.text_input("Output Directory", key="output", help="Input 경로 변경 시 자동 mirror. 직접 수정 시 auto-sync 중단.")
 
         if st.session_state.pipeline_step == "preprocess":
-            st.number_input("Chunk Size (tokens)", min_value=500, value=2000, step=500, key="chunk_size")
+            st.number_input("Chunk Size (tokens)", min_value=500, value=1500, step=500, key="chunk_size", step=500, help="LLM 입력 토큰 제한에 맞춰 chunk size를 조정하세요.")
 
         st.markdown("### 💡 CLI Guide")
         st.code(_build_cli_cmd(), language="bash")
