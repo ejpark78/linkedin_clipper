@@ -1,133 +1,25 @@
 """
 OpenKB Compile Pipeline — 문서 수집 → 정규화 → 메타데이터 추출 → raw 저장 → openkb add.
 
-의존성: config, cache, metadata, llm
+의존성: config, cache, metadata, llm, handlers
 """
 from __future__ import annotations
 
-import json
 import os
-import re
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from cache import OpenKbCache
 from config import OpenKbConfig
+from handlers import make_handlers, SourceHandler
 from llm import LLMClient
-from metadata import extract_title, wrap_with_metadata
 
-
-# ====================================================================
-# Source scanner — 파일 탐색 및 필터링
-# ====================================================================
-
-class SourceScanner:
-    def __init__(self, cfg: OpenKbConfig) -> None:
-        self.cfg = cfg
-
-    def find_agent_docs(self, src_dir: Path) -> list[Path]:
-        results: list[Path] = []
-        if not src_dir.exists():
-            return results
-        seen = set()
-        for root, _, files in os.walk(src_dir):
-            sid = Path(root).name
-            if sid in seen:
-                continue
-            if "session.md" in files:
-                results.append(Path(root) / "session.md")
-                seen.add(sid)
-            elif "transcript.md" in files:
-                results.append(Path(root) / "transcript.md")
-                seen.add(sid)
-        return results
-
-    def find_joplin_files(self, src_dir: Path) -> list[Path]:
-        results: list[Path] = []
-        if not src_dir.exists():
-            return results
-        for root, _, files in os.walk(src_dir):
-            for f in files:
-                if f.endswith(".md") and not f.startswith("."):
-                    if ".tmp_export" in root:
-                        continue
-                    results.append(Path(root) / f)
-        return results
-
-    @staticmethod
-    def filter_by_date(files: list[Path], date_from: str | None, date_to: str | None) -> list[Path]:
-        if not date_from and not date_to:
-            return files
-        result: list[Path] = []
-        for f in files:
-            date_str = f.parent.parent.name
-            m = re.match(r"(\d{4}-\d{2}-\d{2})", date_str)
-            if not m:
-                result.append(f)
-                continue
-            d = m.group(1)
-            if date_from and d < date_from:
-                continue
-            if date_to and d > date_to:
-                continue
-            result.append(f)
-        return result
-
-    @staticmethod
-    def filter_by_agent_type(files: list[Path], agent_types: tuple[str, ...] | None) -> list[Path]:
-        if not agent_types:
-            return files
-        types = set(agent_types)
-        return [f for f in files if f.parent.parent.parent.name in types]
-
-    @staticmethod
-    def filter_joplin_notebook(files: list[Path], notebooks: tuple[str, ...] | None) -> list[Path]:
-        if not notebooks:
-            return files
-        nb_set = set(notebooks)
-        return [f for f in files if f.parent.name in nb_set]
-
-
-# ====================================================================
-# Content processor — 정규화, 링크 정리
-# ====================================================================
-
-class ContentProcessor:
-    @staticmethod
-    def normalize_agent_content(content: str) -> str:
-        cleaned = re.sub(r"^\[tool-event\]\s*$", "", content, flags=re.MULTILINE)
-        cleaned = re.sub(r"^\[(TRACE|DEBUG|INFO|WARN|ERROR)\]\s+[^\n]+\n", "", cleaned, flags=re.MULTILINE)
-        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-        return cleaned.strip()
-
-    @staticmethod
-    def clean_broken_links(content: str, session_dir: Path) -> str:
-        def _replace(m: re.Match) -> str:
-            text, url = m.group(1), m.group(2)
-            if url.startswith("http://") or url.startswith("https://"):
-                return m.group(0)
-            clean_url = url.replace("file://", "")
-            if clean_url.startswith("./") or not clean_url.startswith("/"):
-                target = (session_dir / clean_url).resolve()
-            else:
-                target = Path(clean_url).resolve()
-            if not target.exists():
-                return text
-            return m.group(0)
-        return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _replace, content)
-
-
-# ====================================================================
-# Compile Pipeline — 오케스트레이터
-# ====================================================================
 
 class CompilePipeline:
     def __init__(self, cfg: OpenKbConfig | None = None) -> None:
         self.cfg = cfg or OpenKbConfig.from_env()
-        self.scanner = SourceScanner(self.cfg)
-        self.processor = ContentProcessor()
+        self.handlers: list[SourceHandler] = make_handlers(self.cfg)
 
     def run(
         self,
@@ -147,7 +39,6 @@ class CompilePipeline:
         llama_port: int = 8080,
     ) -> None:
         print(f"\U0001f916 OpenKB Compile Pipeline (engine: {engine})")
-
         model = self._resolve_model(model, engine)
         print(f"\U0001f9e0 Model: [{model or 'auto'}]")
 
@@ -165,32 +56,39 @@ class CompilePipeline:
         input_dirs = self._resolve_input_dirs(input_paths)
         cache = OpenKbCache(cache_path)
 
-        date_from_dt = _parse_date(date_from or os.environ.get("DATE_FROM"))
-        date_to_dt = _parse_date(date_to or os.environ.get("DATE_TO"))
-        if sample is None:
-            sample_env = os.environ.get("SAMPLE")
-            sample = int(sample_env) if sample_env and sample_env.strip().isdigit() else None
+        date_from_dt = self._parse_date(date_from or os.environ.get("DATE_FROM"))
+        date_to_dt = self._parse_date(date_to or os.environ.get("DATE_TO"))
+        sample_val = self._resolve_sample(sample)
 
-        proc_agent, skip_agent = self._process_agents(
-            input_dirs, agents, date_from_dt, date_to_dt,
-            sample, no_cache, cache, raw_store, model, engine, api_key,
-        )
-        proc_joplin, skip_joplin = self._process_joplin(
-            input_dirs, joplin_notebooks, date_from_dt, date_to_dt,
-            sample, no_cache, cache, raw_store, model, engine, api_key,
-        )
-        if any("joplin" in str(d) for d in input_dirs):
-            _copy_joplin_images(input_dirs, raw_store)
+        filter_args: dict = {}
+        if agents:
+            filter_args["agent_types"] = agents
+        if joplin_notebooks:
+            filter_args["joplin_notebooks"] = joplin_notebooks
 
-        total = proc_agent + proc_joplin
-        print(
-            f"\u2728 Processed: {proc_agent} agents, {proc_joplin} joplin "
-            f"| Skipped: {skip_agent}, {skip_joplin}"
-        )
+        total_processed = 0
+        total_skipped = 0
+        results: list[str] = []
+
+        for input_dir in input_dirs:
+            dir_result = self._process_input_dir(
+                input_dir, raw_store, cache, no_cache, sample_val,
+                date_from_dt, date_to_dt, filter_args,
+                model, engine, api_key,
+            )
+            total_processed += dir_result["processed"]
+            total_skipped += dir_result["skipped"]
+            if dir_result["handler"]:
+                results.append(dir_result["handler"])
+
+        for handler in self.handlers:
+            handler.post_process(input_dirs, raw_store)
+
+        print(f"\u2728 Processed: {total_processed} | Skipped: {total_skipped}" if total_processed or total_skipped else "   No files to process.")
 
         self._clean_orphans(raw_store, cache, full_rebuild)
 
-        if total == 0:
+        if total_processed == 0:
             print("\u23ed\ufe0f No changes detected. Skipping openkb add.")
             LLMClient.stop_llama_server()
             return
@@ -200,11 +98,45 @@ class CompilePipeline:
             _run_openkb_add(raw_store, engine, model, api_key, raw_store.parent)
         else:
             print("   No files to compile.")
-
         LLMClient.stop_llama_server()
 
+    def _process_input_dir(
+        self, input_dir: Path,
+        raw_store: Path, cache: OpenKbCache, no_cache: bool, sample: int | None,
+        date_from: str | None, date_to: str | None,
+        filter_args: dict,
+        model: str | None, engine: str, api_key: str | None,
+    ) -> dict:
+        result: dict = {"processed": 0, "skipped": 0, "handler": ""}
+
+        for handler in self.handlers:
+            if not handler.detect(input_dir):
+                continue
+            result["handler"] = handler.name
+            files = handler.collect_files(input_dir)
+            files = handler.filter_files(files, date_from, date_to, filter_args)
+            print(f"\U0001f4c1 [{handler.name}] {input_dir.name}: {len(files)} file(s)")
+
+            processed = 0
+            skipped = 0
+            for file_path in files:
+                if sample is not None and processed >= sample:
+                    print(f"   \U0001f9ea Sample limit {sample} reached.")
+                    break
+                p, s = handler.process_file(
+                    file_path, input_dir, raw_store, cache, no_cache,
+                    model, engine, api_key,
+                )
+                processed += p
+                skipped += s
+            result["processed"] = processed
+            result["skipped"] = skipped
+            break
+
+        return result
+
     # ------------------------------------------------------------------
-    # Private steps
+    # Private helpers
     # ------------------------------------------------------------------
 
     def _resolve_model(self, model: str | None, engine: str) -> str | None:
@@ -256,130 +188,29 @@ class CompilePipeline:
                         cand = Path.cwd().joinpath(pp)
                     result.append(cand)
             return result
-
         raw_env = os.environ.get("RAW", "data/agents,data/joplin")
         targets = [t.strip() for t in raw_env.split(",") if t.strip()]
-        result = []
+        result: list[Path] = []
         for t in targets:
             parts = Path(t).parts
             sub = Path(*parts[1:]) if len(parts) > 1 and parts[0] == "data" else Path(t)
             result.append(self.cfg.project_root / sub)
         return result
 
-    def _process_agents(
-        self, input_dirs: list[Path], agents: tuple[str, ...] | None,
-        date_from: str | None, date_to: str | None,
-        sample: int | None, no_cache: bool, cache: OpenKbCache,
-        raw_store: Path, model: str | None, engine: str, api_key: str | None,
-    ) -> tuple[int, int]:
-        processed = 0
-        skipped = 0
-        if not any("agents" in str(d) for d in input_dirs):
-            print("\u23ed\ufe0f Agent transcripts skipped.")
-            return processed, skipped
+    @staticmethod
+    def _resolve_sample(sample: int | None) -> int | None:
+        if sample is not None:
+            return sample
+        sample_env = os.environ.get("SAMPLE")
+        return int(sample_env) if sample_env and sample_env.strip().isdigit() else None
 
-        src_dir = _find_agent_source_dir(input_dirs, self.cfg)
-        if not src_dir:
-            print("\u23ed\ufe0f No agent source directory found.")
-            return processed, skipped
-
-        transcripts = self.scanner.find_agent_docs(src_dir)
-        transcripts = SourceScanner.filter_by_date(transcripts, date_from, date_to)
-        transcripts = SourceScanner.filter_by_agent_type(transcripts, agents)
-
-        print(f"\U0001f4c1 Agent transcripts: {len(transcripts)}")
-        saved = 0
-        for i, file_path in enumerate(transcripts):
-            if sample is not None and saved >= sample:
-                print(f"   \U0001f9ea Sample limit {sample} reached.")
-                break
-            mtime = file_path.stat().st_mtime
-
-            if not no_cache and cache.is_up_to_date(str(file_path), mtime):
-                skipped += 1
-                continue
-
-            try:
-                folder, filename, metadata = extract_title(
-                    self._read_and_prepare(file_path), file_path.parent.parent.name,
-                    model or "", engine=engine, api_key=api_key,
-                )
-                if not _validate_filename(filename):
-                    continue
-
-                content = self._read_and_prepare(file_path)
-                dest_dir = raw_store / folder
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                dest = dest_dir / filename
-                dest.write_text(wrap_with_metadata(content, metadata), encoding="utf-8")
-                print(f"      + Saved: {folder}/{filename}")
-                cache.update(str(file_path), mtime, raw_name=f"{folder}/{filename}")
-                saved += 1
-                processed += 1
-                if sample is not None and saved >= sample:
-                    break
-            except Exception as e:
-                print(f"\u274c Error [{file_path}]: {e}")
-        return processed, skipped
-
-    def _read_and_prepare(self, file_path: Path) -> str:
-        content = file_path.read_text(encoding="utf-8")
-        if not content or len(content.strip()) < 10:
-            return ""
-        content = self.processor.normalize_agent_content(content)
-        content = self.processor.clean_broken_links(content, file_path.parent)
-        return content
-
-    def _process_joplin(
-        self, input_dirs: list[Path], notebooks: tuple[str, ...] | None,
-        date_from: str | None, date_to: str | None,
-        sample: int | None, no_cache: bool, cache: OpenKbCache,
-        raw_store: Path, model: str | None, engine: str, api_key: str | None,
-    ) -> tuple[int, int]:
-        processed = 0
-        skipped = 0
-        if not any("joplin" in str(d) for d in input_dirs):
-            print("\u23ed\ufe0f Joplin notes skipped.")
-            return processed, skipped
-
-        joplin_dir = _find_joplin_source_dir(input_dirs, self.cfg)
-        if not joplin_dir:
-            print("\u23ed\ufe0f No Joplin source directory found.")
-            return processed, skipped
-
-        files = self.scanner.find_joplin_files(joplin_dir)
-        files = SourceScanner.filter_joplin_notebook(files, notebooks)
-
-        print(f"\U0001f4c1 Joplin notes: {len(files)}")
-        for i, file_path in enumerate(files):
-            if sample is not None and processed >= sample:
-                print(f"   \U0001f9ea Sample limit {sample} reached.")
-                break
-            mtime = file_path.stat().st_mtime
-            if not no_cache and cache.is_up_to_date(str(file_path), mtime):
-                skipped += 1
-                continue
-
-            try:
-                rel_parent = file_path.parent.relative_to(joplin_dir)
-                content = file_path.read_text(encoding="utf-8")
-                _, _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
-
-                if not content.startswith("---"):
-                    content = f"---\nsource: Joplin\nnotebook: {file_path.parent.name}\n---\n\n{content}"
-
-                dest_dir = raw_store / rel_parent
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                dest = dest_dir / file_path.name
-                dest.write_text(wrap_with_metadata(content, metadata), encoding="utf-8")
-
-                raw_ref = f"{rel_parent}/{file_path.name}"
-                print(f"      + Joplin: {raw_ref}")
-                cache.update(str(file_path), mtime, raw_name=raw_ref)
-                processed += 1
-            except Exception as e:
-                print(f"\u274c Joplin error [{file_path}]: {e}")
-        return processed, skipped
+    @staticmethod
+    def _parse_date(s: str | None) -> str | None:
+        if not s:
+            return None
+        s = s.strip()
+        import re
+        return s if re.match(r"^\d{4}-\d{2}-\d{2}$", s) else None
 
     @staticmethod
     def _clean_orphans(raw_store: Path, cache: OpenKbCache, full_rebuild: bool) -> None:
@@ -398,68 +229,11 @@ class CompilePipeline:
 
 
 # ====================================================================
-# Public API (backward compat)
+# Public API
 # ====================================================================
 
 def compile_command(**kwargs: Any) -> None:
-    pipeline = CompilePipeline()
-    pipeline.run(**kwargs)
-
-
-# ====================================================================
-# Internal helpers
-# ====================================================================
-
-def _parse_date(s: str | None) -> str | None:
-    if not s:
-        return None
-    s = s.strip()
-    return s if re.match(r"^\d{4}-\d{2}-\d{2}$", s) else None
-
-
-def _find_agent_source_dir(input_dirs: list[Path], cfg: OpenKbConfig) -> Path | None:
-    for d in input_dirs:
-        if "agents" in str(d):
-            return d
-    return cfg.dump_dir if cfg.dump_dir.exists() else None
-
-
-def _find_joplin_source_dir(input_dirs: list[Path], cfg: OpenKbConfig) -> Path | None:
-    for d in input_dirs:
-        if "joplin" in str(d):
-            return d
-    return cfg.joplin_dir if cfg.joplin_dir.exists() else None
-
-
-def _validate_filename(filename: str) -> bool:
-    SKIP = ["\uc870\uce58_\uc5c6\uc74c", "no suggestions", "no_suggestions",
-            "suggestions_none", "\uc870\uce58\uc5c6\uc74c", "\ubb34\uc5c7\uc774\ub4e0 \ub2f5\ubcc0", "\ubb34\uc5c7\uc774\ub4e0\ub2f5\ubcc0"]
-    name = filename.replace(".md", "")
-    if len(name) <= 12 or name[10:].strip(" _") == "":
-        print(f"   \u26a0\ufe0f Invalid filename: '{filename}'")
-        return False
-    if any(k in name.lower() for k in SKIP):
-        print(f"   \u26a0\ufe0f No-op session: '{filename}'")
-        return False
-    return True
-
-
-def _copy_joplin_images(input_dirs: list[Path], raw_store: Path) -> None:
-    dest_images = raw_store / "images"
-    dest_images.mkdir(parents=True, exist_ok=True)
-    copied = 0
-    for src_dir in input_dirs:
-        if not src_dir.exists():
-            continue
-        for images_dir in src_dir.rglob("images"):
-            if not images_dir.is_dir():
-                continue
-            for img in images_dir.iterdir():
-                if img.is_file():
-                    shutil.copy2(img, dest_images / img.name)
-                    copied += 1
-    if copied:
-        print(f"   Copied {copied} images to {dest_images}")
+    CompilePipeline().run(**kwargs)
 
 
 def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None, output_base: Path | None = None) -> None:
