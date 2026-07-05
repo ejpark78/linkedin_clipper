@@ -94,11 +94,11 @@ tasks:
       ● llama.cpp
           GGUF 목록 조회:   task openkb:llama:list
           서버 실행:         llama-server -m <gguf_path> --host 127.0.0.1 --port 8080
-          CLI 자동 실행:     task openkb:compile --engine llama.cpp --model <gguf_path>
+          CLI 자동 실행:     task openkb:compile -- --engine llama.cpp --model <gguf_path>
 
       ● unsloth (CLI 전용)
           서버:     unsloth studio -H 0.0.0.0 -p 8888
-          사용법:   task openkb:compile --engine unsloth --model <model>
+          사용법:   task openkb:compile -- --engine unsloth --model <model>
 
       [Options]
         --engine, -e      LLM 엔진 (ollama / llama.cpp / unsloth)

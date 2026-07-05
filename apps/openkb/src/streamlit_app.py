@@ -117,7 +117,7 @@ def _show_engine_help() -> None:
             "**서버 실행:**\n"
             "`llama-server -m ~/path/to/model.gguf --host 127.0.0.1 --port 8080`\n\n"
             "**CLI 자동 실행 (권장):**\n"
-            "`task openkb:compile --engine llama.cpp --model ~/path/to/model.gguf`"
+            "`task openkb:compile -- --engine llama.cpp --model ~/path/to/model.gguf`"
         )
     else:
         st.info(
@@ -129,7 +129,7 @@ def _show_engine_help() -> None:
 
 
 def _build_cli_cmd() -> str:
-    parts = ["task openkb:compile"]
+    parts = ["task openkb:compile --"]
     engine = st.session_state.engine
     model = _get_model_value()
     if model:
