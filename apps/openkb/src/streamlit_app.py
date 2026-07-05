@@ -237,7 +237,7 @@ def main() -> None:
             st.markdown("**Selected:**")
             for p in sorted(st.session_state.selected_paths):
                 try:
-                    rel = Path(p).relative_to(PROJECT_ROOT)
+                rel = Path(p).relative_to(PROJECT_ROOT.parent)
                     st.markdown(f"- `{rel}`")
                 except ValueError:
                     st.markdown(f"- `{p}`")
@@ -261,7 +261,7 @@ def main() -> None:
 
         _show_engine_help()
 
-        st.text_input("Output Base Directory", value="/data/obsidian", key="output_base")
+        st.text_input("Output Base Directory", value="data/obsidian", key="output_base")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.code(_build_cli_cmd(), language="bash")

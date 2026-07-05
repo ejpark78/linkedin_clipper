@@ -489,7 +489,10 @@ def compile_command(  # noqa: PLR0912, PLR0915
     if output_base:
         base_dir = Path(output_base)
         if not base_dir.is_absolute():
-            base_dir = PROJECT_ROOT / base_dir
+            if base_dir.parts and base_dir.parts[0] == "data":
+                base_dir = PROJECT_ROOT / Path(*base_dir.parts[1:])
+            else:
+                base_dir = PROJECT_ROOT / base_dir
         elif not Path("/data").exists() and base_dir.parts[:2] == ("/", "data"):
             base_dir = PROJECT_ROOT / Path(*base_dir.parts[2:])
         raw_store = base_dir / "raw"
@@ -681,8 +684,11 @@ def _resolve_input_dirs(input_paths: tuple[str, ...] | None) -> list[Path]:
             if pp.is_absolute():
                 result.append(pp)
             else:
-                # Try relative to PROJECT_ROOT first, then cwd
-                cand = PROJECT_ROOT / pp
+                if pp.parts and pp.parts[0] == "data":
+                    rel = Path(*pp.parts[1:])
+                else:
+                    rel = pp
+                cand = PROJECT_ROOT / rel
                 if not cand.exists():
                     cand = Path.cwd().joinpath(pp)
                 result.append(cand)
