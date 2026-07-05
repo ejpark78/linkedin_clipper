@@ -48,7 +48,7 @@ class CompilePipeline:
             exit(1)
 
         input_dirs = self._resolve_input_dirs(input_paths)
-        raw_store, cache_path = self._resolve_output(output, input_dirs[0] if input_dirs else None)
+        raw_store, cache_path = self._resolve_output(output, input_dirs)
 
         if full_rebuild:
             self._clear_raw(raw_store, cache_path)
@@ -130,14 +130,11 @@ class CompilePipeline:
 
         return result
 
-    def _resolve_output(self, output_path: str | None, input_dir: Path | None) -> tuple[Path, Path]:
+    def _resolve_output(self, output_path: str | None, input_dirs: list[Path] | None) -> tuple[Path, Path]:
         if output_path:
             root = Path(output_path).resolve()
-        elif input_dir and self.cfg.output_prefix:
-            try:
-                rel = input_dir.relative_to(self.cfg.project_root)
-            except ValueError:
-                rel = input_dir
+        elif input_dirs and self.cfg.output_prefix:
+            rel = _common_rel_parent(input_dirs, self.cfg.project_root)
             root = Path(self.cfg.output_prefix).resolve() / rel
         else:
             root = self.cfg.openkb_dir
@@ -231,6 +228,22 @@ class CompilePipeline:
 
 def compile_command(**kwargs: Any) -> None:
     CompilePipeline().run(**kwargs)
+
+
+def _common_rel_parent(dirs: list[Path], base: Path) -> Path:
+    """여러 input 디렉토리의 공통 부모를 base 기준 상대경로로 반환."""
+    if len(dirs) == 1:
+        try:
+            return dirs[0].relative_to(base)
+        except ValueError:
+            return dirs[0]
+    import os
+    common = os.path.commonpath([str(d) for d in dirs])
+    rel = Path(common)
+    try:
+        return rel.relative_to(base)
+    except ValueError:
+        return rel
 
 
 def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None, kb_root: Path) -> None:

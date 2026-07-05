@@ -7,6 +7,7 @@ Streamlit GUI for OpenKB Compiler — Job Queue Mode.
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -123,6 +124,17 @@ def _mirror_output(input_path: str, output_prefix: str) -> str:
         return output_prefix
 
 
+def _mirror_common(paths: list[str], output_prefix: str) -> str:
+    """여러 input 경로의 공통 부모 기준 mirror. 실패 시 첫 번째 경로 기준."""
+    try:
+        if len(paths) == 1:
+            return _mirror_output(paths[0], output_prefix)
+        common = Path(os.path.commonpath(paths))
+        return _mirror_output(str(common), output_prefix)
+    except Exception:
+        return _mirror_output(paths[0], output_prefix) if paths else output_prefix
+
+
 def _sync_output_on_input() -> None:
     """Input 경로 변경 시 Output 필드를 mirror 경로로 자동 갱신.
     사용자가 Output을 직접 수정한 경우 auto-sync 중단."""
@@ -131,13 +143,9 @@ def _sync_output_on_input() -> None:
     auto_ref = st.session_state.get("output_auto", "data/obsidian")
 
     if paths:
-        first = paths[0]
-        # base prefix = auto_ref에서 input 상대경로를 제외한 부분
         try:
-            rel = Path(first).relative_to(_project_root())
-            base_prefix = "data/obsidian"
-            mirror = str(Path(base_prefix) / rel)
-        except ValueError:
+            mirror = _mirror_common(paths, "data/obsidian")
+        except Exception:
             return
 
         if current == auto_ref or not current:
