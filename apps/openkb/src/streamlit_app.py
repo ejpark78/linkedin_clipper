@@ -261,7 +261,7 @@ def main() -> None:
 
         _show_engine_help()
 
-        st.text_input("Output Base Directory", value="/data/test", key="output_base")
+        st.text_input("Output Base Directory", value="/data/obsidian", key="output_base")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.code(_build_cli_cmd(), language="bash")

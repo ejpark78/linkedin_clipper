@@ -117,7 +117,7 @@ tasks:
       [GUI]
         task openkb:compile:gui  →  https://kb.localhost
     cmds:
-      - 'uv run python -m src.openkb {{.CLI_ARGS}}'
+      - 'cd apps/openkb && uv run python -m src.openkb {{.CLI_ARGS}}'
 
   shell:
     desc: Open interactive shell in the OpenKB container.
