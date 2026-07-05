@@ -24,6 +24,6 @@ include:
   - tools/obsidian/docker/compose.yml
   - apps/wiki/docker/web/compose.yml
   - apps/wiki/docker/worker/compose.yml
-  - tools/joplin/docker/compose.yml
+  - apps/wiki/docker/joplin/compose.yml
   - infra/autoheal/docker/compose.yml
 
