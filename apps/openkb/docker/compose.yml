@@ -85,5 +85,5 @@ services:
     command:
       - python
       - -m
-      - src.openkb
+      - src
       - worker

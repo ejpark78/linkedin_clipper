@@ -63,7 +63,7 @@ tasks:
       [Usage Examples]
         - task openkb:worker
     cmds:
-      - 'cd apps/openkb && uv run python -m src.openkb worker'
+      - 'cd apps/openkb && uv run python -m src worker'
 
   llama:list:
     desc: "llama.cpp 사용 가능한 GGUF 모델 목록"
@@ -128,7 +128,7 @@ tasks:
         task openkb:web        →  https://kb.localhost (작업 큐 등록)
         task openkb:worker     →  워커 실행 (큐 소비)
     cmds:
-      - 'cd apps/openkb && uv run python -m src.openkb compile {{.CLI_ARGS}}'
+      - 'cd apps/openkb && uv run python -m src compile {{.CLI_ARGS}}'
 
   shell:
     desc: Open interactive shell in the OpenKB container.

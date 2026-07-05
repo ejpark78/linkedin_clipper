@@ -12,8 +12,11 @@ from pathlib import Path
 
 import streamlit as st
 
-from openkb import PROJECT_ROOT, LLMClient
-from openkb import enqueue_job, list_jobs, get_job_progress, get_job_result
+from config import OpenKbConfig
+from llm import LLMClient
+from queue import enqueue_job, list_jobs, get_job_progress, get_job_result
+
+__PROJECT_ROOT = OpenKbConfig.from_env().project_root
 
 
 def _init_session_state() -> None:
@@ -115,7 +118,7 @@ def _build_cli_cmd() -> str:
     if paths:
         for p in paths:
             try:
-                rel = Path(p).relative_to(PROJECT_ROOT.parent)
+                rel = Path(p).relative_to(_PROJECT_ROOT.parent)
                 parts.append(f"--input {_quote(str(rel))}")
             except ValueError:
                 parts.append(f"--input {_quote(p)}")
@@ -146,7 +149,7 @@ def _render_setup_tab() -> None:
 
     with left_col:
         st.subheader("\U0001f4c1 Sources")
-        _render_tree(PROJECT_ROOT)
+        _render_tree(_PROJECT_ROOT)
 
         st.markdown("---")
         st.text_input(
@@ -158,7 +161,7 @@ def _render_setup_tab() -> None:
         if st.button("\u2795 Add custom path", key="add_path_btn"):
             cp = st.session_state.custom_path_text.strip()
             if cp:
-                full = PROJECT_ROOT / cp
+                full = _PROJECT_ROOT / cp
                 st.session_state.selected_paths.add(str(full))
                 st.rerun()
 
@@ -166,7 +169,7 @@ def _render_setup_tab() -> None:
             st.markdown("**Selected:**")
             for p in sorted(st.session_state.selected_paths):
                 try:
-                    rel = Path(p).relative_to(PROJECT_ROOT.parent)
+                    rel = Path(p).relative_to(_PROJECT_ROOT.parent)
                     st.markdown(f"- `{rel}`")
                 except ValueError:
                     st.markdown(f"- `{p}`")

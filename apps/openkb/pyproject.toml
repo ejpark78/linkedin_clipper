@@ -18,7 +18,7 @@ dependencies = [
 prerelease = "allow"
 
 [tool.poe.tasks]
-compile = "python -m src.openkb"
+compile = "python -m src"
 lint = "ruff check src/"
 format = "ruff format src/"
 format-check = "ruff format --check src/"
