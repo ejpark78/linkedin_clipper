@@ -638,7 +638,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
     print("🧠 Running openkb add...")
     raw_contents = os.listdir(raw_store) if raw_store.exists() else []
     if raw_contents:
-        _run_openkb_add(raw_store, engine, model, api_key)
+        _run_openkb_add(raw_store, engine, model, api_key, output_base)
     else:
         print("   No files to compile.")
 
@@ -741,8 +741,21 @@ def _filter_joplin_notebook(files: list[Path], notebooks: tuple[str, ...] | None
     return [f for f in files if f.parent.name in nb_set]
 
 
-def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None):
+def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None, output_base: str | None = None):
     env = os.environ.copy()
+    if output_base:
+        ob = Path(output_base)
+        ob.mkdir(parents=True, exist_ok=True)
+        (ob / ".openkb").mkdir(parents=True, exist_ok=True)
+        (ob / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
+        src_config = Path("/data/openkb/.openkb/config.yaml")
+        src_global = Path("/data/openkb/.config/openkb/global.yaml")
+        if src_config.exists():
+            (ob / ".openkb" / "config.yaml").write_text(src_config.read_text())
+        if src_global.exists():
+            (ob / ".config" / "openkb" / "global.yaml").write_text(src_global.read_text())
+        env["OPENKB_HOME"] = output_base
+        env["HOME"] = output_base
     if engine == "ollama":
         env["OPENAI_API_BASE"] = f"http://{OLLAMA_HOST}:11434/v1"
     elif engine == "llama.cpp":
