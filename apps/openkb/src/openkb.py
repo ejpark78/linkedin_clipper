@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -650,6 +651,10 @@ def compile_command(  # noqa: PLR0912, PLR0915
     else:
         print("⏭️ Joplin notes skipped.")
 
+    # Joplin source 디렉토리에서 images/ 복사
+    if compile_joplin:
+        _copy_joplin_images(input_dirs, raw_store)
+
     print(
         f"✨ Processed: {processed_count} agents, {joplin_processed} joplin "
         f"| Skipped: {skipped_count}, {joplin_skipped}"
@@ -664,6 +669,23 @@ def compile_command(  # noqa: PLR0912, PLR0915
         print("   No files to compile.")
 
     LLMClient.stop_llama_server()
+
+
+def _copy_joplin_images(input_dirs: list[Path], raw_store: Path) -> None:
+    """Joplin export의 images/ 디렉토리에서 raw_store/images/로 이미지 복사"""
+    dest_images = raw_store / "images"
+    dest_images.mkdir(parents=True, exist_ok=True)
+    copied = 0
+    for src_dir in input_dirs:
+        images_dir = src_dir / "images"
+        if not images_dir.exists():
+            continue
+        for img in images_dir.iterdir():
+            if img.is_file():
+                shutil.copy2(img, dest_images / img.name)
+                copied += 1
+    if copied:
+        print(f"   Copied {copied} images to {dest_images}")
 
 
 def _detect_ollama_model() -> str:
