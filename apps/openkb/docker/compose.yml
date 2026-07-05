@@ -38,7 +38,7 @@ services:
       - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
       - OPENAI_API_BASE=${OPENAI_API_BASE:-http://host.docker.internal:11434/v1}
       - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
-      - HOME=/app
+      - HOME=/tmp
       - SKIP_OPENKB_CONFIG=1
     extra_hosts:
       - "host.docker.internal:host-gateway"
