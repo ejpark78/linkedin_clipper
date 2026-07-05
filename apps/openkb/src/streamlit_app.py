@@ -110,6 +110,15 @@ def _quote(val: str) -> str:
     return f'"{val}"' if " " in val else val
 
 
+def _mirror_output(input_path: str, output_prefix: str) -> str:
+    """input 절대경로에서 project_root 이하 상대경로를 추출, output_prefix에 이어붙임."""
+    try:
+        rel = Path(input_path).relative_to(_project_root())
+        return str(Path(output_prefix) / rel)
+    except ValueError:
+        return output_prefix
+
+
 def _build_cli_cmd() -> str:
     parts = ["task openkb:compile --"]
     engine = st.session_state.engine
@@ -121,13 +130,17 @@ def _build_cli_cmd() -> str:
     if paths:
         for p in paths:
             try:
-                rel = Path(p).relative_to(_project_root().parent)
+                rel = Path(p).relative_to(_project_root())
                 parts.append(f"--input {_quote(str(rel))}")
             except ValueError:
                 parts.append(f"--input {_quote(p)}")
     out = st.session_state.get("output", "").strip()
     if out:
-        parts.append(f"--output {_quote(out)}")
+        if paths:
+            mirror = _mirror_output(paths[0], out)
+            parts.append(f"--output {_quote(mirror)}")
+        else:
+            parts.append(f"--output {_quote(out)}")
     sample = st.session_state.get("sample_limit", 0)
     if sample and int(sample) > 0:
         parts.append(f"--sample {int(sample)}")
@@ -141,7 +154,12 @@ def _gather_selections() -> dict:
     paths = sorted(st.session_state.selected_paths)
     if paths:
         selections["input_paths"] = tuple(paths)
-    selections["output"] = st.session_state.get("output", "").strip() or None
+    out = st.session_state.get("output", "").strip() or None
+    if out:
+        if paths:
+            selections["output"] = _mirror_output(paths[0], out)
+        else:
+            selections["output"] = out
     selections.pop("output_path", None)
     sample = st.session_state.get("sample_limit", 0)
     selections["sample"] = int(sample) if sample and int(sample) > 0 else None
