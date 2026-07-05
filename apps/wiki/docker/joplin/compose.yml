@@ -13,7 +13,6 @@ services:
         - BUILD_DATE
         - VCS_REF
     image: scraper/wiki-tool:latest
-    working_dir: /app/apps/wiki
     profiles:
       - tools
     environment:

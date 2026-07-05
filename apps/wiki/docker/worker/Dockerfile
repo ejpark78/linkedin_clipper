@@ -13,8 +13,8 @@ WORKDIR /app
 COPY apps/wiki/pyproject.toml apps/wiki/uv.lock /app/
 RUN uv pip install --system --no-cache --prerelease=allow -r /app/pyproject.toml
 
-COPY apps/wiki/src /app/src
+COPY apps/wiki/src/ /app/
 
 WORKDIR /app
 
-CMD ["python", "-m", "src.worker", "worker"]
+CMD ["python", "-m", "worker", "worker"]

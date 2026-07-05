@@ -13,8 +13,8 @@ WORKDIR /app
 COPY apps/wiki/pyproject.toml apps/wiki/uv.lock /app/
 RUN uv pip install --system --no-cache --prerelease=allow -r /app/pyproject.toml
 
-COPY apps/wiki/src /app/src
+COPY apps/wiki/src/ /app/
 
 WORKDIR /app
 
-CMD ["streamlit", "run", "src/web/app.py", "--server.port=8501", "--server.headless=true", "--server.fileWatcherType=none"]
+CMD ["streamlit", "run", "web/app.py", "--server.port=8501", "--server.headless=true", "--server.fileWatcherType=none"]
