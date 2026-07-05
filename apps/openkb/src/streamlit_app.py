@@ -191,7 +191,7 @@ def _render_setup_tab() -> None:
             st.markdown("**Selected:**")
             for p in sorted(st.session_state.selected_paths):
                 try:
-                    rel = Path(p).relative_to(_project_root().parent)
+                    rel = Path(p).relative_to(_project_root())
                     st.markdown(f"- `{rel}`")
                 except ValueError:
                     st.markdown(f"- `{p}`")
@@ -203,7 +203,14 @@ def _render_setup_tab() -> None:
         st.radio("LLM Engine", engines, index=eng_idx, horizontal=True, key="engine")
         st.selectbox("Model", st.session_state.model_options, key="model_select")
 
-        st.text_input("Output Directory", value="data/obsidian", key="output")
+        col_out, _ = st.columns([1, 1])
+        with col_out:
+            st.text_input("Output Prefix", value="data/obsidian", key="output", help="이 프리픽스 아래에 input 상대경로가 mirror됩니다")
+            paths = sorted(st.session_state.selected_paths)
+            out = st.session_state.get("output", "").strip()
+            if paths and out:
+                effective = _mirror_output(paths[0], out)
+                st.caption(f"Effective output: `{effective}`")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.markdown("### \U0001f4a1 CLI Guide")
