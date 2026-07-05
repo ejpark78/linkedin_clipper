@@ -14,7 +14,7 @@ import streamlit as st
 
 from config import OpenKbConfig
 from llm import LLMClient
-from queue import enqueue_job, list_jobs, get_job_progress, get_job_result
+from jobs import enqueue_job, list_jobs, get_job_progress, get_job_result
 
 __PROJECT_ROOT = OpenKbConfig.from_env().project_root
 

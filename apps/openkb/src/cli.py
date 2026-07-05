@@ -13,7 +13,7 @@ from typing import Any
 import click
 
 from pipeline import compile_command
-from queue import run_worker
+from jobs import run_worker
 
 
 @click.group()
