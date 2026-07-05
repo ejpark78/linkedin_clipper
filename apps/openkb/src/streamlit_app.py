@@ -35,6 +35,8 @@ def _init_session_state() -> None:
         st.session_state.tab = "설정"
     if "last_job_id" not in st.session_state:
         st.session_state.last_job_id = None
+    if "output_auto" not in st.session_state:
+        st.session_state.output_auto = "data/obsidian"
 
 
 def _refresh_models() -> None:
@@ -119,6 +121,35 @@ def _mirror_output(input_path: str, output_prefix: str) -> str:
         return output_prefix
 
 
+def _sync_output_on_input() -> None:
+    """Input 경로 변경 시 Output 필드를 mirror 경로로 자동 갱신.
+    사용자가 Output을 직접 수정한 경우 auto-sync 중단."""
+    paths = sorted(st.session_state.selected_paths)
+    current = st.session_state.get("output", "").strip()
+    auto_ref = st.session_state.get("output_auto", "data/obsidian")
+
+    if paths:
+        first = paths[0]
+        # base prefix = auto_ref에서 input 상대경로를 제외한 부분
+        try:
+            rel = Path(first).relative_to(_project_root())
+            base_prefix = "data/obsidian"
+            mirror = str(Path(base_prefix) / rel)
+        except ValueError:
+            return
+
+        if current == auto_ref or not current:
+            # 사용자가 건드리지 않음 → auto 갱신
+            if mirror != current:
+                st.session_state.output = mirror
+                st.session_state.output_auto = mirror
+                st.rerun()
+    else:
+        if current == auto_ref or not current:
+            st.session_state.output = "data/obsidian"
+            st.session_state.output_auto = "data/obsidian"
+
+
 def _build_cli_cmd() -> str:
     parts = ["task openkb:compile --"]
     engine = st.session_state.engine
@@ -136,11 +167,7 @@ def _build_cli_cmd() -> str:
                 parts.append(f"--input {_quote(p)}")
     out = st.session_state.get("output", "").strip()
     if out:
-        if paths:
-            mirror = _mirror_output(paths[0], out)
-            parts.append(f"--output {_quote(mirror)}")
-        else:
-            parts.append(f"--output {_quote(out)}")
+        parts.append(f"--output {_quote(out)}")
     sample = st.session_state.get("sample_limit", 0)
     if sample and int(sample) > 0:
         parts.append(f"--sample {int(sample)}")
@@ -156,10 +183,7 @@ def _gather_selections() -> dict:
         selections["input_paths"] = tuple(paths)
     out = st.session_state.get("output", "").strip() or None
     if out:
-        if paths:
-            selections["output"] = _mirror_output(paths[0], out)
-        else:
-            selections["output"] = out
+        selections["output"] = out
     selections.pop("output_path", None)
     sample = st.session_state.get("sample_limit", 0)
     selections["sample"] = int(sample) if sample and int(sample) > 0 else None
@@ -203,14 +227,8 @@ def _render_setup_tab() -> None:
         st.radio("LLM Engine", engines, index=eng_idx, horizontal=True, key="engine")
         st.selectbox("Model", st.session_state.model_options, key="model_select")
 
-        col_out, _ = st.columns([1, 1])
-        with col_out:
-            st.text_input("Output Prefix", value="data/obsidian", key="output", help="이 프리픽스 아래에 input 상대경로가 mirror됩니다")
-            paths = sorted(st.session_state.selected_paths)
-            out = st.session_state.get("output", "").strip()
-            if paths and out:
-                effective = _mirror_output(paths[0], out)
-                st.caption(f"Effective output: `{effective}`")
+        st.text_input("Output Directory", value="data/obsidian", key="output", help="Input 경로 변경 시 자동 mirror. 직접 수정 시 auto-sync 중단.")
+        _sync_output_on_input()
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.markdown("### \U0001f4a1 CLI Guide")
