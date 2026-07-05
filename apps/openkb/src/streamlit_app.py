@@ -37,6 +37,8 @@ def _init_session_state() -> None:
         st.session_state.last_job_id = None
     if "output_auto" not in st.session_state:
         st.session_state.output_auto = "data/obsidian"
+    if "output" not in st.session_state:
+        st.session_state.output = "data/obsidian"
 
 
 def _refresh_models() -> None:
@@ -227,8 +229,8 @@ def _render_setup_tab() -> None:
         st.radio("LLM Engine", engines, index=eng_idx, horizontal=True, key="engine")
         st.selectbox("Model", st.session_state.model_options, key="model_select")
 
-        st.text_input("Output Directory", value="data/obsidian", key="output", help="Input 경로 변경 시 자동 mirror. 직접 수정 시 auto-sync 중단.")
         _sync_output_on_input()
+        st.text_input("Output Directory", key="output", help="Input 경로 변경 시 자동 mirror. 직접 수정 시 auto-sync 중단.")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.markdown("### \U0001f4a1 CLI Guide")
