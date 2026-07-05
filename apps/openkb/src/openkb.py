@@ -751,14 +751,20 @@ def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: st
         ob.mkdir(parents=True, exist_ok=True)
         (ob / ".openkb").mkdir(parents=True, exist_ok=True)
         (ob / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
-        for candidate in [OPENKB_DIR, Path("/data/openkb")]:
-            src_config = candidate / ".openkb" / "config.yaml"
-            src_global = candidate / ".config" / "openkb" / "global.yaml"
-            if src_config.exists():
-                (ob / ".openkb" / "config.yaml").write_text(src_config.read_text())
-                print(f"   config: {src_config} → {ob}/.openkb/config.yaml")
-            if src_global.exists():
-                (ob / ".config" / "openkb" / "global.yaml").write_text(src_global.read_text())
+        api_url = f"http://{OLLAMA_HOST}:{ENGINE_PORTS[engine]}"
+        model_ref = model or "default"
+        (ob / ".openkb" / "config.yaml").write_text(
+            f"model: {engine}/{model_ref}\n"
+            f"api_base: {api_url}\n"
+            f"api_key: anything\n"
+            f"language: ko\n"
+            f"pageindex_threshold: 20\n"
+        )
+        (ob / ".config" / "openkb" / "global.yaml").write_text(
+            f"default_kb: {ob}\n"
+            f"known_kbs:\n"
+            f"- {ob}\n"
+        )
         env["OPENKB_HOME"] = str(ob)
         env["HOME"] = str(ob)
     if engine == "ollama":
