@@ -139,7 +139,7 @@ def _build_cli_cmd() -> str:
     if paths:
         for p in paths:
             try:
-                rel = Path(p).relative_to(PROJECT_ROOT)
+                rel = Path(p).relative_to(PROJECT_ROOT.parent)
                 parts.append(f"-i {rel}")
             except ValueError:
                 parts.append(f"-i {p}")
