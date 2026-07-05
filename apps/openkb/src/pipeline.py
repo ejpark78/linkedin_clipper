@@ -177,6 +177,9 @@ class CompilePipeline:
                 if pp.is_absolute():
                     result.append(pp)
                 else:
+                    parts = pp.parts
+                    if parts and parts[0] == "data":
+                        pp = Path(*parts[1:])
                     cand = self.cfg.project_root / pp
                     if not cand.exists():
                         cand = Path.cwd().joinpath(pp)
