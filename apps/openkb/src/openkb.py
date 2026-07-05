@@ -490,6 +490,8 @@ def compile_command(  # noqa: PLR0912, PLR0915
         base_dir = Path(output_base)
         if not base_dir.is_absolute():
             base_dir = PROJECT_ROOT / base_dir
+        elif not Path("/data").exists() and base_dir.parts[:2] == ("/", "data"):
+            base_dir = PROJECT_ROOT / Path(*base_dir.parts[2:])
         raw_store = base_dir / "raw"
         cache_path = base_dir / "cache.json"
         print(f"📂 Output base: {base_dir}")
