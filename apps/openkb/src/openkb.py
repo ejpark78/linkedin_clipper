@@ -744,18 +744,26 @@ def _filter_joplin_notebook(files: list[Path], notebooks: tuple[str, ...] | None
     return [f for f in files if f.parent.name in nb_set]
 
 
-def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None, output_base: str | None = None):
+def _run_openkb_add(
+    raw_store: Path, engine: str, model: str | None,
+    api_key: str | None, output_base: str | None = None,
+):
     env = os.environ.copy()
     if output_base:
         ob = Path(output_base)
         ob.mkdir(parents=True, exist_ok=True)
         (ob / ".openkb").mkdir(parents=True, exist_ok=True)
         (ob / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
-        api_url = f"http://{OLLAMA_HOST}:{ENGINE_PORTS[engine]}"
         model_ref = model or "default"
+        if engine == "llama.cpp":
+            config_model = f"openai/{model_ref}"
+            config_base = f"http://{OLLAMA_HOST}:{ENGINE_PORTS[engine]}/v1"
+        else:
+            config_model = f"{engine}/{model_ref}"
+            config_base = f"http://{OLLAMA_HOST}:{ENGINE_PORTS[engine]}"
         (ob / ".openkb" / "config.yaml").write_text(
-            f"model: {engine}/{model_ref}\n"
-            f"api_base: {api_url}\n"
+            f"model: {config_model}\n"
+            f"api_base: {config_base}\n"
             f"api_key: anything\n"
             f"language: ko\n"
             f"pageindex_threshold: 20\n"
