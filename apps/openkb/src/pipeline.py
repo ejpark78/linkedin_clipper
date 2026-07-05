@@ -362,7 +362,7 @@ class CompilePipeline:
 
             try:
                 notebook_name = file_path.parent.name
-                folder_name = f"Joplin_{notebook_name}"
+                folder_name = f"Joplin/{notebook_name}"
                 content = file_path.read_text(encoding="utf-8")
                 _, _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
 
