@@ -22,7 +22,7 @@ services:
       - TZ=${TZ:-Asia/Seoul}
     volumes:
       # /config/Obsidian 내부로 위키 디렉토리를 바인딩하여 자동 로딩되게 설정
-      - ${HOST_PROJECT_PATH:-.}/data/obsidian:/config/Obsidian
+      - ${HOST_PROJECT_PATH:-.}/data/obsidian:/obsidian
     shm_size: "1gb"
     restart: unless-stopped
     labels:
