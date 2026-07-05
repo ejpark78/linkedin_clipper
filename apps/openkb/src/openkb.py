@@ -380,14 +380,16 @@ def _parse_llm_metadata_response(raw: str) -> dict:
 def extract_title(
     content: str, date_folder: str, model: str,
     engine: str = "ollama", api_key: str | None = None,
-) -> tuple[str, dict]:
+) -> tuple[str, str, dict]:
     """파일명(title)과 메타데이터(category, tags, description)를 추출.
     
     Returns:
-        (filename, metadata_dict) — 
+        (date_folder_name, filename, metadata_dict) — 
+        date_folder_name: 날짜 또는 소스 식별자 (디렉토리명)
+        filename: 확장자 포함 파일명
         metadata_dict: {"title", "description", "category", "sub_category", "tags"}
     """
-    date_part = date_folder.split("T")[0]
+    date_part = date_folder.split("T")[0] if date_folder else ""
     metadata: dict = {}
 
     frontmatter_title = re.search(r"^title:\s*(.+)$", content, re.MULTILINE)
@@ -396,15 +398,19 @@ def extract_title(
     if frontmatter_title:
         title_value = frontmatter_title.group(1).strip()
         if title_value:
-            fn = f"{date_part}_{re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:40]}.md"
-            return fn, metadata
+            clean = re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:40].strip()
+            if not clean:
+                clean = "agent_session"
+            return date_part, f"{clean}.md", metadata
     if frontmatter_agent and frontmatter_agent.group(1).strip() == "codex":
         codex_title = re.search(r"^title:\s*Codex:\s*(.+)$", content, re.MULTILINE)
         if codex_title:
             title_value = codex_title.group(1).strip()
             if title_value:
-                fn = f"{date_part}_codex_{re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:36]}.md"
-                return fn, metadata
+                clean = re.sub(r'[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]', '', title_value)[:36].strip()
+                if not clean:
+                    clean = "agent_session"
+                return date_part, f"codex_{clean}.md", metadata
     if frontmatter_model:
         model_value = frontmatter_model.group(1).strip()
         if model_value:
@@ -444,10 +450,8 @@ def extract_title(
             if issue_match:
                 issue_no = f"#{issue_match.group(1)}"
                 if issue_no not in clean_title:
-                    fn = f"{date_part}_{issue_no}_{clean_title}.md"
-                    return fn, metadata
-            fn = f"{date_part}_{clean_title}.md"
-            return fn, metadata
+                    return date_part, f"{issue_no}_{clean_title}.md", metadata
+            return date_part, f"{clean_title}.md", metadata
 
     first_request_match = re.search(r"<USER_REQUEST>([\s\S]*?)</USER_REQUEST>", content)
     first_request_text = first_request_match.group(1).strip() if first_request_match else ""
@@ -455,7 +459,7 @@ def extract_title(
         first_request_text = content[:500]
 
     if issue_match:
-        issue_no = f"_#{issue_match.group(1)}"
+        issue_no = f"#{issue_match.group(1)}"
         first_line = first_request_text.split("\n")[0] if first_request_text else "issue_task"
         first_line = re.sub(r"[#*`~\[\]\(\)<>\-_]", " ", first_line)
         first_line = re.sub(r"https?://[^\s]+", "", first_line).strip()
@@ -463,7 +467,7 @@ def extract_title(
         clean_title = re.sub(r"\s+", " ", clean_title).strip()[:40]
         if not clean_title:
             clean_title = "issue_task"
-        return f"{date_part}{issue_no}_{clean_title}.md", metadata
+        return date_part, f"{issue_no}_{clean_title}.md", metadata
 
     if first_request_text:
         first_line = first_request_text.split("\n")[0]
@@ -471,9 +475,9 @@ def extract_title(
         clean_title = re.sub(r"[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]", "", first_line)
         clean_title = re.sub(r"\s+", " ", clean_title).strip()[:40]
         if clean_title:
-            return f"{date_part}_{clean_title}.md", metadata
+            return date_part, f"{clean_title}.md", metadata
 
-    return f"{date_part}_agent_session.md", metadata
+    return date_part, "agent_session.md", metadata
 
 def extract_agent(content: str) -> str | None:
     match = re.search(r"^agent:\s*(.+)$", content, re.MULTILINE)
@@ -736,11 +740,11 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
                     content = normalize_agent_content(content)
                     content = clean_broken_links(content, session_dir)
-                    title, metadata = extract_title(content, date_folder, model or "", engine=engine, api_key=api_key)
+                    folder_name, filename, metadata = extract_title(content, date_folder, model or "", engine=engine, api_key=api_key)
 
-                    title_clean = title.replace(".md", "")
+                    title_clean = filename.replace(".md", "")
                     if len(title_clean) <= 12 or title_clean[10:].strip(" _") == "":
-                        print(f"   ⚠️ Invalid title: '{title}'")
+                        print(f"   ⚠️ Invalid filename: '{filename}'")
                         continue
 
                     skip_keywords = [
@@ -748,15 +752,17 @@ def compile_command(  # noqa: PLR0912, PLR0915
                         "suggestions_none", "조치없음", "무엇이든 답변", "무엇이든답변",
                     ]
                     if any(k in title_clean.lower() for k in skip_keywords):
-                        print(f"   ⚠️ No-op session: '{title}'")
+                        print(f"   ⚠️ No-op session: '{filename}'")
                         continue
 
-                    dest = raw_store / title
+                    dest_dir = raw_store / folder_name
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    dest = dest_dir / filename
                     content = _wrap_with_metadata(content, metadata)
                     with open(dest, "w", encoding="utf-8") as f:
                         f.write(content)
-                    print(f"      + Saved: {title}")
-                    cache.update(str(file_path), mtime, raw_name=title)
+                    print(f"      + Saved: {folder_name}/{filename}")
+                    cache.update(str(file_path), mtime, raw_name=f"{folder_name}/{filename}")
                     saved += 1
                     processed_count += 1
 
@@ -793,14 +799,13 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
                 try:
                     notebook_name = file_path.parent.name
-                    filename = file_path.name
-                    dest_filename = f"Joplin_{notebook_name}_{filename}"
-                    dest_path = raw_store / dest_filename
+                    fname = file_path.name
+                    folder_name = f"Joplin_{notebook_name}"
 
                     with open(file_path, encoding="utf-8") as f:
                         content = f.read()
 
-                    _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
+                    _, _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
 
                     if not content.startswith("---"):
                         header = f"---\nsource: Joplin\nnotebook: {notebook_name}\n---\n\n"
@@ -808,11 +813,15 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
                     content = _wrap_with_metadata(content, metadata)
 
-                    with open(dest_path, "w", encoding="utf-8") as f:
+                    dest_dir = raw_store / folder_name
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    dest = dest_dir / fname
+                    with open(dest, "w", encoding="utf-8") as f:
                         f.write(content)
 
-                    print(f"      + Joplin: {dest_filename}")
-                    cache.update(str(file_path), mtime, raw_name=dest_filename)
+                    raw_ref = f"{folder_name}/{fname}"
+                    print(f"      + Joplin: {raw_ref}")
+                    cache.update(str(file_path), mtime, raw_name=raw_ref)
                     joplin_processed += 1
                 except Exception as e:
                     print(f"❌ Joplin error [{file_path}]: {e}")
@@ -833,10 +842,15 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
     if raw_store.exists() and not full_rebuild:
         known_raw = cache.get_raw_names()
-        for f in raw_store.iterdir():
-            if f.is_file() and f.name not in known_raw and f.name != "images":
-                print(f"   🗑️ Orphan raw file: {f.name}")
-                f.unlink()
+        for sub in raw_store.iterdir():
+            if not sub.is_dir() or sub.name == "images":
+                continue
+            for f in sub.iterdir():
+                if f.is_file() and f"{sub.name}/{f.name}" not in known_raw:
+                    print(f"   🗑️ Orphan raw file: {sub.name}/{f.name}")
+                    f.unlink()
+            if not list(sub.iterdir()):
+                sub.rmdir()
 
     if total_processed == 0:
         print("⏭️ No changes detected. Skipping openkb add.")
