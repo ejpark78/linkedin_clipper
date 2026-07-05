@@ -479,6 +479,9 @@ def compile_command(  # noqa: PLR0912, PLR0915
         base_dir = Path(output_base)
         raw_store = base_dir / "raw"
         cache_path = base_dir / "cache.json"
+        print(f"📂 Output base: {base_dir}")
+        print(f"   raw/  → {raw_store}")
+        print(f"   cache → {cache_path}")
     else:
         raw_store = Path(output_path) if output_path else RAW_STORE
         cache_path = CACHE_PATH
@@ -748,14 +751,16 @@ def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: st
         ob.mkdir(parents=True, exist_ok=True)
         (ob / ".openkb").mkdir(parents=True, exist_ok=True)
         (ob / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
-        src_config = Path("/data/openkb/.openkb/config.yaml")
-        src_global = Path("/data/openkb/.config/openkb/global.yaml")
-        if src_config.exists():
-            (ob / ".openkb" / "config.yaml").write_text(src_config.read_text())
-        if src_global.exists():
-            (ob / ".config" / "openkb" / "global.yaml").write_text(src_global.read_text())
-        env["OPENKB_HOME"] = output_base
-        env["HOME"] = output_base
+        for candidate in [OPENKB_DIR, Path("/data/openkb")]:
+            src_config = candidate / ".openkb" / "config.yaml"
+            src_global = candidate / ".config" / "openkb" / "global.yaml"
+            if src_config.exists():
+                (ob / ".openkb" / "config.yaml").write_text(src_config.read_text())
+                print(f"   config: {src_config} → {ob}/.openkb/config.yaml")
+            if src_global.exists():
+                (ob / ".config" / "openkb" / "global.yaml").write_text(src_global.read_text())
+        env["OPENKB_HOME"] = str(ob)
+        env["HOME"] = str(ob)
     if engine == "ollama":
         env["OPENAI_API_BASE"] = f"http://{OLLAMA_HOST}:11434/v1"
     elif engine == "llama.cpp":
