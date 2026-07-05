@@ -672,18 +672,20 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
 
 def _copy_joplin_images(input_dirs: list[Path], raw_store: Path) -> None:
-    """Joplin export의 images/ 디렉토리에서 raw_store/images/로 이미지 복사"""
+    """Joplin notebook 하위의 모든 images/ 디렉토리에서 raw_store/images/로 이미지 복사"""
     dest_images = raw_store / "images"
     dest_images.mkdir(parents=True, exist_ok=True)
     copied = 0
     for src_dir in input_dirs:
-        images_dir = src_dir / "images"
-        if not images_dir.exists():
+        if not src_dir.exists():
             continue
-        for img in images_dir.iterdir():
-            if img.is_file():
-                shutil.copy2(img, dest_images / img.name)
-                copied += 1
+        for images_dir in src_dir.rglob("images"):
+            if not images_dir.is_dir():
+                continue
+            for img in images_dir.iterdir():
+                if img.is_file():
+                    shutil.copy2(img, dest_images / img.name)
+                    copied += 1
     if copied:
         print(f"   Copied {copied} images to {dest_images}")
 
