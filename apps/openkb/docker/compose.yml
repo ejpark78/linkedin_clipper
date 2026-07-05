@@ -30,8 +30,6 @@ services:
     container_name: scraper-openkb-streamlit
     profiles:
       - tools
-    ports:
-      - "8501:8501"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-anything}
       - LLM_API_KEY=${LLM_API_KEY:-anything}
