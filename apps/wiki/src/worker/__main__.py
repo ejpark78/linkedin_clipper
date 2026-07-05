@@ -10,6 +10,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 import click
+
 from worker.dispatcher import run_worker
 from worker.plugins.openkb import compile as run_openkb
 from worker.preprocess.pipeline import run as run_preprocess
@@ -32,6 +33,7 @@ def worker() -> None:
 @click.option("--engine", default="ollama", help="LLM engine")
 @click.option("--model", default=None, help="LLM model")
 @click.option("--chunk-size", default=2000, type=int, help="Chunk token limit")
+@click.option("--sample", default=None, type=int, help="Sample limit count")
 def preprocess(**kwargs: dict) -> None:
     """Run preprocess pipeline."""
     run_preprocess(**kwargs)

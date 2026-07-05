@@ -251,7 +251,7 @@ def extract_map_reduce(
         "topics": all_topics[:20],
         "entities": all_entities,
     }
-    t0 = time.time()
+    time.time()
     reduce_prompt = _REDUCE_PROMPT.format(
         summaries=json.dumps(summaries_data, ensure_ascii=False)[:3000],
     )

@@ -13,7 +13,7 @@ from typing import Any
 
 from .cache import FileCache
 from .config import PreprocessConfig
-from .llm_client import extract as llm_extract, extract_map_reduce
+from .llm_client import extract_map_reduce
 
 
 class SourceHandler(ABC):
@@ -122,14 +122,13 @@ class AgentHandler(SourceHandler):
         content = _normalize_agent(content)
         content = _clean_broken_links(content, file_path.parent)
 
-        agent_type = file_path.parent.parent.parent.name
         date_str = file_path.parent.parent.name
         date_match = re.match(r"(\d{4}-\d{2}-\d{2})", date_str)
         date_val = date_match.group(1) if date_match else None
 
         t0 = time.time()
         llm_result = extract_map_reduce(content, model=model, engine=engine, api_key=api_key, chunk_size=chunk_size)
-        llm_elapsed = time.time() - t0
+        time.time() - t0
 
         if not llm_result.get("title") and not llm_result.get("entities"):
             print(f"  ⚠️ LLM returned empty result for {file_path.name}")
@@ -153,6 +152,25 @@ class AgentHandler(SourceHandler):
         print(f"      + Saved: {dest_dir.name}/{filename} ({total_elapsed:.1f}s)")
         cache.update(str(file_path), mtime, raw_name=f"{dest_dir.name}/{filename}")
         return 1, 0
+
+    def post_process(self, input_dirs: list[Path], raw_store: Path) -> None:
+        dest_images = raw_store / "images"
+        dest_images.mkdir(parents=True, exist_ok=True)
+        copied = 0
+        image_extensions = ("*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp")
+        for src_dir in input_dirs:
+            if not src_dir.exists():
+                continue
+            for ext in image_extensions:
+                for img in src_dir.rglob(ext):
+                    if img.is_file():
+                        shutil.copy2(img, dest_images / img.name)
+                        copied += 1
+        if copied:
+            print(f"   Copied {copied} agent images to {dest_images}")
+
+
+
 
 
 class JoplinHandler(SourceHandler):

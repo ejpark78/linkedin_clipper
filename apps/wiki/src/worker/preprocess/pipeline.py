@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from pathlib import Path
 from typing import Any
@@ -66,7 +65,7 @@ def run(
             files = handler.collect_files(input_dir)
             files = handler.filter_files(files, date_from, date_to, filter_args)
             print(f"  [{handler.name}] {len(files)} file(s)")
-            print(f"  📊 ETA 계산: 첫 파일 처리 후 예상 시간 표시")
+            print("  📊 ETA 계산: 첫 파일 처리 후 예상 시간 표시")
 
             processed = 0
             file_times: list[float] = []
