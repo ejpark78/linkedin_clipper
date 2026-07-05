@@ -13,7 +13,7 @@ from typing import Any
 
 import streamlit as st
 
-from openkb import PROJECT_ROOT, RAW_STORE, LLMClient
+from openkb import PROJECT_ROOT, LLMClient
 
 
 def _init_session_state() -> None:
@@ -143,6 +143,9 @@ def _build_cli_cmd() -> str:
                 parts.append(f"-i {rel}")
             except ValueError:
                 parts.append(f"-i {p}")
+    out_base = st.session_state.get("output_base", "").strip()
+    if out_base:
+        parts.append(f"--output-base {out_base}")
     sample = st.session_state.get("sample_limit", 0)
     if sample and int(sample) > 0:
         parts.append(f"--sample {int(sample)}")
@@ -158,8 +161,9 @@ def _gather_selections() -> dict[str, Any]:
         result["input_paths"] = tuple(paths)
     result["date_from"] = None
     result["date_to"] = None
-    out = st.session_state.get("output_path", "").strip()
-    result["output_path"] = out or None
+    out_base = st.session_state.get("output_base", "").strip()
+    result["output_base"] = out_base or None
+    result["output_path"] = None
     sample = st.session_state.get("sample_limit", 0)
     result["sample"] = int(sample) if sample and int(sample) > 0 else None
     result["no_clean"] = False
@@ -257,7 +261,7 @@ def main() -> None:
 
         _show_engine_help()
 
-        st.text_input("Output Path", value=str(RAW_STORE), key="output_path")
+        st.text_input("Output Base Directory", value="/data/test", key="output_base")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.code(_build_cli_cmd(), language="bash")

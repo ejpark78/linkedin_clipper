@@ -428,6 +428,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
 
     input_paths: tuple[str, ...] | None = None,
     output_path: str | None = None,
+    output_base: str | None = None,
     agents: tuple[str, ...] | None = None,
     joplin_notebooks: tuple[str, ...] | None = None,
     date_from: str | None = None,
@@ -473,10 +474,17 @@ def compile_command(  # noqa: PLR0912, PLR0915
         LLMClient.stop_llama_server()
         exit(1)
 
-    # RAW_STORE 초기화 (출력 경로)
-    raw_store = Path(output_path) if output_path else RAW_STORE
+    # 출력 경로 결정
+    if output_base:
+        base_dir = Path(output_base)
+        raw_store = base_dir / "raw"
+        cache_path = base_dir / "cache.json"
+    else:
+        raw_store = Path(output_path) if output_path else RAW_STORE
+        cache_path = CACHE_PATH
+
     if not no_clean:
-        print("🧹 Clearing RAW_STORE...")
+        print(f"🧹 Clearing {raw_store}...")
         if raw_store.exists():
             for item in raw_store.iterdir():
                 if item.is_file():
@@ -496,7 +504,7 @@ def compile_command(  # noqa: PLR0912, PLR0915
     date_to_dt = _parse_date(date_to or os.environ.get("DATE_TO"))
 
     # 캐시 초기화
-    cache = OpenKbCache(CACHE_PATH)
+    cache = OpenKbCache(cache_path)
 
     # 에이전트 문서 처리
     processed_count = 0

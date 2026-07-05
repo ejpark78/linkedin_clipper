@@ -70,7 +70,8 @@ tasks:
         --engine, -e      LLM 엔진 (ollama / llama.cpp / unsloth)
         --model, -m       모델명 또는 GGUF 파일 경로
         --input, -i       입력 경로 (여러번, e.g. -i data/agents/agy)
-        --output, -o      출력 경로 (기본값: data/openkb/raw)
+        --output, -o      출력 raw 경로 (직접 지정)
+        --output-base     출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)
         --agent           Agent 타입 필터 (agy / codex / opencode)
         --date-from       시작일 (YYYY-MM-DD)
         --date-to         종료일 (YYYY-MM-DD)
