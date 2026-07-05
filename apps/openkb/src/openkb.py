@@ -788,6 +788,7 @@ def run_streamlit(**defaults: Any) -> None:
 @click.option("--input", "-i", "input_paths", multiple=True,
               help="입력 경로 (여러번 지정 가능, e.g. data/agents/agy)")
 @click.option("--output", "output_path", "-o", default=None, help="출력 raw store 경로")
+@click.option("--output-base", default=None, help="출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)")
 @click.option("--agent", "agents", multiple=True, type=click.Choice(["agy", "codex", "opencode"]),
               help="Agent 타입 필터")
 @click.option("--joplin-notebook", "joplin_notebooks", multiple=True,
