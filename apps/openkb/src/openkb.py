@@ -1013,6 +1013,10 @@ def _run_openkb_add(
             env["OPENAI_API_KEY"] = api_key
     if model:
         env["LLM_MODEL"] = model
+    if not env.get("LLM_API_KEY"):
+        env["LLM_API_KEY"] = "ollama"
+    if not env.get("OPENAI_API_KEY"):
+        env["OPENAI_API_KEY"] = "ollama"
 
     try:
         subprocess.run(["openkb", "add", str(raw_store)], env=env, check=True, cwd=ob)
