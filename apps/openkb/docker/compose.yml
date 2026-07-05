@@ -30,6 +30,9 @@ services:
     container_name: scraper-openkb-streamlit
     profiles:
       - tools
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-anything}
       - LLM_API_KEY=${LLM_API_KEY:-anything}
@@ -38,6 +41,7 @@ services:
       - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
       - HOME=/tmp
       - SKIP_OPENKB_CONFIG=1
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -56,3 +60,30 @@ services:
       - "traefik.http.routers.openkb.entrypoints=websecure"
       - "traefik.http.routers.openkb.tls=true"
       - "traefik.http.services.openkb.loadbalancer.server.port=8501"
+
+  openkb-worker:
+    image: scraper/openkb:latest
+    container_name: scraper-openkb-worker
+    profiles:
+      - worker
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-anything}
+      - LLM_API_KEY=${LLM_API_KEY:-anything}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-http://host.docker.internal:11434/v1}
+      - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
+      - HOME=${OPENKB_HOME:-/data/openkb}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOST_PROJECT_PATH:-.}/data:/data
+    working_dir: /app
+    command:
+      - python
+      - -m
+      - src.openkb
+      - worker

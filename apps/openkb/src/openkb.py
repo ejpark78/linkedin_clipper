@@ -1041,6 +1041,111 @@ def _run_openkb_add(
 
 
 # ===========================================================================
+# Redis Job Queue
+# ===========================================================================
+_REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
+_OPENKB_QUEUE = "openkb:queue"
+_OPENKB_JOB_PREFIX = "openkb:job:"
+_OPENKB_PROGRESS_PREFIX = "openkb:progress:"
+_OPENKB_RESULT_PREFIX = "openkb:result:"
+_OPENKB_HISTORY = "openkb:history"
+
+
+def _redis_conn():
+    import redis as _redis
+    return _redis.from_url(_REDIS_URL, decode_responses=True)
+
+
+def enqueue_job(selections: dict) -> str:
+    import uuid
+    job_id = str(uuid.uuid4())[:8]
+    r = _redis_conn()
+    payload = {"job_id": job_id, "selections": selections, "status": "queued"}
+    r.set(f"{_OPENKB_JOB_PREFIX}{job_id}", json.dumps(payload))
+    r.rpush(_OPENKB_QUEUE, job_id)
+    return job_id
+
+
+def _run_worker():
+    """Worker loop: BLPop queue → compile_command() → write progress/result."""
+    import io
+    print(f"🧠 OpenKB Worker started (queue: {_OPENKB_QUEUE})")
+    r = _redis_conn()
+    while True:
+        try:
+            _, job_id = r.blpop(_OPENKB_QUEUE, timeout=0)
+        except (KeyboardInterrupt, SystemExit):
+            break
+        raw = r.get(f"{_OPENKB_JOB_PREFIX}{job_id}")
+        if not raw:
+            continue
+        job = json.loads(raw)
+        selections = job.get("selections", {})
+        r.set(f"{_OPENKB_JOB_PREFIX}{job_id}", json.dumps({**job, "status": "running"}))
+
+        buf = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = buf
+        exit_code = 0
+        try:
+            compile_command(**selections)
+        except SystemExit as e:
+            exit_code = e.code if e.code is not None else 1
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            exit_code = 1
+        finally:
+            sys.stdout = old_stdout
+
+        output = buf.getvalue()
+        r.set(f"{_OPENKB_RESULT_PREFIX}{job_id}", json.dumps({
+            "job_id": job_id, "output": output, "exit_code": exit_code,
+        }))
+        r.set(f"{_OPENKB_JOB_PREFIX}{job_id}", json.dumps({
+            **job, "status": "failed" if exit_code else "completed", "exit_code": exit_code,
+        }))
+        r.lpush(_OPENKB_HISTORY, json.dumps({
+            "job_id": job_id, "status": "failed" if exit_code else "completed",
+            "selections": selections, "exit_code": exit_code,
+        }))
+        r.ltrim(_OPENKB_HISTORY, 0, 19)
+
+        status = "❌ Failed" if exit_code else "✅ Completed"
+        print(f"{status} job={job_id} (exit={exit_code})")
+
+
+def list_jobs(limit: int = 20) -> list[dict]:
+    """Return recent jobs from history + running/queued."""
+    r = _redis_conn()
+    jobs: list[dict] = []
+
+    for key in r.scan_iter(f"{_OPENKB_JOB_PREFIX}*"):
+        raw = r.get(key)
+        if raw:
+            job = json.loads(raw)
+            if job.get("status") in ("running", "queued"):
+                jobs.append(job)
+
+    history_raw = r.lrange(_OPENKB_HISTORY, 0, limit - 1)
+    for item in history_raw:
+        jobs.append(json.loads(item))
+
+    jobs.sort(key=lambda j: j.get("created_at", ""), reverse=True)
+    return jobs[:limit]
+
+
+def get_job_progress(job_id: str) -> str:
+    r = _redis_conn()
+    return r.get(f"{_OPENKB_PROGRESS_PREFIX}{job_id}") or ""
+
+
+def get_job_result(job_id: str) -> dict | None:
+    r = _redis_conn()
+    raw = r.get(f"{_OPENKB_RESULT_PREFIX}{job_id}")
+    return json.loads(raw) if raw else None
+
+
+# ===========================================================================
 # Streamlit GUI
 # ===========================================================================
 def run_streamlit(**defaults: Any) -> None:
@@ -1058,15 +1163,20 @@ def run_streamlit(**defaults: Any) -> None:
 # ===========================================================================
 # CLI (Click)
 # ===========================================================================
-@click.command(context_settings=dict(ignore_unknown_options=False))
+@click.group(context_settings=dict(ignore_unknown_options=False))
+def cli():
+    """OpenKB - 지식베이스 컴파일 및 작업 큐 관리"""
+
+
+@cli.command()
 @click.option("--engine", default=None, type=click.Choice(["ollama", "llama.cpp", "unsloth"]),
               help="LLM 엔진 (기본값: 환경변수 LLM_ENGINE 또는 ollama)")
 @click.option("--model", default=None, help="모델명")
 @click.option("--api-key", default=None, help="Unsloth Studio API key")
 @click.option("--input", "-i", "input_paths", multiple=True,
-              help="입력 경로 (여러번 지정 가능, e.g. data/agents/agy)")
-@click.option("--output", "output_path", "-o", default=None, help="출력 raw store 경로")
-@click.option("--output-base", default=None, help="출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)")
+              help="입력 경로 (여러번 지정 가능, e.g. --input data/agents/agy)")
+@click.option("--output", "-o", default=None, help="출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)")
+@click.option("--output-path", default=None, help="출력 raw store 경로 (직접 지정)")
 @click.option("--agent", "agents", multiple=True, type=click.Choice(["agy", "codex", "opencode"]),
               help="Agent 타입 필터")
 @click.option("--joplin-notebook", "joplin_notebooks", multiple=True,
@@ -1084,8 +1194,22 @@ def compile(**kwargs):
     if streamlit_mode:
         run_streamlit(**kwargs)
     else:
+        _map_output_opts(kwargs)
         compile_command(**kwargs)
 
 
+@cli.command()
+def worker():
+    """OpenKB Worker - Redis 큐에서 job을 소비하여 컴파일 실행"""
+    _run_worker()
+
+
+def _map_output_opts(kwargs: dict) -> None:
+    if kwargs.get("output") and not kwargs.get("output_base"):
+        kwargs["output_base"] = kwargs.pop("output")
+    elif kwargs.get("output"):
+        kwargs.pop("output")
+
+
 if __name__ == "__main__":
-    compile()
+    cli()

@@ -44,15 +44,26 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -e PYTHONUNBUFFERED=1 -e OLLAMA_MODEL="{{.MODEL}}" -e LLM_ENGINE="{{.ENGINE}}" -e UNSLOTH_API_KEY="{{.UNSLOTH_API_KEY}}" -e RAW="{{.RAW}}" -e SAMPLE="{{.SAMPLE}}" --entrypoint poe openkb -C /app compile {{.CLI_ARGS}}'
 
-  compile:gui:
-    desc: "Streamlit GUI로 OpenKB 컴파일 (https://kb.localhost)"
+  web:
+    desc: "OpenKB Web UI (https://kb.localhost)"
     summary: |
-      Launch OpenKB compile in Streamlit GUI mode accessible at https://kb.localhost.
+      Launch OpenKB Streamlit web UI with job queue support.
+      Jobs are enqueued to Redis and processed by the worker.
 
       [Usage Examples]
-        - task openkb:compile:gui
+        - task openkb:web
     cmds:
-      - '{{.COMPOSE}} run --rm --service-ports {{.RUN_USER}} -e PYTHONUNBUFFERED=1 openkb-streamlit'
+      - '{{.COMPOSE}} run --rm --service-ports {{.RUN_USER}} -e PYTHONUNBUFFERED=1 -e REDIS_URL="{{.REDIS_URL}}" openkb-streamlit'
+
+  worker:
+    desc: "OpenKB Worker (processes Redis compile queue)"
+    summary: |
+      Run OpenKB compile worker that picks up jobs from Redis queue.
+
+      [Usage Examples]
+        - task openkb:worker
+    cmds:
+      - 'cd apps/openkb && uv run python -m src.openkb worker'
 
   llama:list:
     desc: "llama.cpp 사용 가능한 GGUF 모델 목록"
@@ -82,7 +93,7 @@ tasks:
         task openkb:compile                                               # ollama 기본값
         task openkb:compile -- --engine ollama --model qwen3.5:9b-mlx
         task openkb:compile -- --engine llama.cpp --model <gguf_path>
-        task openkb:compile -- -i data/agents/agy --sample 5
+        task openkb:compile -- --input data/agents/agy --sample 5
 
       [LLM Engines]
 
@@ -103,9 +114,8 @@ tasks:
       [Options]
         --engine, -e      LLM 엔진 (ollama / llama.cpp / unsloth)
         --model, -m       모델명 또는 GGUF 파일 경로
-        --input, -i       입력 경로 (여러번, e.g. -i data/agents/agy)
-        --output, -o      출력 raw 경로 (직접 지정)
-        --output-base     출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)
+        --input, -i       입력 경로 (여러번, e.g. --input data/agents/agy)
+        --output, -o      출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)
         --agent           Agent 타입 필터 (agy / codex / opencode)
         --date-from       시작일 (YYYY-MM-DD)
         --date-to         종료일 (YYYY-MM-DD)
@@ -114,10 +124,11 @@ tasks:
         --full-rebuild    raw/ 초기화 후 전체 재처리 (증분 처리 비활성화)
         --streamlit       Streamlit GUI 모드
 
-      [GUI]
-        task openkb:compile:gui  →  https://kb.localhost
+      [Web UI]
+        task openkb:web        →  https://kb.localhost (작업 큐 등록)
+        task openkb:worker     →  워커 실행 (큐 소비)
     cmds:
-      - 'cd apps/openkb && uv run python -m src.openkb {{.CLI_ARGS}}'
+      - 'cd apps/openkb && uv run python -m src.openkb compile {{.CLI_ARGS}}'
 
   shell:
     desc: Open interactive shell in the OpenKB container.

@@ -1,19 +1,19 @@
 """
-Streamlit GUI for OpenKB Compiler.
-Replaces the old Textual TUI (tui_app.py).
+Streamlit GUI for OpenKB Compiler — Job Queue Mode.
+- Enqueues compile jobs to Redis queue
+- Worker processes jobs asynchronously
+- CLI guide for manual execution
 """
 from __future__ import annotations
 
-import io
-import sys
-import threading
+import json
 import time
 from pathlib import Path
-from typing import Any
 
 import streamlit as st
 
 from openkb import PROJECT_ROOT, LLMClient
+from openkb import enqueue_job, list_jobs, get_job_progress, get_job_result
 
 
 def _init_session_state() -> None:
@@ -25,8 +25,10 @@ def _init_session_state() -> None:
         st.session_state.prev_engine = None
     if "model_options" not in st.session_state:
         st.session_state.model_options = ["-- 선택 --"]
-    if "compile_running" not in st.session_state:
-        st.session_state.compile_running = False
+    if "tab" not in st.session_state:
+        st.session_state.tab = "설정"
+    if "last_job_id" not in st.session_state:
+        st.session_state.last_job_id = None
 
 
 def _refresh_models() -> None:
@@ -65,15 +67,9 @@ def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
         if entry.name.startswith(".") or not entry.is_dir():
             continue
         key = str(entry)
-        has_children = False
-        if depth < max_depth - 1:
-            try:
-                has_children = any(
-                    c.is_dir() and not c.name.startswith(".")
-                    for c in entry.iterdir()
-                )
-            except PermissionError:
-                pass
+        has_children = depth < max_depth - 1 and any(
+            c.is_dir() and not c.name.startswith(".") for c in entry.iterdir()
+        ) or False
         if has_children:
             c1, c2 = st.columns([0.04, 0.96])
             with c1:
@@ -83,10 +79,10 @@ def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
             else:
                 st.session_state.selected_paths.discard(key)
             with c2:
-                with st.expander(f"📁 {entry.name}", expanded=False):
+                with st.expander(f"\U0001f4c1 {entry.name}", expanded=False):
                     _render_tree(entry, depth + 1, max_depth)
         else:
-            checked = st.checkbox(f"📁 {entry.name}", key=f"sel_{key}")
+            checked = st.checkbox(f"\U0001f4c1 {entry.name}", key=f"sel_{key}")
             if checked:
                 st.session_state.selected_paths.add(key)
             else:
@@ -104,28 +100,8 @@ def _get_model_value() -> str | None:
     return model
 
 
-def _show_engine_help() -> None:
-    engine = st.session_state.engine
-    model = st.session_state.get("model_select", "")
-    if model != "(모델 없음)":
-        return
-    if engine == "llama.cpp":
-        st.info(
-            "llama.cpp 서버 연결에 실패했습니다.\n\n"
-            "**GGUF 모델 경로 찾기:**\n"
-            "`ls ~/.cache/huggingface/hub/models--*/snapshots/*/*.gguf`\n\n"
-            "**서버 실행:**\n"
-            "`llama-server -m ~/path/to/model.gguf --host 127.0.0.1 --port 8080`\n\n"
-            "**CLI 자동 실행 (권장):**\n"
-            "`task openkb:compile -- --engine llama.cpp --model ~/path/to/model.gguf`"
-        )
-    else:
-        st.info(
-            "Ollama 서버 연결에 실패했습니다.\n\n"
-            "호스트에서 실행: `ollama serve`\n"
-            "Docker인 경우:\n"
-            "`OLLAMA_HOST=0.0.0.0 ollama serve`"
-        )
+def _quote(val: str) -> str:
+    return f'"{val}"' if " " in val else val
 
 
 def _build_cli_cmd() -> str:
@@ -140,83 +116,36 @@ def _build_cli_cmd() -> str:
         for p in paths:
             try:
                 rel = Path(p).relative_to(PROJECT_ROOT.parent)
-                parts.append(f"-i {rel}")
+                parts.append(f"--input {_quote(str(rel))}")
             except ValueError:
-                parts.append(f"-i {p}")
+                parts.append(f"--input {_quote(p)}")
     out_base = st.session_state.get("output_base", "").strip()
     if out_base:
-        parts.append(f"--output-base {out_base}")
+        parts.append(f"--output {_quote(out_base)}")
     sample = st.session_state.get("sample_limit", 0)
     if sample and int(sample) > 0:
         parts.append(f"--sample {int(sample)}")
     return " \\\n  ".join(parts)
 
 
-def _gather_selections() -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    result["engine"] = st.session_state.engine
-    result["model"] = _get_model_value()
+def _gather_selections() -> dict:
+    selections = {}
+    selections["engine"] = st.session_state.engine
+    selections["model"] = _get_model_value()
     paths = sorted(st.session_state.selected_paths)
     if paths:
-        result["input_paths"] = tuple(paths)
-    result["date_from"] = None
-    result["date_to"] = None
-    out_base = st.session_state.get("output_base", "").strip()
-    result["output_base"] = out_base or None
-    result["output_path"] = None
+        selections["input_paths"] = tuple(paths)
+    selections["output_base"] = st.session_state.get("output_base", "").strip() or None
     sample = st.session_state.get("sample_limit", 0)
-    result["sample"] = int(sample) if sample and int(sample) > 0 else None
-    result["no_clean"] = False
-    result["no_cache"] = False
-    result["api_key"] = None
-    result["llama_port"] = 8080
-    return result
+    selections["sample"] = int(sample) if sample and int(sample) > 0 else None
+    return selections
 
 
-def _capture_stdout(compile_fn: Any, selections: dict, buf: io.StringIO) -> None:
-    old_stdout = sys.stdout
-    sys.stdout = _StdoutRedirector(buf)
-    try:
-        compile_fn(**selections)
-    except SystemExit:
-        pass
-    except Exception as e:
-        print(f"❌ Error: {e}")
-    finally:
-        sys.stdout = old_stdout
-
-
-class _StdoutRedirector:
-    def __init__(self, buf: io.StringIO) -> None:
-        self._buf = buf
-
-    def write(self, text: str) -> None:
-        self._buf.write(text)
-
-    def flush(self) -> None:
-        pass
-
-    @property
-    def encoding(self) -> str:
-        return "utf-8"
-
-
-def main() -> None:
-    st.set_page_config(page_title="OpenKB Compiler", page_icon="🧠", layout="wide")
-    _init_session_state()
-
-    engine_changed = st.session_state.engine != st.session_state.prev_engine
-    if engine_changed:
-        _refresh_models()
-        st.session_state.prev_engine = st.session_state.engine
-
-    st.title("🧠 OpenKB Compile Pipeline")
-    st.markdown("---")
-
+def _render_setup_tab() -> None:
     left_col, right_col = st.columns([0.38, 0.62])
 
     with left_col:
-        st.subheader("📁 Sources")
+        st.subheader("\U0001f4c1 Sources")
         _render_tree(PROJECT_ROOT)
 
         st.markdown("---")
@@ -226,7 +155,7 @@ def main() -> None:
             key="custom_path_text",
             label_visibility="collapsed",
         )
-        if st.button("➕ Add custom path", key="add_path_btn"):
+        if st.button("\u2795 Add custom path", key="add_path_btn"):
             cp = st.session_state.custom_path_text.strip()
             if cp:
                 full = PROJECT_ROOT / cp
@@ -243,72 +172,108 @@ def main() -> None:
                     st.markdown(f"- `{p}`")
 
     with right_col:
-        st.subheader("⚙️ Settings")
+        st.subheader("\u2699\ufe0f Settings")
         engines = ["ollama", "llama.cpp"]
         eng_idx = engines.index(st.session_state.engine) if st.session_state.engine in engines else 0
-        st.radio(
-            "LLM Engine",
-            engines,
-            index=eng_idx,
-            horizontal=True,
-            key="engine",
-        )
-        st.selectbox(
-            "Model",
-            st.session_state.model_options,
-            key="model_select",
-        )
-
-        _show_engine_help()
+        st.radio("LLM Engine", engines, index=eng_idx, horizontal=True, key="engine")
+        st.selectbox("Model", st.session_state.model_options, key="model_select")
 
         st.text_input("Output Base Directory", value="data/obsidian", key="output_base")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
+        st.markdown("### \U0001f4a1 CLI Guide")
         st.code(_build_cli_cmd(), language="bash")
+        st.caption("터미널에서 위 명령어를 실행하거나, 아래 버튼으로 작업을 큐에 등록하세요.")
 
-        compile_btn = st.button("▶ Compile", type="primary", use_container_width=True)
+        if st.button("\u25b6 Enqueue Compile", type="primary", use_container_width=True):
+            selections = _gather_selections()
+            try:
+                job_id = enqueue_job(selections)
+                st.session_state.last_job_id = job_id
+                st.success(f"Job #{job_id} enqueued!")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to enqueue job: {e}")
+                st.info(
+                    "Redis 연결을 확인하세요.\n"
+                    "`task redis:up` 으로 Redis를 먼저 실행해야 합니다."
+                )
 
-        if compile_btn and not st.session_state.compile_running:
-            st.session_state.compile_running = True
-            st.rerun()
 
-        if st.session_state.compile_running:
-            _run_compile()
+def _render_jobs_tab() -> None:
+    st.subheader("\U0001f4cb Job Status")
+
+    try:
+        jobs = list_jobs(20)
+    except Exception as e:
+        st.warning(f"Redis 연결 실패: {e}")
+        st.info("`task redis:up` 으로 Redis를 먼저 실행하세요.")
+        return
+
+    if not jobs:
+        st.info("No jobs found.")
+        return
+
+    for job in jobs:
+        job_id = job.get("job_id", "?")
+        status = job.get("status", "unknown")
+        exit_code = job.get("exit_code")
+        sel = job.get("selections", {})
+
+        if status == "running":
+            label = f"\U0001f504 #{job_id} Running"
+        elif status == "queued":
+            label = f"\u23f3 #{job_id} Queued"
+        elif status == "completed" and exit_code == 0:
+            label = f"\u2705 #{job_id} Completed"
+        else:
+            label = f"\u274c #{job_id} Failed (exit={exit_code})"
+
+        with st.expander(label, expanded=(status == "running" or job_id == st.session_state.get("last_job_id"))):
+            if sel:
+                paths = sel.get("input_paths", [])
+                out = sel.get("output_base", "")
+                st.text(f"Inputs: {', '.join(paths) if paths else '(default)'}")
+                if out:
+                    st.text(f"Output: {out}")
+
+            if status == "running":
+                progress = get_job_progress(job_id)
+                if progress:
+                    st.code(progress, language="")
+                st.caption("Auto-refreshing...")
+
+            result = get_job_result(job_id)
+            if result:
+                output = result.get("output", "")
+                if output:
+                    with st.expander("Full Output"):
+                        st.code(output, language="")
+
+
+def main() -> None:
+    st.set_page_config(page_title="OpenKB Web", page_icon="\U0001f9e0", layout="wide")
+    _init_session_state()
+
+    engine_changed = st.session_state.engine != st.session_state.prev_engine
+    if engine_changed:
+        _refresh_models()
+        st.session_state.prev_engine = st.session_state.engine
+
+    st.title("\U0001f9e0 OpenKB Compile")
+    st.markdown("---")
+
+    tab_setup, tab_jobs = st.tabs(["\u2699\ufe0f Settings", "\U0001f4cb Jobs"])
+
+    with tab_setup:
+        _render_setup_tab()
+
+    with tab_jobs:
+        _render_jobs_tab()
 
     st.markdown("---")
-    st.caption("🔗 https://kb.localhost | Ctrl+C to stop container")
-
-
-def _run_compile() -> None:
-    from openkb import compile_command
-
-    selections = _gather_selections()
-    status = st.status("Compiling...", expanded=True)
-    buf = io.StringIO()
-
-    thread = threading.Thread(
-        target=_capture_stdout,
-        args=(compile_command, selections, buf),
-        daemon=True,
-    )
-    thread.start()
-
-    while thread.is_alive():
-        content = buf.getvalue()
-        if content:
-            status.text(content)
-        time.sleep(0.15)
-
-    thread.join()
-    final = buf.getvalue()
-    if final:
-        status.text(final)
-    failed = "❌" in final or "aborted" in final or "Error" in final
-    if failed:
-        status.update(label="❌ Compile failed", state="error")
-    else:
-        status.update(label="✅ Compile complete", state="complete")
-    st.session_state.compile_running = False
+    st.caption("\U0001f517 https://kb.localhost | `task openkb:worker` \u2014 Worker\uac00 \uc2e4\ud589\uc911\uc774\uc5b4\uc57c \ud569\ub2c8\ub2e4.")
 
 
 if __name__ == "__main__":
