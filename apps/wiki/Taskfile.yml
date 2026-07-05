@@ -2,82 +2,63 @@ version: '3'
 
 tasks:
   build:
-    desc: Build Wiki CLI tool image.
+    desc: Build wiki-web and wiki-worker Docker images.
     summary: |
-      Build the wiki-tool Docker image for Joplin/Obsidian CLI operations.
+      Build wiki-web (Streamlit UI) and wiki-worker (Redis worker) images.
 
       [Usage Examples]
         - task wiki:build
     cmds:
-      - '{{.COMPOSE}} build wiki-tool'
+      - '{{.COMPOSE}} build wiki-web'
+      - '{{.COMPOSE}} build wiki-worker'
 
-  joplin:pull:
-    desc: "Pull/download markdown notebooks from Local Joplin App Web Clipper API."
+  up:
+    desc: Start wiki-web and wiki-worker containers.
     summary: |
-      Pull/download markdown notebooks from Local Joplin App Web Clipper API.
-      
-      [Variables]
-        - TARGET_PATH: 로컬 마크다운 문서집이 백업/다운로드되어 저장될 경로 (기본값: "data/joplin")
-        - JOPLIN_TOKEN: (필수) 호스트 데스크톱 Joplin 앱의 Web Clipper API 인증 토큰 (누락 시 대화형 프롬프트 제공)
-        - JOPLIN_API_URL: 호스트 데스크톱 Joplin 앱 Web Clipper API URL (기본값: http://host.docker.internal:41184)
-        
-      [Usage Examples]
-        - task wiki:joplin:pull
-        - task wiki:joplin:pull TARGET_PATH="data/my_backup"
-    cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:pull "{{.TARGET_PATH | default "data/joplin"}}"'
-
-  joplin:push:
-    desc: "Push local markdown book to Local Joplin App Web Clipper API."
-    summary: |
-      Push local markdown book to Local Joplin App Web Clipper API.
-      
-      [Variables]
-        - FROM_PATH: (필수) 업로드할 로컬 마크다운 서적 디렉터리 경로
-        - TO_PATH: (옵션) 생성될 Joplin 노트북 폴더 이름 (미입력 시 책 제목으로 자동 생성)
-        - JOPLIN_TOKEN: (필수) 호스트 데스크톱 Joplin 앱의 Web Clipper API 인증 토큰 (누락 시 대화형 프롬프트 제공)
-        - JOPLIN_API_URL: 호스트 데스크톱 Joplin 앱 Web Clipper API URL (기본값: http://host.docker.internal:41184)
-        
-      [Usage Examples]
-        - task wiki:joplin:push FROM_PATH="data/ebook/output/git_guide"
-        - task wiki:joplin:push FROM_PATH="data/ebook/output/git_guide" TO_PATH="Git Guide Notebook"
-    cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
-
-  joplin:auth:
-    desc: "Request Joplin Web Clipper API token via Grant Permission dialog and save to .env."
-    summary: |
-      Joplin Desktop에 Grant Permission 대화상자를 띄워 Web Clipper API 토큰을 발급받고
-      .env 파일에 JOPLIN_TOKEN으로 저장합니다.
-      
-      [Usage Examples]
-        - task wiki:joplin:auth
-    cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:auth'
-
-  obsidian:push:
-    desc: "Push local markdown book to Obsidian Vault via Local REST API."
-    summary: |
-      Push local markdown book to Obsidian Vault via Local REST API.
-      
-      [Variables]
-        - FROM_PATH: (필수) 업로드할 로컬 마크다운 서적 디렉터리 경로
-        - TO_PATH: (옵션) 생성될 Obsidian 내 타겟 폴더 이름 (기본값: 책 제목 기준 폴더)
-        - OBSIDIAN_API_KEY: (필수) Obsidian Local REST API 커뮤니티 플러그인의 인증 키 (누락 시 대화형 프롬프트 제공)
-        - OBSIDIAN_API_URL: Obsidian Local REST API의 호스트 URL (기본값: http://host.docker.internal:27123)
-        
-      [Usage Examples]
-        - task wiki:obsidian:push FROM_PATH="data/ebook/output/rust_guide"
-        - task wiki:obsidian:push FROM_PATH="data/ebook/output/rust_guide" TO_PATH="Rust Guide Vault"
-    cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} -e OBSIDIAN_API_KEY -e OBSIDIAN_API_URL wiki-tool ./node_modules/.bin/ts-node src/wiki.ts obsidian:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
-
-  shell:
-    desc: Open wiki-tool container shell.
-    summary: |
-      Open an interactive bash shell in the wiki-tool container.
+      Start both wiki-web (UI) and wiki-worker (Redis consumer) containers.
 
       [Usage Examples]
-        - task wiki:shell
+        - task wiki:up
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint bash wiki-tool'
+      - '{{.COMPOSE}} --profile tools up -d wiki-web'
+      - '{{.COMPOSE}} --profile worker up -d wiki-worker'
+
+  down:
+    desc: Stop wiki-web and wiki-worker containers.
+    summary: |
+      Stop both wiki-web and wiki-worker containers.
+
+      [Usage Examples]
+        - task wiki:down
+    cmds:
+      - '{{.COMPOSE}} stop wiki-web wiki-worker'
+
+  pipeline:preprocess:
+    desc: "Run preprocess pipeline (collect → normalize → chunk → LLM)"
+    summary: |
+      Preprocess raw markdown files into chunks and LLM-extracted entities.
+
+      [Usage]
+        task wiki:pipeline:preprocess
+        task wiki:pipeline:preprocess -- --input data/agents/agy --output preprocessed
+        task wiki:pipeline:preprocess -- --chunk-size 1000
+
+      [Options]
+        --input, -i     입력 경로 (여러번 가능)
+        --output, -o    출력 디렉토리 (기본: data/preprocessed)
+        --engine        LLM 엔진 (ollama / llama.cpp)
+        --model         LLM 모델명
+        --chunk-size    청크 크기 (기본: 2000)
+    cmds:
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m src.worker preprocess {{.CLI_ARGS}}'
+
+  pipeline:openkb:
+    desc: "Run openkb compile pipeline"
+    summary: |
+      Compile wiki pages from preprocessed data using openkb.
+
+      [Usage]
+        task wiki:pipeline:openkb
+        task wiki:pipeline:openkb -- --input data/agents/agy --output data/obsidian
+    cmds:
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m src.worker openkb {{.CLI_ARGS}}'

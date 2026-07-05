@@ -31,11 +31,11 @@ This document defines the rules for systematically detecting and isolating excep
 
 ---
 
-## 3. 🧠 OpenKB Compiling & Container Sync Rules
+## 3. 🧠 Wiki Pipeline (Preprocess + OpenKB) & Container Sync Rules
 
 1. **Docker Container Volume Mount Check**:
-   - `openkb` 모듈이나 도커 컨테이너 서비스에 볼륨 마운트(`volumes`)가 누락되거나 코드가 반영되지 않는 구조인지 사전에 확인하십시오.
-   - 코드 변경 후 컴파일이나 테스트 동작이 이전 이미지에 기성되어 멈추거나 중복 수집 루프가 끝없이 도는 경우, 반드시 **이미지 재빌드(`docker compose build openkb`)**를 우선적으로 수행하여 변경사항이 내장되도록 보장하십시오.
+   - `wiki-web` / `wiki-worker` 도커 컨테이너 서비스에 볼륨 마운트(`volumes`)가 누락되거나 코드가 반영되지 않는 구조인지 사전에 확인하십시오.
+   - 코드 변경 후 컴파일이나 테스트 동작이 이전 이미지에 기성되어 멈추거나 중복 수집 루프가 끝없이 도는 경우, 반드시 **이미지 재빌드(`task wiki:build`)**를 우선적으로 수행하여 변경사항이 내장되도록 보장하십시오.
 
 2. **백그라운드 좀비 컨테이너 방어**:
    - Antigravity 셸 환경에서 태스크를 `kill` 하더라도 실제 백그라운드 도커 실행 컨테이너가 살아남아 포트나 볼륨 쓰기를 경합하는 경우가 있습니다. 

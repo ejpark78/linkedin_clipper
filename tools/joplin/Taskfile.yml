@@ -1,0 +1,56 @@
+version: '3'
+
+tasks:
+  build:
+    desc: "Build Joplin wiki-tool Docker image."
+    summary: |
+      Build the wiki-tool Docker image for Joplin/Obsidian CLI operations.
+
+      [Usage Examples]
+        - task joplin:build
+    cmds:
+      - '{{.COMPOSE}} build wiki-tool'
+
+  pull:
+    desc: "Pull/download markdown notebooks from Local Joplin App Web Clipper API."
+    summary: |
+      Pull/download markdown notebooks from Local Joplin App Web Clipper API.
+
+      [Variables]
+        - TARGET_PATH: 로컬 마크다운 문서집이 백업/다운로드되어 저장될 경로 (기본값: "data/joplin")
+        - JOPLIN_TOKEN: (필수) 호스트 데스크톱 Joplin 앱의 Web Clipper API 인증 토큰 (누락 시 대화형 프롬프트 제공)
+        - JOPLIN_API_URL: 호스트 데스크톱 Joplin 앱 Web Clipper API URL (기본값: http://host.docker.internal:41184)
+
+      [Usage Examples]
+        - task joplin:pull
+        - task joplin:pull TARGET_PATH="data/my_backup"
+    cmds:
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:pull "{{.TARGET_PATH | default "data/joplin"}}"'
+
+  push:
+    desc: "Push local markdown book to Local Joplin App Web Clipper API."
+    summary: |
+      Push local markdown book to Local Joplin App Web Clipper API.
+
+      [Variables]
+        - FROM_PATH: (필수) 업로드할 로컬 마크다운 서적 디렉터리 경로
+        - TO_PATH: (옵션) 생성될 Joplin 노트북 폴더 이름 (미입력 시 책 제목으로 자동 생성)
+        - JOPLIN_TOKEN: (필수) 호스트 데스크톱 Joplin 앱의 Web Clipper API 인증 토큰 (누락 시 대화형 프롬프트 제공)
+        - JOPLIN_API_URL: 호스트 데스크톱 Joplin 앱 Web Clipper API URL (기본값: http://host.docker.internal:41184)
+
+      [Usage Examples]
+        - task joplin:push FROM_PATH="data/ebook/output/git_guide"
+        - task joplin:push FROM_PATH="data/ebook/output/git_guide" TO_PATH="Git Guide Notebook"
+    cmds:
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:push "{{.FROM_PATH}}" "{{.TO_PATH}}"'
+
+  auth:
+    desc: "Request Joplin Web Clipper API token via Grant Permission dialog and save to .env."
+    summary: |
+      Joplin Desktop에 Grant Permission 대화상자를 띄워 Web Clipper API 토큰을 발급받고
+      .env 파일에 JOPLIN_TOKEN으로 저장합니다.
+
+      [Usage Examples]
+        - task joplin:auth
+    cmds:
+      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool ./node_modules/.bin/ts-node src/wiki.ts joplin:auth'

@@ -1,24 +1,26 @@
 [project]
-name = "openkb-app"
+name = "wiki-pipeline"
 version = "0.1.0"
-description = "OpenKB compiling and wiki deployment scripts"
+description = "Wiki pipeline: preprocess → openkb → embed → graph"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "openkb==0.3.0",
     "click>=8.1.0",
+    "streamlit>=1.40.0",
+    "redis>=5.0.0",
     "poethepoet>=0.32.2",
     "ruff>=0.9.1",
     "mypy>=1.14.1",
-    "streamlit>=1.40.0",
-    "redis>=5.0.0",
 ]
 
 [tool.uv]
 prerelease = "allow"
 
 [tool.poe.tasks]
-compile = "python -m src"
+preprocess = "python -m src.worker preprocess"
+worker = "python -m src.worker"
+web = "streamlit run src/web/app.py"
 lint = "ruff check src/"
 format = "ruff format src/"
 format-check = "ruff format --check src/"

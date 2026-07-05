@@ -1,10 +1,8 @@
-"""
-OpenKB Source Handlers — 플러그인 가능한 소스 타입별 처리기.
+"""Source handlers — OpenKB 방식 process_file() 구조 복원 + entities 추출."""
 
-OCP 원칙: 새 소스 타입 추가 시 SourceHandler 서브클래스만 만들고 HANDLERS에 등록.
-"""
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -12,33 +10,28 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
-from cache import OpenKbCache
-from config import OpenKbConfig
-from metadata import extract_title, wrap_with_metadata
+from .cache import FileCache
+from .config import PreprocessConfig
+from .llm_client import extract as llm_extract
 
-
-# ====================================================================
-# Abstract base
-# ====================================================================
 
 class SourceHandler(ABC):
-    """소스 타입별 처리기 추상 클래스."""
-
-    def __init__(self, cfg: OpenKbConfig) -> None:
+    def __init__(self, cfg: PreprocessConfig) -> None:
         self.cfg = cfg
 
     @property
+    @property
     @abstractmethod
     def name(self) -> str:
-        """핸들러 식별자 (로그, 통계용)."""
+        ...
 
     @abstractmethod
     def detect(self, source_dir: Path) -> bool:
-        """해당 디렉토리를 이 핸들러가 처리할 수 있는지 판별."""
+        ...
 
     @abstractmethod
     def collect_files(self, source_dir: Path) -> list[Path]:
-        """소스 디렉토리에서 처리할 파일 목록 반환."""
+        ...
 
     def filter_files(
         self, files: list[Path],
@@ -51,18 +44,15 @@ class SourceHandler(ABC):
     @abstractmethod
     def process_file(
         self, file_path: Path, source_dir: Path,
-        raw_store: Path, cache: OpenKbCache, no_cache: bool,
+        raw_store: Path, cache: FileCache, no_cache: bool,
         model: str | None, engine: str, api_key: str | None,
-    ) -> tuple[bool, bool]:
+        entities_writer: Any = None,
+    ) -> tuple[int, int]:
         """단일 파일 처리. 반환: (processed, skipped)"""
 
     def post_process(self, input_dirs: list[Path], raw_store: Path) -> None:
         """전체 처리 후 후처리 (이미지 복사 등)."""
 
-
-# ====================================================================
-# Agent Handler — session.md / transcript.md
-# ====================================================================
 
 class AgentHandler(SourceHandler):
     @property
@@ -114,41 +104,47 @@ class AgentHandler(SourceHandler):
 
     def process_file(
         self, file_path: Path, source_dir: Path,
-        raw_store: Path, cache: OpenKbCache, no_cache: bool,
+        raw_store: Path, cache: FileCache, no_cache: bool,
         model: str | None, engine: str, api_key: str | None,
-    ) -> tuple[bool, bool]:
+        entities_writer: Any = None,
+    ) -> tuple[int, int]:
         mtime = file_path.stat().st_mtime
         if not no_cache and cache.is_up_to_date(str(file_path), mtime):
-            return False, True
+            return 0, 1
 
         content = file_path.read_text(encoding="utf-8")
         if not content or len(content.strip()) < 10:
-            return False, False
+            return 0, 0
 
         content = _normalize_agent(content)
         content = _clean_broken_links(content, file_path.parent)
-        folder, filename, metadata = extract_title(
-            content, file_path.parent.parent.name,
-            model or "", engine=engine, api_key=api_key,
-        )
-        if not _valid_filename(filename):
-            return False, False
 
-        dest_dir = raw_store / folder
+        agent_type = file_path.parent.parent.parent.name
+        date_str = file_path.parent.parent.name
+        date_match = re.match(r"(\d{4}-\d{2}-\d{2})", date_str)
+        date_val = date_match.group(1) if date_match else None
+
+        llm_result = llm_extract(content, source_type="agent", model=model, engine=engine, api_key=api_key)
+
+        if entities_writer and llm_result.get("entities"):
+            import hashlib
+            doc_id = hashlib.sha256(str(file_path).encode()).hexdigest()[:12]
+            entities_writer.write(json.dumps({
+                "doc_id": doc_id,
+                "source": str(file_path),
+                **llm_result,
+            }, ensure_ascii=False) + "\n")
+
+        filename = _make_filename(llm_result, file_path, date_val)
+
+        dest_dir = raw_store / (date_val or "")
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / filename
-        dest.write_text(wrap_with_metadata(content, metadata), encoding="utf-8")
-        print(f"      + Saved: {folder}/{filename}")
-        cache.update(str(file_path), mtime, raw_name=f"{folder}/{filename}")
-        return True, False
+        dest.write_text(_wrap_with_metadata(content, llm_result), encoding="utf-8")
+        print(f"      + Saved: {dest_dir.name}/{filename}")
+        cache.update(str(file_path), mtime, raw_name=f"{dest_dir.name}/{filename}")
+        return 1, 0
 
-    def __repr__(self) -> str:
-        return "AgentHandler"
-
-
-# ====================================================================
-# Joplin Handler — .md 파일 (frontmatter + 상대경로 보존)
-# ====================================================================
 
 class JoplinHandler(SourceHandler):
     @property
@@ -193,28 +189,43 @@ class JoplinHandler(SourceHandler):
 
     def process_file(
         self, file_path: Path, source_dir: Path,
-        raw_store: Path, cache: OpenKbCache, no_cache: bool,
+        raw_store: Path, cache: FileCache, no_cache: bool,
         model: str | None, engine: str, api_key: str | None,
-    ) -> tuple[bool, bool]:
+        entities_writer: Any = None,
+    ) -> tuple[int, int]:
         mtime = file_path.stat().st_mtime
         if not no_cache and cache.is_up_to_date(str(file_path), mtime):
-            return False, True
+            return 0, 1
+
+        content = file_path.read_text(encoding="utf-8")
+        if not content:
+            return 0, 0
 
         rel_parent = file_path.parent.relative_to(source_dir)
-        content = file_path.read_text(encoding="utf-8")
-        _, _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
 
+        llm_result = llm_extract(content, source_type="joplin", model=model, engine=engine, api_key=api_key)
+
+        if entities_writer and llm_result.get("entities"):
+            import hashlib
+            doc_id = hashlib.sha256(str(file_path).encode()).hexdigest()[:12]
+            entities_writer.write(json.dumps({
+                "doc_id": doc_id,
+                "source": str(file_path),
+                **llm_result,
+            }, ensure_ascii=False) + "\n")
+
+        # Joplin frontmatter 보존
         if not content.startswith("---"):
             content = f"---\nsource: Joplin\nnotebook: {file_path.parent.name}\n---\n\n{content}"
 
         dest_dir = raw_store / rel_parent
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / file_path.name
-        dest.write_text(wrap_with_metadata(content, metadata), encoding="utf-8")
+        dest.write_text(_wrap_with_metadata(content, llm_result), encoding="utf-8")
         raw_ref = f"{rel_parent}/{file_path.name}"
         print(f"      + Joplin: {raw_ref}")
         cache.update(str(file_path), mtime, raw_name=raw_ref)
-        return True, False
+        return 1, 0
 
     def post_process(self, input_dirs: list[Path], raw_store: Path) -> None:
         dest_images = raw_store / "images"
@@ -233,41 +244,94 @@ class JoplinHandler(SourceHandler):
         if copied:
             print(f"   Copied {copied} images to {dest_images}")
 
-    def __repr__(self) -> str:
-        return "JoplinHandler"
+
+def make_handlers(cfg: PreprocessConfig) -> list[SourceHandler]:
+    return [AgentHandler(cfg), JoplinHandler(cfg)]
 
 
-# ====================================================================
-# Registry
-# ====================================================================
-
-def make_handlers(cfg: OpenKbConfig) -> list[SourceHandler]:
-    """등록된 핸들러 목록 반환. 순서: 구체적 → 일반적."""
-    return [
-        AgentHandler(cfg),
-        JoplinHandler(cfg),
-    ]
+def detect_handler(source_dir: Path, cfg: PreprocessConfig) -> SourceHandler | None:
+    for h in make_handlers(cfg):
+        if h.detect(source_dir):
+            return h
+    return None
 
 
-# ====================================================================
-# Internal helpers (shared between handlers)
-# ====================================================================
+# === Internal helpers ===
 
 _SKIP_KEYWORDS = [
     "\uc870\uce58_\uc5c6\uc74c", "no suggestions", "no_suggestions",
-    "suggestions_none", "\uc870\uce58\uc5c6\uc74c", "\ubb34\uc5c7\uc774\ub4e0 \ub2f5\ubcc0", "\ubb34\uc5c7\uc774\ub4e0\ub2f5\ubcc0",
+    "suggestions_none",
 ]
 
 
-def _valid_filename(filename: str) -> bool:
-    name = filename.replace(".md", "")
-    if len(name) <= 12 or name[10:].strip(" _") == "":
-        print(f"   \u26a0\ufe0f Invalid filename: '{filename}'")
-        return False
-    if any(k in name.lower() for k in _SKIP_KEYWORDS):
-        print(f"   \u26a0\ufe0f No-op session: '{filename}'")
-        return False
-    return True
+def _make_filename(llm_result: dict, file_path: Path, date_val: str | None) -> str:
+    title = llm_result.get("title", "")
+    if title:
+        clean = re.sub(r"[^a-zA-Z0-9\u3131-\u3163\uac00-\ud7a3\s_]", "", title)
+        clean = re.sub(r"\s+", " ", clean).strip()[:40]
+        if clean:
+            # 이슈 번호 추출
+            issue_match = re.search(r"(?:#|이슈\s*|버그\s*|feature/)([0-9]{3})", file_path.read_text(encoding="utf-8")[:1000], re.IGNORECASE)
+            if issue_match:
+                issue_no = f"#{issue_match.group(1)}"
+                if issue_no not in clean:
+                    return f"{issue_no}_{clean}.md"
+            return f"{clean}.md"
+
+    # Fallback: 파일명 기반
+    name = file_path.stem.replace("session", date_val or "agent").replace("transcript", date_val or "agent")
+    return f"{name}.md"
+
+
+def _wrap_with_metadata(content: str, metadata: dict) -> str:
+    """Add frontmatter and inline blockquote based on metadata dict (OpenKB 방식)."""
+    if not metadata:
+        return content
+
+    tags: list[str] = metadata.get("tags", [])
+    category: str = metadata.get("category", "")
+    sub_category: str = metadata.get("sub_category", "")
+    description: str = metadata.get("description", "")
+
+    frontmatter_lines: list[str] = []
+    if category and not re.search(r"^category:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"category: {category}")
+    if sub_category and not re.search(r"^sub_category:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"sub_category: {sub_category}")
+    if tags and not re.search(r"^tags:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"tags: {json.dumps(tags, ensure_ascii=False)}")
+    if description and not re.search(r"^description:\s", content, re.MULTILINE):
+        frontmatter_lines.append(f"description: {description}")
+
+    has_fm = content.startswith("---")
+    if frontmatter_lines:
+        new_fm_block = "\n".join(frontmatter_lines)
+        if has_fm:
+            end = content.find("---", 3)
+            if end != -1:
+                content = content[:end] + "\n" + new_fm_block + content[end:]
+        else:
+            content = f"---\n{new_fm_block}\n---\n\n{content}"
+
+    inline_parts: list[str] = []
+    if category and sub_category:
+        inline_parts.append(f"> **분류:** {category} > {sub_category}")
+    elif category:
+        inline_parts.append(f"> **분류:** {category}")
+    if tags:
+        inline_parts.append(f"> **태그:** {', '.join(tags)}")
+    if description:
+        inline_parts.append(f"> **설명:** {description}")
+
+    if inline_parts:
+        blockquote = "\n".join(inline_parts) + "\n\n"
+        body_start = content.find("\n\n", content.find("---", 3) + 3) if content.startswith("---") else -1
+        if body_start != -1:
+            content = content[:body_start + 2] + blockquote + content[body_start + 2:]
+        else:
+            content = content + "\n\n" + blockquote
+
+    return content
 
 
 def _normalize_agent(content: str) -> str:
@@ -283,11 +347,16 @@ def _clean_broken_links(content: str, session_dir: Path) -> str:
         if url.startswith("http://") or url.startswith("https://"):
             return m.group(0)
         clean_url = url.replace("file://", "")
+        if len(clean_url) > 500:
+            return text
         if clean_url.startswith("./") or not clean_url.startswith("/"):
             target = (session_dir / clean_url).resolve()
         else:
             target = Path(clean_url).resolve()
-        if not target.exists():
+        try:
+            if not target.exists():
+                return text
+        except OSError:
             return text
         return m.group(0)
     return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", _replace, content)

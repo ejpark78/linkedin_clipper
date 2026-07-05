@@ -1,26 +1,28 @@
 """
-Streamlit GUI for OpenKB Compiler — Job Queue Mode.
-- Enqueues compile jobs to Redis queue
-- Worker processes jobs asynchronously
-- CLI guide for manual execution
+Pipeline Web UI — Orchestrates preprocess → openkb → ...
+Streamlit app, accessible at https://wiki.localhost
 """
+
 from __future__ import annotations
 
-import json
 import os
+import sys
 import time
 from pathlib import Path
 
+_src = str(Path(__file__).parent.parent.resolve())
+if _src not in sys.path:
+    sys.path.insert(0, _src)
+
 import streamlit as st
+from worker.preprocess import llm_client as llm_extract
+from worker.preprocess.config import PreprocessConfig
 
-from config import OpenKbConfig
-from llm import LLMClient
-from jobs import enqueue_job, list_jobs, get_job_progress, get_job_result
-
+from web.jobs import enqueue_job, get_job_progress, get_job_result, list_jobs
 
 
 def _project_root() -> Path:
-    return OpenKbConfig.from_env().project_root
+    return PreprocessConfig.from_env().project_root
 
 
 def _init_session_state() -> None:
@@ -28,37 +30,32 @@ def _init_session_state() -> None:
         st.session_state.selected_paths = set()
     if "engine" not in st.session_state:
         st.session_state.engine = "ollama"
-    if "prev_engine" not in st.session_state:
-        st.session_state.prev_engine = None
+    if "pipeline_step" not in st.session_state:
+        st.session_state.pipeline_step = "preprocess"
     if "model_options" not in st.session_state:
         st.session_state.model_options = ["-- 선택 --"]
-    if "tab" not in st.session_state:
-        st.session_state.tab = "설정"
+    if "prev_engine" not in st.session_state:
+        st.session_state.prev_engine = None
     if "last_job_id" not in st.session_state:
         st.session_state.last_job_id = None
-    if "output_auto" not in st.session_state:
-        st.session_state.output_auto = "data/obsidian"
     if "output" not in st.session_state:
-        st.session_state.output = "data/obsidian"
+        st.session_state.output = "preprocessed"
+    if "output_auto" not in st.session_state:
+        st.session_state.output_auto = "preprocessed"
 
 
 def _refresh_models() -> None:
     engine = st.session_state.engine
     try:
         if engine == "llama.cpp":
-            gguf = LLMClient.find_gguf_models()
+            gguf = llm_extract.find_gguf_models()
             if gguf:
                 st.session_state.model_options = [label for label, _ in gguf]
                 return
-            fetched = LLMClient.list_models("llama.cpp", None)
-            if fetched:
-                st.session_state.model_options = fetched
-                return
-        else:
-            fetched = LLMClient.list_models(engine, None)
-            if fetched:
-                st.session_state.model_options = fetched
-                return
+        models = llm_extract.list_models(engine)
+        if models:
+            st.session_state.model_options = models
+            return
     except Exception:
         pass
     st.session_state.model_options = ["(모델 없음)"]
@@ -90,33 +87,76 @@ def _render_tree(path: Path, depth: int = 0, max_depth: int = 3) -> None:
             else:
                 st.session_state.selected_paths.discard(key)
             with c2:
-                with st.expander(f"\U0001f4c1 {entry.name}", expanded=False):
+                with st.expander(f"📁 {entry.name}", expanded=False):
                     _render_tree(entry, depth + 1, max_depth)
         else:
-            checked = st.checkbox(f"\U0001f4c1 {entry.name}", key=f"sel_{key}")
+            checked = st.checkbox(f"📁 {entry.name}", key=f"sel_{key}")
             if checked:
                 st.session_state.selected_paths.add(key)
             else:
                 st.session_state.selected_paths.discard(key)
 
 
-def _get_model_value() -> str | None:
-    model = st.session_state.get("model_select", "")
-    if not model or model in ("-- 선택 --", "(모델 없음)"):
-        return None
-    if st.session_state.engine == "llama.cpp":
-        for label, path in LLMClient.find_gguf_models():
-            if label == model:
-                return path
-    return model
-
-
 def _quote(val: str) -> str:
     return f'"{val}"' if " " in val else val
 
 
+def _build_cli_cmd() -> str:
+    step = st.session_state.pipeline_step
+    engine = st.session_state.engine
+    model = st.session_state.get("model_select", "")
+
+    if step == "openkb":
+        parts = ["task wiki:pipeline:openkb --"]
+    else:
+        parts = ["task wiki:pipeline:preprocess --"]
+
+    if model and model not in ("-- 선택 --", "(모델 없음)"):
+        parts.append(f"--engine {engine}")
+        parts.append(f"--model {_quote(model)}")
+
+    paths = sorted(st.session_state.selected_paths)
+    if paths:
+        for p in paths:
+            try:
+                rel = Path(p).relative_to(_project_root())
+                parts.append(f"--input {_quote(str(rel))}")
+            except ValueError:
+                parts.append(f"--input {_quote(p)}")
+
+    out = st.session_state.get("output", "").strip()
+    if out:
+        parts.append(f"--output {_quote(out)}")
+
+    if step == "preprocess":
+        cs = st.session_state.get("chunk_size", 2000)
+        if cs:
+            parts.append(f"--chunk-size {cs}")
+
+    return " \\\n  ".join(parts)
+
+
+def _gather_selections() -> dict:
+    step = st.session_state.pipeline_step
+    sel = {"engine": st.session_state.engine}
+    model = st.session_state.get("model_select", "")
+    if model and model not in ("-- 선택 --", "(모델 없음)"):
+        sel["model"] = model
+
+    paths = sorted(st.session_state.selected_paths)
+    if paths:
+        sel["input_paths"] = tuple(paths)
+    out = st.session_state.get("output", "").strip() or None
+    if out:
+        sel["output"] = out
+
+    if step == "preprocess":
+        sel["chunk_size"] = st.session_state.get("chunk_size", 2000)
+
+    return sel
+
+
 def _mirror_output(input_path: str, output_prefix: str) -> str:
-    """input 절대경로에서 project_root 이하 상대경로를 추출, output_prefix에 이어붙임."""
     try:
         rel = Path(input_path).relative_to(_project_root())
         return str(Path(output_prefix) / rel)
@@ -125,7 +165,6 @@ def _mirror_output(input_path: str, output_prefix: str) -> str:
 
 
 def _mirror_common(paths: list[str], output_prefix: str) -> str:
-    """여러 input 경로의 공통 부모 기준 mirror. 실패 시 첫 번째 경로 기준."""
     try:
         if len(paths) == 1:
             return _mirror_output(paths[0], output_prefix)
@@ -136,75 +175,32 @@ def _mirror_common(paths: list[str], output_prefix: str) -> str:
 
 
 def _sync_output_on_input() -> None:
-    """Input 경로 변경 시 Output 필드를 mirror 경로로 자동 갱신.
-    사용자가 Output을 직접 수정한 경우 auto-sync 중단."""
     paths = sorted(st.session_state.selected_paths)
     current = st.session_state.get("output", "").strip()
-    auto_ref = st.session_state.get("output_auto", "data/obsidian")
+    auto_ref = st.session_state.get("output_auto", "preprocessed")
 
     if paths:
         try:
-            mirror = _mirror_common(paths, "data/obsidian")
+            mirror = _mirror_common(paths, "preprocessed")
         except Exception:
             return
 
         if current == auto_ref or not current:
-            # 사용자가 건드리지 않음 → auto 갱신
             if mirror != current:
                 st.session_state.output = mirror
                 st.session_state.output_auto = mirror
                 st.rerun()
     else:
         if current == auto_ref or not current:
-            st.session_state.output = "data/obsidian"
-            st.session_state.output_auto = "data/obsidian"
-
-
-def _build_cli_cmd() -> str:
-    parts = ["task openkb:compile --"]
-    engine = st.session_state.engine
-    model = _get_model_value()
-    if model:
-        parts.append(f"--engine {engine}")
-        parts.append(f"--model {model}")
-    paths = sorted(st.session_state.selected_paths)
-    if paths:
-        for p in paths:
-            try:
-                rel = Path(p).relative_to(_project_root())
-                parts.append(f"--input {_quote(str(rel))}")
-            except ValueError:
-                parts.append(f"--input {_quote(p)}")
-    out = st.session_state.get("output", "").strip()
-    if out:
-        parts.append(f"--output {_quote(out)}")
-    sample = st.session_state.get("sample_limit", 0)
-    if sample and int(sample) > 0:
-        parts.append(f"--sample {int(sample)}")
-    return " \\\n  ".join(parts)
-
-
-def _gather_selections() -> dict:
-    selections = {}
-    selections["engine"] = st.session_state.engine
-    selections["model"] = _get_model_value()
-    paths = sorted(st.session_state.selected_paths)
-    if paths:
-        selections["input_paths"] = tuple(paths)
-    out = st.session_state.get("output", "").strip() or None
-    if out:
-        selections["output"] = out
-    selections.pop("output_path", None)
-    sample = st.session_state.get("sample_limit", 0)
-    selections["sample"] = int(sample) if sample and int(sample) > 0 else None
-    return selections
+            st.session_state.output = "preprocessed"
+            st.session_state.output_auto = "preprocessed"
 
 
 def _render_setup_tab() -> None:
     left_col, right_col = st.columns([0.38, 0.62])
 
     with left_col:
-        st.subheader("\U0001f4c1 Sources")
+        st.subheader("📁 Sources")
         _render_tree(_project_root())
 
         st.markdown("---")
@@ -214,7 +210,7 @@ def _render_setup_tab() -> None:
             key="custom_path_text",
             label_visibility="collapsed",
         )
-        if st.button("\u2795 Add custom path", key="add_path_btn"):
+        if st.button("➕ Add custom path", key="add_path_btn"):
             cp = st.session_state.custom_path_text.strip()
             if cp:
                 full = _project_root() / cp
@@ -231,7 +227,17 @@ def _render_setup_tab() -> None:
                     st.markdown(f"- `{p}`")
 
     with right_col:
-        st.subheader("\u2699\ufe0f Settings")
+        st.subheader("⚙️ Settings")
+
+        st.radio(
+            "Pipeline Step",
+            ["preprocess", "openkb"],
+            index=0,
+            horizontal=True,
+            key="pipeline_step",
+            help="preprocess: chunk + LLM extraction | openkb: wiki compile | full: both",
+        )
+
         engines = ["ollama", "llama.cpp"]
         eng_idx = engines.index(st.session_state.engine) if st.session_state.engine in engines else 0
         st.radio("LLM Engine", engines, index=eng_idx, horizontal=True, key="engine")
@@ -239,30 +245,30 @@ def _render_setup_tab() -> None:
 
         _sync_output_on_input()
         st.text_input("Output Directory", key="output", help="Input 경로 변경 시 자동 mirror. 직접 수정 시 auto-sync 중단.")
-        st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
-        st.markdown("### \U0001f4a1 CLI Guide")
+        if st.session_state.pipeline_step == "preprocess":
+            st.number_input("Chunk Size (tokens)", min_value=500, value=2000, step=500, key="chunk_size")
+
+        st.markdown("### 💡 CLI Guide")
         st.code(_build_cli_cmd(), language="bash")
         st.caption("터미널에서 위 명령어를 실행하거나, 아래 버튼으로 작업을 큐에 등록하세요.")
 
-        if st.button("\u25b6 Enqueue Compile", type="primary", use_container_width=True):
-            selections = _gather_selections()
+        if st.button("▶️ Enqueue Job", type="primary", use_container_width=True):
+            job_type = st.session_state.pipeline_step
+            params = _gather_selections()
             try:
-                job_id = enqueue_job(selections)
+                job_id = enqueue_job(job_type, params)
                 st.session_state.last_job_id = job_id
-                st.success(f"Job #{job_id} enqueued!")
+                st.success(f"Job #{job_id} enqueued ({job_type})!")
                 time.sleep(1)
                 st.rerun()
             except Exception as e:
                 st.error(f"Failed to enqueue job: {e}")
-                st.info(
-                    "Redis 연결을 확인하세요.\n"
-                    "`task redis:up` 으로 Redis를 먼저 실행해야 합니다."
-                )
+                st.info("Redis 연결을 확인하세요.\n`task redis:up` 으로 Redis를 먼저 실행해야 합니다.")
 
 
 def _render_jobs_tab() -> None:
-    st.subheader("\U0001f4cb Job Status")
+    st.subheader("📋 Job Status")
 
     try:
         jobs = list_jobs(20)
@@ -279,21 +285,22 @@ def _render_jobs_tab() -> None:
         job_id = job.get("job_id", "?")
         status = job.get("status", "unknown")
         exit_code = job.get("exit_code")
-        sel = job.get("selections", {})
+        job_type = job.get("type", "?")
+        params = job.get("params", {})
 
         if status == "running":
-            label = f"\U0001f504 #{job_id} Running"
+            label = f"🔄 #{job_id} [{job_type}] Running"
         elif status == "queued":
-            label = f"\u23f3 #{job_id} Queued"
+            label = f"⏳ #{job_id} [{job_type}] Queued"
         elif status == "completed" and exit_code == 0:
-            label = f"\u2705 #{job_id} Completed"
+            label = f"✅ #{job_id} [{job_type}] Completed"
         else:
-            label = f"\u274c #{job_id} Failed (exit={exit_code})"
+            label = f"❌ #{job_id} [{job_type}] Failed (exit={exit_code})"
 
         with st.expander(label, expanded=(status == "running" or job_id == st.session_state.get("last_job_id"))):
-            if sel:
-                paths = sel.get("input_paths", [])
-                out = sel.get("output", "")
+            if params:
+                paths = params.get("input_paths", [])
+                out = params.get("output", "")
                 st.text(f"Inputs: {', '.join(paths) if paths else '(default)'}")
                 if out:
                     st.text(f"Output: {out}")
@@ -313,7 +320,7 @@ def _render_jobs_tab() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="OpenKB Web", page_icon="\U0001f9e0", layout="wide")
+    st.set_page_config(page_title="Wiki Pipeline", page_icon="🧠", layout="wide")
     _init_session_state()
 
     engine_changed = st.session_state.engine != st.session_state.prev_engine
@@ -321,10 +328,10 @@ def main() -> None:
         _refresh_models()
         st.session_state.prev_engine = st.session_state.engine
 
-    st.title("\U0001f9e0 OpenKB Compile")
+    st.title("🧠 Wiki Pipeline")
     st.markdown("---")
 
-    tab_setup, tab_jobs = st.tabs(["\u2699\ufe0f Settings", "\U0001f4cb Jobs"])
+    tab_setup, tab_jobs = st.tabs(["⚙️ Settings", "📋 Jobs"])
 
     with tab_setup:
         _render_setup_tab()
@@ -333,7 +340,7 @@ def main() -> None:
         _render_jobs_tab()
 
     st.markdown("---")
-    st.caption("\U0001f517 https://kb.localhost | `task openkb:worker` \u2014 Worker\uac00 \uc2e4\ud589\uc911\uc774\uc5b4\uc57c \ud569\ub2c8\ub2e4.")
+    st.caption("🔗 https://wiki.localhost | `task wiki:up` 으로 컨테이너를 실행하세요.")
 
 
 if __name__ == "__main__":

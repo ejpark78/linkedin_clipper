@@ -1,0 +1,30 @@
+services:
+  wiki-web:
+    build:
+      context: ${HOST_PROJECT_PATH:-.}
+      dockerfile: apps/wiki/docker/web/Dockerfile
+    image: scraper/wiki-web:latest
+    container_name: scraper-wiki-web
+    profiles:
+      - tools
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - WIKI_QUEUE=${WIKI_QUEUE:-wiki:queue}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-http://host.docker.internal:11434/v1}
+      - LLM_ENGINE=${LLM_ENGINE:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3.5:9b-mlx}
+      - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${HOST_PROJECT_PATH:-.}/data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wiki.rule=Host(`wiki.localhost`)"
+      - "traefik.http.routers.wiki.entrypoints=websecure"
+      - "traefik.http.routers.wiki.tls=true"
+      - "traefik.http.services.wiki.loadbalancer.server.port=8501"

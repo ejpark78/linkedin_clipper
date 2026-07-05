@@ -34,8 +34,8 @@ includes:
   agents:
     taskfile: ./tools/agents/Taskfile.yml
     dir: .
-  openkb:
-    taskfile: ./apps/openkb/Taskfile.yml
+  joplin:
+    taskfile: ./tools/joplin/Taskfile.yml
     dir: .
   git:
     taskfile: ./tools/git/Taskfile.yml

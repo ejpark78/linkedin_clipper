@@ -1,1 +1,0 @@
-# OpenKB package

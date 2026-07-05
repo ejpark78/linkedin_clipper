@@ -7,12 +7,13 @@
 services:
   wiki-tool:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ${HOST_PROJECT_PATH:-.}
+      dockerfile: tools/joplin/docker/Dockerfile
       args:
         - BUILD_DATE
         - VCS_REF
     image: scraper/wiki-tool:latest
+    working_dir: /app/apps/wiki
     profiles:
       - tools
     environment:
