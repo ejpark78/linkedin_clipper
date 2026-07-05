@@ -16,7 +16,10 @@ from config import OpenKbConfig
 from llm import LLMClient
 from jobs import enqueue_job, list_jobs, get_job_progress, get_job_result
 
-__PROJECT_ROOT = OpenKbConfig.from_env().project_root
+
+
+def _project_root() -> Path:
+    return OpenKbConfig.from_env().project_root
 
 
 def _init_session_state() -> None:
@@ -118,13 +121,13 @@ def _build_cli_cmd() -> str:
     if paths:
         for p in paths:
             try:
-                rel = Path(p).relative_to(_PROJECT_ROOT.parent)
+                rel = Path(p).relative_to(_project_root().parent)
                 parts.append(f"--input {_quote(str(rel))}")
             except ValueError:
                 parts.append(f"--input {_quote(p)}")
-    out_base = st.session_state.get("output_base", "").strip()
-    if out_base:
-        parts.append(f"--output {_quote(out_base)}")
+    out = st.session_state.get("output", "").strip()
+    if out:
+        parts.append(f"--output {_quote(out)}")
     sample = st.session_state.get("sample_limit", 0)
     if sample and int(sample) > 0:
         parts.append(f"--sample {int(sample)}")
@@ -138,7 +141,8 @@ def _gather_selections() -> dict:
     paths = sorted(st.session_state.selected_paths)
     if paths:
         selections["input_paths"] = tuple(paths)
-    selections["output_base"] = st.session_state.get("output_base", "").strip() or None
+    selections["output"] = st.session_state.get("output", "").strip() or None
+    selections.pop("output_path", None)
     sample = st.session_state.get("sample_limit", 0)
     selections["sample"] = int(sample) if sample and int(sample) > 0 else None
     return selections
@@ -149,7 +153,7 @@ def _render_setup_tab() -> None:
 
     with left_col:
         st.subheader("\U0001f4c1 Sources")
-        _render_tree(_PROJECT_ROOT)
+        _render_tree(_project_root())
 
         st.markdown("---")
         st.text_input(
@@ -161,7 +165,7 @@ def _render_setup_tab() -> None:
         if st.button("\u2795 Add custom path", key="add_path_btn"):
             cp = st.session_state.custom_path_text.strip()
             if cp:
-                full = _PROJECT_ROOT / cp
+                full = _project_root() / cp
                 st.session_state.selected_paths.add(str(full))
                 st.rerun()
 
@@ -169,7 +173,7 @@ def _render_setup_tab() -> None:
             st.markdown("**Selected:**")
             for p in sorted(st.session_state.selected_paths):
                 try:
-                    rel = Path(p).relative_to(_PROJECT_ROOT.parent)
+                    rel = Path(p).relative_to(_project_root().parent)
                     st.markdown(f"- `{rel}`")
                 except ValueError:
                     st.markdown(f"- `{p}`")
@@ -181,7 +185,7 @@ def _render_setup_tab() -> None:
         st.radio("LLM Engine", engines, index=eng_idx, horizontal=True, key="engine")
         st.selectbox("Model", st.session_state.model_options, key="model_select")
 
-        st.text_input("Output Base Directory", value="data/obsidian", key="output_base")
+        st.text_input("Output Directory", value="data/obsidian", key="output")
         st.number_input("Sample Limit (0 = all)", min_value=0, value=0, key="sample_limit")
 
         st.markdown("### \U0001f4a1 CLI Guide")
@@ -236,7 +240,7 @@ def _render_jobs_tab() -> None:
         with st.expander(label, expanded=(status == "running" or job_id == st.session_state.get("last_job_id"))):
             if sel:
                 paths = sel.get("input_paths", [])
-                out = sel.get("output_base", "")
+                out = sel.get("output", "")
                 st.text(f"Inputs: {', '.join(paths) if paths else '(default)'}")
                 if out:
                     st.text(f"Output: {out}")

@@ -42,6 +42,7 @@ services:
       - HOME=/tmp
       - SKIP_OPENKB_CONFIG=1
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - OPENKB_OUTPUT_PREFIX=${OPENKB_OUTPUT_PREFIX:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -77,6 +78,7 @@ services:
       - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
       - HOME=${OPENKB_HOME:-/data/openkb}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - OPENKB_OUTPUT_PREFIX=${OPENKB_OUTPUT_PREFIX:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

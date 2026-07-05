@@ -33,6 +33,9 @@ class OpenKbConfig:
     redis_result_prefix: str = "openkb:result:"
     redis_history_key: str = "openkb:history"
 
+    # === Output mirror (OPENKB_OUTPUT_PREFIX) ===
+    output_prefix: str = ""
+
     # === Queue timeouts ===
     blpop_timeout: int = 0
     progress_interval: float = 5.0
@@ -85,6 +88,7 @@ class OpenKbConfig:
             ollama_host=ollama_host,
             redis_url=os_environ("REDIS_URL", "redis://redis:6379"),
             redis_queue=os_environ("OPENKB_QUEUE", "openkb:queue"),
+            output_prefix=os_environ("OPENKB_OUTPUT_PREFIX", ""),
         )
         cls._instance = cfg
         return cfg

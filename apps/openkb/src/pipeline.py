@@ -24,8 +24,7 @@ class CompilePipeline:
     def run(
         self,
         input_paths: tuple[str, ...] | None = None,
-        output_base: str | None = None,
-        output_path: str | None = None,
+        output: str | None = None,
         agents: tuple[str, ...] | None = None,
         joplin_notebooks: tuple[str, ...] | None = None,
         date_from: str | None = None,
@@ -48,12 +47,13 @@ class CompilePipeline:
             LLMClient.stop_llama_server()
             exit(1)
 
-        raw_store, cache_path = self._resolve_output(output_base, output_path)
+        input_dirs = self._resolve_input_dirs(input_paths)
+        raw_store, cache_path = self._resolve_output(output, input_dirs[0] if input_dirs else None)
+
         if full_rebuild:
             self._clear_raw(raw_store, cache_path)
         raw_store.mkdir(parents=True, exist_ok=True)
 
-        input_dirs = self._resolve_input_dirs(input_paths)
         cache = OpenKbCache(cache_path)
 
         date_from_dt = self._parse_date(date_from or os.environ.get("DATE_FROM"))
@@ -68,7 +68,6 @@ class CompilePipeline:
 
         total_processed = 0
         total_skipped = 0
-        results: list[str] = []
 
         for input_dir in input_dirs:
             dir_result = self._process_input_dir(
@@ -78,13 +77,11 @@ class CompilePipeline:
             )
             total_processed += dir_result["processed"]
             total_skipped += dir_result["skipped"]
-            if dir_result["handler"]:
-                results.append(dir_result["handler"])
 
         for handler in self.handlers:
             handler.post_process(input_dirs, raw_store)
 
-        print(f"\u2728 Processed: {total_processed} | Skipped: {total_skipped}" if total_processed or total_skipped else "   No files to process.")
+        print(f"\u2728 Processed: {total_processed} | Skipped: {total_skipped}")
 
         self._clean_orphans(raw_store, cache, full_rebuild)
 
@@ -93,11 +90,9 @@ class CompilePipeline:
             LLMClient.stop_llama_server()
             return
 
-        print("\U0001f9e0 Running openkb add...")
-        if any(raw_store.iterdir()):
-            _run_openkb_add(raw_store, engine, model, api_key, raw_store.parent)
-        else:
-            print("   No files to compile.")
+        kb_root = raw_store.parent
+        print(f"\U0001f9e0 Running openkb add (KB: {kb_root})...")
+        _run_openkb_add(raw_store, engine, model, api_key, kb_root)
         LLMClient.stop_llama_server()
 
     def _process_input_dir(
@@ -135,9 +130,18 @@ class CompilePipeline:
 
         return result
 
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
+    def _resolve_output(self, output_path: str | None, input_dir: Path | None) -> tuple[Path, Path]:
+        if output_path:
+            root = Path(output_path).resolve()
+        elif input_dir and self.cfg.output_prefix:
+            try:
+                rel = input_dir.relative_to(self.cfg.project_root)
+            except ValueError:
+                rel = input_dir
+            root = Path(self.cfg.output_prefix).resolve() / rel
+        else:
+            root = self.cfg.openkb_dir
+        return root / "raw", root / "cache.json"
 
     def _resolve_model(self, model: str | None, engine: str) -> str | None:
         if model:
@@ -156,16 +160,6 @@ class CompilePipeline:
             p = Path(model)
             if p.is_file() and p.suffix == ".gguf":
                 LLMClient.start_llama_server(model, port=port)
-
-    def _resolve_output(self, output_base: str | None, output_path: str | None) -> tuple[Path, Path]:
-        if output_base:
-            base_dir = Path(output_base)
-            if not base_dir.is_absolute():
-                base_dir = self.cfg.project_root / base_dir
-            elif not Path("/data").exists() and base_dir.parts[:2] == ("/", "data"):
-                base_dir = self.cfg.project_root / Path(*base_dir.parts[2:])
-            return base_dir / "raw", base_dir / "cache.json"
-        return Path(output_path) if output_path else self.cfg.default_raw_store, self.cfg.default_cache_path
 
     def _clear_raw(self, raw_store: Path, cache_path: Path) -> None:
         print(f"\U0001f9f9 Full rebuild: clearing {raw_store}...")
@@ -236,30 +230,28 @@ def compile_command(**kwargs: Any) -> None:
     CompilePipeline().run(**kwargs)
 
 
-def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None, output_base: Path | None = None) -> None:
+def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: str | None, kb_root: Path) -> None:
     env = os.environ.copy()
     cfg = OpenKbConfig.from_env()
 
-    if output_base:
-        ob = output_base
-        ob.mkdir(parents=True, exist_ok=True)
-        (ob / ".openkb").mkdir(parents=True, exist_ok=True)
-        (ob / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
-        model_ref = model or "default"
-        if engine == "llama.cpp":
-            config_model = f"openai/{model_ref}"
-            config_base = f"http://{cfg.ollama_host}:{cfg.engine_ports['llama.cpp']}/v1"
-        else:
-            config_model = f"{engine}/{model_ref}"
-            config_base = f"http://{cfg.ollama_host}:{cfg.engine_ports['ollama']}"
-        (ob / ".openkb" / "config.yaml").write_text(
-            f"model: {config_model}\napi_base: {config_base}\napi_key: anything\nlanguage: ko\npageindex_threshold: 20\n"
-        )
-        (ob / ".config" / "openkb" / "global.yaml").write_text(
-            f"default_kb: {ob}\nknown_kbs:\n- {ob}\n"
-        )
-        env["OPENKB_HOME"] = str(ob.resolve())
-        env["HOME"] = str(ob.resolve())
+    kb_root.mkdir(parents=True, exist_ok=True)
+    (kb_root / ".openkb").mkdir(parents=True, exist_ok=True)
+    (kb_root / ".config" / "openkb").mkdir(parents=True, exist_ok=True)
+    model_ref = model or "default"
+    if engine == "llama.cpp":
+        config_model = f"openai/{model_ref}"
+        config_base = f"http://{cfg.ollama_host}:{cfg.engine_ports['llama.cpp']}/v1"
+    else:
+        config_model = f"{engine}/{model_ref}"
+        config_base = f"http://{cfg.ollama_host}:{cfg.engine_ports['ollama']}"
+    (kb_root / ".openkb" / "config.yaml").write_text(
+        f"model: {config_model}\napi_base: {config_base}\napi_key: anything\nlanguage: ko\npageindex_threshold: 20\n"
+    )
+    (kb_root / ".config" / "openkb" / "global.yaml").write_text(
+        f"default_kb: {kb_root}\nknown_kbs:\n- {kb_root}\n"
+    )
+    env["OPENKB_HOME"] = str(kb_root.resolve())
+    env["HOME"] = str(kb_root.resolve())
 
     if engine == "ollama":
         env["OPENAI_API_BASE"] = f"http://{cfg.ollama_host}:11434/v1"
@@ -277,7 +269,7 @@ def _run_openkb_add(raw_store: Path, engine: str, model: str | None, api_key: st
         env["OPENAI_API_KEY"] = "ollama"
 
     try:
-        subprocess.run(["openkb", "add", str(raw_store)], env=env, check=True, cwd=ob if output_base else cfg.openkb_dir)
+        subprocess.run(["openkb", "add", str(raw_store)], env=env, check=True, cwd=str(kb_root))
         print("\u2705 OpenKB compile complete.")
     except subprocess.CalledProcessError as e:
         print(f"\u274c openkb add failed: {e}")

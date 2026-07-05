@@ -115,7 +115,7 @@ tasks:
         --engine, -e      LLM 엔진 (ollama / llama.cpp / unsloth)
         --model, -m       모델명 또는 GGUF 파일 경로
         --input, -i       입력 경로 (여러번, e.g. --input data/agents/agy)
-        --output, -o      출력 베이스 디렉토리 (하위에 raw/, cache.json 생성)
+        --output, -o      출력 KB 베이스 (하위에 raw/, wiki/, .openkb/ 생성). 미지정 시 OPENKB_OUTPUT_PREFIX + input mirror
         --agent           Agent 타입 필터 (agy / codex / opencode)
         --date-from       시작일 (YYYY-MM-DD)
         --date-to         종료일 (YYYY-MM-DD)
@@ -123,6 +123,9 @@ tasks:
         --no-cache        캐시 사용 안함
         --full-rebuild    raw/ 초기화 후 전체 재처리 (증분 처리 비활성화)
         --streamlit       Streamlit GUI 모드
+
+      [Environment]
+        OPENKB_OUTPUT_PREFIX    --output 미지정 시 input 경로를 mirror할 prefix (예: data/obsidian)
 
       [Web UI]
         task openkb:web        →  https://kb.localhost (작업 큐 등록)

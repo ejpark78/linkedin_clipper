@@ -28,8 +28,7 @@ def cli() -> None:
 @click.option("--api-key", default=None, help="Unsloth Studio API key")
 @click.option("--input", "-i", "input_paths", multiple=True,
               help="\uc785\ub825 \uacbd\ub85c (\uc5ec\ub7ec\ubc88 \uc9c0\uc815 \uac00\ub2a5, e.g. --input data/agents/agy)")
-@click.option("--output", "-o", default=None, help="\ucd9c\ub825 \ubca0\uc774\uc2a4 \ub514\ub809\ud1a0\ub9ac (\ud558\uc704\uc5d0 raw/, cache.json \uc0dd\uc131)")
-@click.option("--output-path", default=None, help="\ucd9c\ub825 raw store \uacbd\ub85c (\uc9c1\uc811 \uc9c0\uc815)")
+@click.option("--output", "-o", default=None, help="\ucd9c\ub825 KB \ubca0\uc774\uc2a4 \ub514\ub809\ud1a0\ub9ac (\ud558\uc704\uc5d0 raw/, wiki/, .openkb/\uc0dd\uc131). \ubbf8\uc9c0\uc815 \uc2dc OPENKB_OUTPUT_PREFIX env \uae30\ubc18 input mirror")
 @click.option("--agent", "agents", multiple=True, type=click.Choice(["agy", "codex", "opencode"]),
               help="Agent \ud0c0\uc785 \ud544\ud130")
 @click.option("--joplin-notebook", "joplin_notebooks", multiple=True,
@@ -47,21 +46,8 @@ def compile(**kwargs: Any) -> None:
     if streamlit_mode:
         _run_streamlit(**kwargs)
     else:
-        _map_output(kwargs)
+        kwargs.pop("output_path", None)
         compile_command(**kwargs)
-
-
-@cli.command()
-def worker() -> None:
-    """OpenKB Worker - Redis \ud050\uc5d0\uc11c job\uc744 \uc18c\ube44\ud558\uc5ec \ucef4\ud30c\uc77c \uc2e4\ud589"""
-    run_worker()
-
-
-def _map_output(kwargs: dict) -> None:
-    if kwargs.get("output") and not kwargs.get("output_base") and not kwargs.get("output_path"):
-        kwargs["output_base"] = kwargs.pop("output")
-    elif kwargs.get("output"):
-        kwargs.pop("output")
 
 
 def _run_streamlit(**defaults: Any) -> None:
