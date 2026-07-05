@@ -50,7 +50,7 @@ tasks:
         --model         LLM 모델명
         --chunk-size    청크 크기 (기본: 2000)
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m src.worker preprocess {{.CLI_ARGS}}'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m worker preprocess {{.CLI_ARGS}}'
 
   pipeline:openkb:
     desc: "Run openkb compile pipeline"
@@ -61,4 +61,4 @@ tasks:
         task wiki:pipeline:openkb
         task wiki:pipeline:openkb -- --input data/agents/agy --output data/obsidian
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m src.worker openkb {{.CLI_ARGS}}'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m worker openkb {{.CLI_ARGS}}'
