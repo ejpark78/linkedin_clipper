@@ -3,11 +3,22 @@ version: '3'
 tasks:
   build:
     desc: Build crawler worker images.
+    summary: |
+      Build crawler Docker images (worker, scraper, converter, indexer) without cache.
+
+      [Usage Examples]
+        - task crawler:build
     cmds:
       - '{{.COMPOSE}} build --no-cache worker scraper converter indexer'
 
   up:
     desc: Start crawler workers.
+    summary: |
+      Start crawler worker containers (worker, scraper, converter, indexer).
+
+      [Usage Examples]
+        - task crawler:up
+        - task crawler:up SCALE=2
     cmds:
       - SCALE={{.SCALE | default "1"}} {{.COMPOSE}} up -d worker scraper converter indexer
 
@@ -15,51 +26,129 @@ tasks:
 
   down:
     desc: Stop crawler workers.
+    summary: |
+      Stop all crawler worker containers.
+
+      [Usage Examples]
+        - task crawler:down
     cmds:
       - '{{.COMPOSE}} stop worker scraper converter indexer'
 
   login:
     desc: Log into a browser-backed site session.
+    summary: |
+      Log into a Playwright browser-backed site session to store authentication state.
+
+      [Variables]
+        - SITE: (옵션) 대상 사이트 (기본값: "linkedin")
+
+      [Usage Examples]
+        - task crawler:login SITE="linkedin"
     cmds:
       - SITE={{.SITE | default "linkedin"}} npx ts-node src/sites/linkedin/Crawler.ts login
 
   open:
     desc: Open the Playwright browser helper.
+    summary: |
+      Open Playwright in non-headless/headed mode to inspect pages or debug sessions.
+
+      [Variables]
+        - SITE: (옵션) 대상 사이트 (기본값: "linkedin")
+
+      [Usage Examples]
+        - task crawler:open SITE="linkedin"
     cmds:
       - SITE={{.SITE | default "linkedin"}} npx ts-node src/tools/browser/open.ts
 
   logout:
+    desc: Remove a browser-backed site session.
+    summary: |
+      Remove stored authentication credentials for a given site session.
+
+      [Variables]
+        - SITE: (옵션) 대상 사이트 (기본값: "linkedin")
+
+      [Usage Examples]
+        - task crawler:logout SITE="linkedin"
     cmds:
       - rm -f {{.ROOT_DIR}}/data/sessions/{{.SITE | default "linkedin"}}.json
 
   clear-queue:
+    desc: Clear crawler job queue.
+    summary: |
+      Remove all pending jobs from the crawler queue.
+
+      [Usage Examples]
+        - task crawler:clear-queue
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:clear'
 
   queue:status:
+    desc: Show crawler queue statistics.
+    summary: |
+      Display current crawler queue statistics (pending, active, failed counts).
+
+      [Usage Examples]
+        - task crawler:queue:status
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
 
   queue:dump:
+    desc: Dump crawler queue to JSON.
+    summary: |
+      Export the full crawler queue data to a JSON file.
+
+      [Usage Examples]
+        - task crawler:queue:dump
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data:/app/data worker npm run queue:dump'
 
   queue:fix-urls:
+    desc: Fix malformed URLs in the crawler queue.
+    summary: |
+      Scan and fix malformed URLs in the crawler queue, then display updated status.
+
+      [Usage Examples]
+        - task crawler:queue:fix-urls
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:fix-urls'
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
 
   grep-errors:
+    desc: Search crawler logs for errors.
+    summary: |
+      Grep scraper and converter logs for error patterns to diagnose issues.
+
+      [Usage Examples]
+        - task crawler:grep-errors
     cmds:
       - '{{.COMPOSE}} logs --no-color scraper converter | {{.COMPOSE}} run --rm -T {{.RUN_USER}} worker npm run log:grep-errors'
 
   gmail:sync:
+    desc: Sync Gmail messages via Gmail tool.
+    summary: |
+      Fetch and sync Gmail messages into the crawler pipeline.
+
+      [Usage Examples]
+        - task crawler:gmail:sync
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data/gmail:/data gmail npm run gmail:sync'
 
   site:
     desc: "Run a crawler site command. Variables: SITE, CMD, PAGE, LIST_SLACK."
+    summary: |
+      Execute a crawler command (list, refresh-urls, refresh-silver) for a specific site.
+
+      [Variables]
+        - SITE: (필수) 대상 사이트명
+        - CMD: (필수) 실행할 명령어 (list / refresh-urls / refresh-silver)
+        - PAGE: (옵션) 페이지 번호 (기본값: "1")
+        - LIST_SLACK: (옵션) 슬랙 로깅 제한 (기본값: "2")
+
+      [Usage Examples]
+        - task crawler:site SITE=yozm CMD=list
+        - task crawler:site SITE=yozm CMD=refresh-urls
     cmds:
       - |
         if [ -z "{{.SITE}}" ] || [ -z "{{.CMD}}" ]; then
@@ -120,15 +209,37 @@ tasks:
       - task site SITE={{.SITE}} CMD=refresh-silver
 
   extract:
+    desc: Extract a single article for debugging.
+    summary: |
+      Extract and print a single article by site and ID for debugging purposes.
+
+      [Variables]
+        - SITE: (필수) 사이트명
+        - ID: (필수) 문서 ID
+
+      [Usage Examples]
+        - task crawler:extract SITE=yozm ID=3800
     cmds:
       - |
         if [ -z "{{.SITE}}" ] || [ -z "{{.ID}}" ]; then
-          echo "SITE and ID variables are required. Example: task app:crawler:extract SITE=yozm ID=3800"
+          echo "SITE and ID variables are required. Example: task crawler:extract SITE=yozm ID=3800"
           exit 1
         fi
         {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run extract:article -- --site {{.SITE}} --id {{.ID}}
 
   debug:
+    desc: Debug HTML parsing for a site or file.
+    summary: |
+      Debug HTML parser output for a specific article or HTML fixture file.
+
+      [Variables]
+        - SITE: (옵션) 사이트명 (ID와 함께 사용)
+        - ID: (옵션) 문서 ID (SITE와 함께 사용)
+        - FILE: (옵션) HTML fixture 파일 경로
+
+      [Usage Examples]
+        - task crawler:debug SITE=yozm ID=3800
+        - task crawler:debug FILE=tests/sites/yozm/fixtures/3800.html
     cmds:
       - |
         if [ -n "{{.FILE}}" ]; then

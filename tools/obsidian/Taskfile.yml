@@ -2,15 +2,39 @@ version: '3'
 
 tasks:
   config:
+    desc: Show Obsidian Compose config.
+    summary: |
+      Print the resolved Docker Compose configuration for the Obsidian service.
+
+      [Usage Examples]
+        - task obsidian:config
     cmds:
       - '{{.COMPOSE}} config'
   up:
+    desc: Start Obsidian container.
+    summary: |
+      Start the Obsidian container in the background.
+
+      [Usage Examples]
+        - task obsidian:up
     cmds:
       - '{{.COMPOSE}} --profile tools up -d obsidian'
   down:
+    desc: Stop Obsidian container.
+    summary: |
+      Stop the Obsidian container.
+
+      [Usage Examples]
+        - task obsidian:down
     cmds:
       - '{{.COMPOSE}} stop obsidian'
 
   ps:
+    desc: Show Obsidian container status.
+    summary: |
+      Display the current status of the Obsidian container.
+
+      [Usage Examples]
+        - task obsidian:ps
     cmds:
       - '{{.COMPOSE}} ps obsidian'

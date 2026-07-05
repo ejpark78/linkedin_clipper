@@ -3,6 +3,11 @@ version: '3'
 tasks:
   build:
     desc: Build viewer services after regenerating static site config.
+    summary: |
+      Regenerate site config, rebuild viewer Docker images (FE, API, MCP), and clean up.
+
+      [Usage Examples]
+        - task viewer:build
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}:/app -v /app/node_modules worker npm --prefix apps/crawler run config:generate'
       - '{{.COMPOSE}} build --no-cache viewer-fe viewer-api viewer-mcp'
@@ -10,11 +15,21 @@ tasks:
 
   up:
     desc: Start viewer services.
+    summary: |
+      Start the viewer frontend, API, and MCP services in the background.
+
+      [Usage Examples]
+        - task viewer:up
     cmds:
       - '{{.COMPOSE}} up -d viewer-fe viewer-api viewer-mcp'
 
   down:
     desc: Stop viewer services.
+    summary: |
+      Stop the viewer frontend, API, and MCP services.
+
+      [Usage Examples]
+        - task viewer:down
     cmds:
       - '{{.COMPOSE}} stop viewer-fe viewer-api viewer-mcp'
 

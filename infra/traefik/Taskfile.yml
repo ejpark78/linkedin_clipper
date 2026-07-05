@@ -2,18 +2,39 @@ version: '3'
 
 tasks:
   config:
+    desc: Show Traefik Compose config.
+    summary: |
+      Print the resolved Docker Compose configuration for Traefik.
+
+      [Usage Examples]
+        - task traefik:config
     cmds:
       - '{{.COMPOSE}} config'
   build:
     desc: Build Traefik image.
+    summary: |
+      Build the Traefik Docker image without cache.
+
+      [Usage Examples]
+        - task traefik:build
     cmds:
       - '{{.COMPOSE}} build --no-cache traefik'
   up:
     desc: Start Traefik reverse proxy.
+    summary: |
+      Start the Traefik reverse proxy container.
+
+      [Usage Examples]
+        - task traefik:up
     cmds:
       - '{{.COMPOSE}} --profile tools up -d traefik'
   down:
     desc: Stop Traefik.
+    summary: |
+      Stop the Traefik reverse proxy container.
+
+      [Usage Examples]
+        - task traefik:down
     cmds:
       - '{{.COMPOSE}} stop traefik'
 

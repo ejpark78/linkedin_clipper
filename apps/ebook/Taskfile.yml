@@ -3,16 +3,31 @@ version: '3'
 tasks:
   build:
     desc: Build ebook Docker image.
+    summary: |
+      Build the ebook Docker image without cache.
+
+      [Usage Examples]
+        - task ebook:build
     cmds:
       - '{{.COMPOSE}} build --no-cache ebook'
 
   up:
     desc: Start ebook container.
+    summary: |
+      Start the ebook container in the background.
+
+      [Usage Examples]
+        - task ebook:up
     cmds:
       - '{{.COMPOSE}} --profile ebook up -d ebook'
 
   down:
     desc: Stop ebook container.
+    summary: |
+      Stop the ebook container.
+
+      [Usage Examples]
+        - task ebook:down
     cmds:
       - '{{.COMPOSE}} stop ebook'
 
@@ -20,30 +35,82 @@ tasks:
 
   summary:
     desc: Print ebook pipeline summary.
+    summary: |
+      Display a summary of processed ebook output files and their status.
+
+      [Variables]
+        - OUT_PATH: (옵션) 출력 디렉토리 (기본값: "data/output")
+
+      [Usage Examples]
+        - task ebook:summary
+        - task ebook:summary OUT_PATH="data/custom_output"
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe summary --path "{{.OUT_PATH | default "data/output"}}"'
 
   analyze:
     desc: Analyze PDF/EPUB structure and extract TOC.
+    summary: |
+      Analyze PDF or EPUB file structure and extract table of contents (TOC).
+
+      [Variables]
+        - RAW: (옵션) 원본 파일 디렉토리 (기본값: "data/raw")
+        - OVERWRITE: (옵션) 기존 분석 결과 덮어쓰기 (기본값: "false")
+
+      [Usage Examples]
+        - task ebook:analyze
+        - task ebook:analyze RAW=data/my_books OVERWRITE=true
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe analyze --raw "{{.RAW | default "data/raw"}}" {{if eq .OVERWRITE "true"}}--overwrite{{end}}'
 
   split:
     desc: Split PDF/EPUB into chapters.
+    summary: |
+      Split a PDF or EPUB file into individual chapter files.
+
+      [Variables]
+        - RAW: (옵션) 원본 파일 디렉토리 (기본값: "data/raw")
+        - OUT_PATH: (옵션) 출력 디렉토리 (기본값: "data/output")
+
+      [Usage Examples]
+        - task ebook:split
+        - task ebook:split RAW=data/raw OUT_PATH=data/output
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe split --raw "{{.RAW | default "data/raw"}}" --path "{{.OUT_PATH | default "data/output"}}"'
 
   2html:
     desc: Convert PDF/EPUB to HTML.
+    summary: |
+      Convert PDF or EPUB files to HTML format.
+
+      [Variables]
+        - OUT_PATH: (옵션) 출력 디렉토리 (기본값: "data/output")
+
+      [Usage Examples]
+        - task ebook:2html
+        - task ebook:2html OUT_PATH=data/output
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe to-html --path "{{.OUT_PATH | default "data/output"}}"'
 
   2md:
     desc: Convert HTML to Markdown.
+    summary: |
+      Convert HTML files to Markdown format.
+
+      [Variables]
+        - OUT_PATH: (옵션) 출력 디렉토리 (기본값: "data/output")
+
+      [Usage Examples]
+        - task ebook:2md
+        - task ebook:2md OUT_PATH=data/output
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe to-md --path "{{.OUT_PATH | default "data/output"}}"'
 
   shell:
     desc: Open ebook container shell.
+    summary: |
+      Open an interactive bash shell in the ebook container.
+
+      [Usage Examples]
+        - task ebook:shell
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook bash'

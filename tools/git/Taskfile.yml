@@ -111,11 +111,21 @@ tasks:
 
   down:
     desc: Stop Gitea and runner.
+    summary: |
+      Stop the Gitea server and its Actions runner containers.
+
+      [Usage Examples]
+        - task git:down
     cmds:
       - '{{.COMPOSE}} stop gitea gitea_runner'
 
   runner:up:
     desc: Start Gitea Actions runner.
+    summary: |
+      Start the Gitea Actions runner container for CI/CD workflows.
+
+      [Usage Examples]
+        - task git:runner:up
     cmds:
       - '{{.COMPOSE}} --profile tools up -d gitea_runner'
 
@@ -404,6 +414,9 @@ tasks:
     summary: |
       기존 이슈의 제목 prefix(feat/fix/refactor 등)와 변경 파일 경로를 분석하여
       Type + Area 라벨을 소급 적용합니다.
+
+      [Usage Examples]
+        - task git:issue:label
     cmds:
       - npm run gitea retroactive-labels
 

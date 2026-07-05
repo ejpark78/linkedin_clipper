@@ -3,6 +3,11 @@ version: '3'
 tasks:
   build:
     desc: Build Wiki CLI tool image.
+    summary: |
+      Build the wiki-tool Docker image for Joplin/Obsidian CLI operations.
+
+      [Usage Examples]
+        - task wiki:build
     cmds:
       - '{{.COMPOSE}} build wiki-tool'
 
@@ -69,5 +74,10 @@ tasks:
 
   shell:
     desc: Open wiki-tool container shell.
+    summary: |
+      Open an interactive bash shell in the wiki-tool container.
+
+      [Usage Examples]
+        - task wiki:shell
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint bash wiki-tool'

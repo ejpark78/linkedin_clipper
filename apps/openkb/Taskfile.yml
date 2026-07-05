@@ -2,14 +2,32 @@ version: '3'
 
 tasks:
   build:
+    desc: Build OpenKB Docker image.
+    summary: |
+      Build the OpenKB Docker image.
+
+      [Usage Examples]
+        - task openkb:build
     cmds:
       - '{{.COMPOSE}} build openkb'
 
   up:
+    desc: Start OpenKB container.
+    summary: |
+      Start the OpenKB container in the background.
+
+      [Usage Examples]
+        - task openkb:up
     cmds:
       - '{{.COMPOSE}} --profile tools up -d openkb'
 
   down:
+    desc: Stop OpenKB container.
+    summary: |
+      Stop the OpenKB container.
+
+      [Usage Examples]
+        - task openkb:down
     cmds:
       - '{{.COMPOSE}} stop openkb'
 
@@ -17,16 +35,32 @@ tasks:
 
   compile:docker:
     desc: "Docker 컨테이너에서 OpenKB 컴파일"
+    summary: |
+      Run OpenKB compile pipeline inside a Docker container with configurable LLM engine.
+
+      [Usage Examples]
+        - task openkb:compile:docker
+        - task openkb:compile:docker CLI_ARGS="--engine ollama --model qwen3.5:9b-mlx"
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -e PYTHONUNBUFFERED=1 -e OLLAMA_MODEL="{{.MODEL}}" -e LLM_ENGINE="{{.ENGINE}}" -e UNSLOTH_API_KEY="{{.UNSLOTH_API_KEY}}" -e RAW="{{.RAW}}" -e SAMPLE="{{.SAMPLE}}" --entrypoint poe openkb -C /app compile {{.CLI_ARGS}}'
 
   compile:gui:
     desc: "Streamlit GUI로 OpenKB 컴파일 (https://kb.localhost)"
+    summary: |
+      Launch OpenKB compile in Streamlit GUI mode accessible at https://kb.localhost.
+
+      [Usage Examples]
+        - task openkb:compile:gui
     cmds:
       - '{{.COMPOSE}} run --rm --service-ports {{.RUN_USER}} -e PYTHONUNBUFFERED=1 openkb-streamlit'
 
   llama:list:
     desc: "llama.cpp 사용 가능한 GGUF 모델 목록"
+    summary: |
+      List available GGUF model files downloaded via HuggingFace.
+
+      [Usage Examples]
+        - task openkb:llama:list
     cmds:
       - |
         echo "=== Available GGUF Models ==="
@@ -86,13 +120,31 @@ tasks:
       - 'uv run python -m src.openkb {{.CLI_ARGS}}'
 
   shell:
+    desc: Open interactive shell in the OpenKB container.
+    summary: |
+      Open an interactive bash shell in the OpenKB container.
+
+      [Usage Examples]
+        - task openkb:shell
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint bash openkb'
 
   format:
+    desc: Run code formatting in OpenKB container.
+    summary: |
+      Run automated code formatting (via poe) inside the OpenKB container.
+
+      [Usage Examples]
+        - task openkb:format
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint poe openkb -C /app format'
 
   type-check:
+    desc: Run type checking in OpenKB container.
+    summary: |
+      Run static type checking (via poe) inside the OpenKB container.
+
+      [Usage Examples]
+        - task openkb:type-check
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} --entrypoint poe openkb -C /app type-check'

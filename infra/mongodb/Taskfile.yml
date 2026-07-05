@@ -7,18 +7,42 @@ vars:
 
 tasks:
   config:
+    desc: Show MongoDB Compose config.
+    summary: |
+      Print the resolved Docker Compose configuration for MongoDB.
+
+      [Usage Examples]
+        - task mongo:config
     cmds:
       - '{{.COMPOSE}} config'
 
   up:
+    desc: Start MongoDB server.
+    summary: |
+      Start the MongoDB database server.
+
+      [Usage Examples]
+        - task mongo:up
     cmds:
       - '{{.COMPOSE}} up -d mongodb'
 
   gui:up:
+    desc: Start Mongo Express web UI.
+    summary: |
+      Start the Mongo Express web-based admin UI for MongoDB.
+
+      [Usage Examples]
+        - task mongo:gui:up
     cmds:
       - '{{.COMPOSE}} --profile tools up -d mongo-express'
 
   down:
+    desc: Stop MongoDB and Mongo Express.
+    summary: |
+      Stop both MongoDB and Mongo Express containers.
+
+      [Usage Examples]
+        - task mongo:down
     cmds:
       - '{{.COMPOSE}} stop mongodb mongo-express'
 
@@ -27,6 +51,15 @@ tasks:
 
   dump:
     desc: Back up MongoDB databases.
+    summary: |
+      Dump specified MongoDB databases to compressed archive files.
+
+      [Variables]
+        - DB: (옵션) 대상 DB 목록 (기본값: "bronze,silver,crawler")
+
+      [Usage Examples]
+        - task mongo:dump
+        - task mongo:dump DB="bronze,silver"
     cmds:
       - mkdir -p {{.DUMP_DIR}}
       - '{{.COMPOSE}} exec -T mongodb sh -c "rm -rf /tmp/mongodb_backup && mkdir -p /tmp/mongodb_backup"'
@@ -39,6 +72,14 @@ tasks:
 
   restore:
     desc: Restore MongoDB backup.
+    summary: |
+      Restore MongoDB databases from a previous backup dump.
+
+      [Variables]
+        - BACKUP_PATH: (필수) 복원할 백업 디렉토리 경로
+
+      [Usage Examples]
+        - task mongo:restore BACKUP_PATH="backup/mongodb/20260705T120000"
     cmds:
       - |
         if [ -z "{{.BACKUP_PATH}}" ]; then
@@ -52,10 +93,20 @@ tasks:
 
   index:
     desc: Synchronize MongoDB indexes.
+    summary: |
+      Sync MongoDB index definitions (ensuring all required indexes exist).
+
+      [Usage Examples]
+        - task mongo:index
     cmds:
       - '{{.COMPOSE}} run --rm -T worker npx ts-node src/scripts/sync-indexes.ts'
 
   show-columns:
     desc: Map MongoDB collection columns.
+    summary: |
+      Display the column/field structure of specified MongoDB collections.
+
+      [Usage Examples]
+        - task mongo:show-columns
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules worker npx ts-node src/scripts/show_collection_columns.ts'
