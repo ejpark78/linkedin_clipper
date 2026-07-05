@@ -361,20 +361,19 @@ class CompilePipeline:
                 continue
 
             try:
-                notebook_name = file_path.parent.name
-                folder_name = f"Joplin/{notebook_name}"
+                rel_parent = file_path.parent.relative_to(joplin_dir)
                 content = file_path.read_text(encoding="utf-8")
                 _, _, metadata = extract_title(content, "", model or "", engine=engine, api_key=api_key)
 
                 if not content.startswith("---"):
-                    content = f"---\nsource: Joplin\nnotebook: {notebook_name}\n---\n\n{content}"
+                    content = f"---\nsource: Joplin\nnotebook: {file_path.parent.name}\n---\n\n{content}"
 
-                dest_dir = raw_store / folder_name
+                dest_dir = raw_store / rel_parent
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 dest = dest_dir / file_path.name
                 dest.write_text(wrap_with_metadata(content, metadata), encoding="utf-8")
 
-                raw_ref = f"{folder_name}/{file_path.name}"
+                raw_ref = f"{rel_parent}/{file_path.name}"
                 print(f"      + Joplin: {raw_ref}")
                 cache.update(str(file_path), mtime, raw_name=raw_ref)
                 processed += 1
