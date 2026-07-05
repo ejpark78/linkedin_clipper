@@ -10,10 +10,10 @@ ENV UV_NO_SYNC=1
 
 WORKDIR /app
 
-COPY apps/wiki/pyproject.toml apps/wiki/uv.lock /app/
+COPY pyproject.toml uv.lock /app/
 RUN uv pip install --system --no-cache --prerelease=allow -r /app/pyproject.toml
 
-COPY apps/wiki/src/ /app/
+COPY src/ /app/
 
 WORKDIR /app
 

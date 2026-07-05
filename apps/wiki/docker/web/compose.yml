@@ -1,8 +1,8 @@
 services:
   wiki-web:
     build:
-      context: ${HOST_PROJECT_PATH:-.}
-      dockerfile: apps/wiki/docker/web/Dockerfile
+      context: ${HOST_PROJECT_PATH:-.}/apps/wiki
+      dockerfile: docker/web/Dockerfile
     image: scraper/wiki-web:latest
     container_name: scraper-wiki-web
     profiles:

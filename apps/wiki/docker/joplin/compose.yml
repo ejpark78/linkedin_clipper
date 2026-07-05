@@ -7,8 +7,8 @@
 services:
   wiki-tool:
     build:
-      context: ${HOST_PROJECT_PATH:-.}
-      dockerfile: apps/wiki/docker/joplin/Dockerfile
+      context: ${HOST_PROJECT_PATH:-.}/apps/wiki
+      dockerfile: docker/joplin/Dockerfile
       args:
         - BUILD_DATE
         - VCS_REF
