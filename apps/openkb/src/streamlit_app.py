@@ -237,7 +237,7 @@ def main() -> None:
             st.markdown("**Selected:**")
             for p in sorted(st.session_state.selected_paths):
                 try:
-                rel = Path(p).relative_to(PROJECT_ROOT.parent)
+                    rel = Path(p).relative_to(PROJECT_ROOT.parent)
                     st.markdown(f"- `{rel}`")
                 except ValueError:
                     st.markdown(f"- `{p}`")
