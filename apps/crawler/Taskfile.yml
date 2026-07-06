@@ -20,7 +20,7 @@ tasks:
         - task crawler:up
         - task crawler:up SCALE=2
     cmds:
-      - SCALE={{.SCALE | default "1"}} {{.COMPOSE}} up -d worker scraper converter indexer
+      - SCALE={{.SCALE | default "1"}} {{.COMPOSE}} up -d worker scraper converter indexer {{.CLI_ARGS}}
 
 
 
