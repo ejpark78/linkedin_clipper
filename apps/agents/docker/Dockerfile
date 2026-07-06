@@ -4,7 +4,7 @@ FROM codercom/code-server:ubuntu
 
 USER root
 
-# 필수 패키지, zsh, locales 설치
+# 필수 패키지, zsh, locales, sudo 설치
 RUN apt-get update && apt-get install -y \
     locales \
     git \
@@ -12,7 +12,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     zsh \
     docker.io \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
+
+# coder 유저 비밀번호 없는 sudo 권한 설정
+RUN echo "coder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd
 
 # locales 파일 내 주석 제거 및 생성 강제화
 RUN sed -i '/ko_KR.UTF-8/s/^# //g' /etc/locale.gen && \
