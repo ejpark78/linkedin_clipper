@@ -13,7 +13,7 @@ tasks:
         - task agents:dump
         - task agents:dump AGENTS="agy"
     cmds:
-      - npm run sessions -- --all-targets --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+      - npm run sessions -w apps/agents -- --all-targets --all --agent={{.AGENTS | default "agy,opencode,codex"}}
 
   dump:transcripts:
     desc: "Dump agent transcripts."
@@ -26,7 +26,7 @@ tasks:
       [Usage Examples]
         - task agents:dump:transcripts
     cmds:
-      - npm run sessions -- --transcript --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+      - npm run sessions -w apps/agents -- --transcript --all --agent={{.AGENTS | default "agy,opencode,codex"}}
 
   dump:context:
     desc: "Dump agent context."
@@ -39,7 +39,7 @@ tasks:
       [Usage Examples]
         - task agents:dump:context
     cmds:
-      - npm run sessions -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+      - npm run sessions -w apps/agents -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
 
   dump:brain:
     desc: "Dump agent brain/session memory."
@@ -52,7 +52,7 @@ tasks:
       [Usage Examples]
         - task agents:dump:brain
     cmds:
-      - npm run sessions -- --brain --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+      - npm run sessions -w apps/agents -- --brain --all --agent={{.AGENTS | default "agy,opencode,codex"}}
 
   dump:sysinfo:
     desc: Dump agent system information.
@@ -62,7 +62,7 @@ tasks:
       [Usage Examples]
         - task agents:dump:sysinfo
     cmds:
-      - npm run sessions -- --sysinfo
+      - npm run sessions -w apps/agents -- --sysinfo
 
   dump:all:
     desc: "Dump all agent diagnostics."
@@ -82,9 +82,9 @@ tasks:
         vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}' }
       - task: dump:brain
         vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}' }
-      - npm run sessions -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
-      - npm run rules -- --compress
-      - npm run rules -- --lint
+      - npm run sessions -w apps/agents -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
+      - npm run rules -w apps/agents -- --compress
+      - npm run rules -w apps/agents -- --lint
 
   usage:
     desc: Print agent usage diagnostics.
@@ -94,7 +94,7 @@ tasks:
       [Usage Examples]
         - task agents:usage
     cmds:
-      - npm run usage
+      - npm run usage -w apps/agents
 
   prune:
     desc: Prune agent session data.
@@ -104,7 +104,7 @@ tasks:
       [Usage Examples]
         - task agents:prune
     cmds:
-      - npm run sessions -- --prune
+      - npm run sessions -w apps/agents -- --prune
 
   review:
     desc: Run AI code review through Antigravity CLI.
