@@ -1203,6 +1203,21 @@ class GiteaController {
         const bodyFileEnv = process.env.GITEA_BODY_FILE;
         const stdinFlag = args.includes('--stdin');
 
+        // CLI Flags parsing (--title / -t, --body / -b)
+        const titleIdx = args.findIndex(a => a === '--title' || a === '-t');
+        if (titleIdx !== -1 && args[titleIdx + 1]) {
+          title = args[titleIdx + 1];
+        }
+        const bodyIdx = args.findIndex(a => a === '--body' || a === '-b');
+        if (bodyIdx !== -1 && args[bodyIdx + 1]) {
+          body = args[bodyIdx + 1];
+        }
+
+        // Fallback to traditional positional arguments if no flags are given or values not set
+        if (!title && !bodyFileEnv && !stdinFlag) {
+          title = args[1] || '';
+        }
+        
         if (bodyFileEnv) {
           try {
             body = fs.readFileSync(bodyFileEnv, 'utf-8');
@@ -1210,20 +1225,20 @@ class GiteaController {
             console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
             process.exit(1);
           }
-          title = args[1] || '';
+          if (!title) title = args[1] || '';
         } else if (stdinFlag) {
           const chunks: Buffer[] = [];
           for await (const chunk of process.stdin) {
             chunks.push(Buffer.from(chunk));
           }
           body = Buffer.concat(chunks).toString('utf-8');
-          title = args[1] || '';
-        } else {
-          title = args[1] || '';
+          if (!title) title = args[1] || '';
+        } else if (!body) {
           body = args.slice(2).join(' ');
         }
         if (!title || !body) {
           console.error('Usage: npm run gitea create-issue <title> <body>');
+          console.error('  Or: npm run gitea create-issue --title <title> --body <body>');
           console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea create-issue <title>');
           console.error('  Stdin: echo "body" | npm run gitea create-issue <title> --stdin');
           console.error('  Options: --no-label  (라벨 자동 분류 비활성화)');
@@ -1234,51 +1249,95 @@ class GiteaController {
         break;
       }
 
-      case 'comment':
-        if (args.length < 3) {
+      case 'comment': {
+        let issueId = '';
+        let body = '';
+        const bodyFileEnv = process.env.GITEA_BODY_FILE;
+
+        // CLI Flags parsing (--issue / -i, --body / -b)
+        const issueIdx = args.findIndex(a => a === '--issue' || a === '-i');
+        if (issueIdx !== -1 && args[issueIdx + 1]) {
+          issueId = args[issueIdx + 1];
+        }
+        const bodyIdx = args.findIndex(a => a === '--body' || a === '-b');
+        if (bodyIdx !== -1 && args[bodyIdx + 1]) {
+          body = args[bodyIdx + 1];
+        }
+
+        // Fallback to traditional positional arguments
+        if (!issueId) {
+          issueId = args[1] || '';
+        }
+
+        if (bodyFileEnv) {
+          try {
+            body = fs.readFileSync(bodyFileEnv, 'utf-8');
+          } catch (e) {
+            console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
+            process.exit(1);
+          }
+        } else if (!body) {
+          body = args.slice(2).join(' ');
+        }
+
+        if (!issueId || !body) {
           console.error('Usage: npm run gitea comment <issueId> <body>');
+          console.error('  Or: npm run gitea comment --issue <issueId> --body <body>');
           console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea comment <issueId>');
           process.exit(1);
         }
-        {
-          const bodyFileEnv = process.env.GITEA_BODY_FILE;
-          let body = '';
-          if (bodyFileEnv) {
-            try {
-              body = fs.readFileSync(bodyFileEnv, 'utf-8');
-            } catch (e) {
-              console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
-              process.exit(1);
-            }
-          } else {
-            body = args.slice(2).join(' ');
-          }
-          await client.createComment(args[1], body);
-        }
+        await client.createComment(issueId, body);
         break;
+      }
 
-      case 'update-issue':
-        if (args.length < 4) {
+      case 'update-issue': {
+        let issueId = '';
+        let title = '';
+        let body = '';
+        const bodyFileEnv = process.env.GITEA_BODY_FILE;
+
+        // CLI Flags parsing (--issue / -i, --title / -t, --body / -b)
+        const issueIdx = args.findIndex(a => a === '--issue' || a === '-i');
+        if (issueIdx !== -1 && args[issueIdx + 1]) {
+          issueId = args[issueIdx + 1];
+        }
+        const titleIdx = args.findIndex(a => a === '--title' || a === '-t');
+        if (titleIdx !== -1 && args[titleIdx + 1]) {
+          title = args[titleIdx + 1];
+        }
+        const bodyIdx = args.findIndex(a => a === '--body' || a === '-b');
+        if (bodyIdx !== -1 && args[bodyIdx + 1]) {
+          body = args[bodyIdx + 1];
+        }
+
+        // Fallback to traditional positional arguments
+        if (!issueId) {
+          issueId = args[1] || '';
+        }
+        if (!title) {
+          title = args[2] || '';
+        }
+
+        if (bodyFileEnv) {
+          try {
+            body = fs.readFileSync(bodyFileEnv, 'utf-8');
+          } catch (e) {
+            console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
+            process.exit(1);
+          }
+        } else if (!body) {
+          body = args.slice(3).join(' ');
+        }
+
+        if (!issueId || !title || !body) {
           console.error('Usage: npm run gitea update-issue <issueId> <title> <body>');
+          console.error('  Or: npm run gitea update-issue --issue <issueId> --title <title> --body <body>');
           console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea update-issue <issueId> <title>');
           process.exit(1);
         }
-        {
-          const bodyFileEnv = process.env.GITEA_BODY_FILE;
-          let body = '';
-          if (bodyFileEnv) {
-            try {
-              body = fs.readFileSync(bodyFileEnv, 'utf-8');
-            } catch (e) {
-              console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
-              process.exit(1);
-            }
-          } else {
-            body = args.slice(3).join(' ');
-          }
-          await client.updateIssue(args[1], args[2], body);
-        }
+        await client.updateIssue(issueId, title, body);
         break;
+      }
 
       case 'update-comment':
         if (args.length < 3) {

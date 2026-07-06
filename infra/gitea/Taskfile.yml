@@ -329,7 +329,7 @@ tasks:
       [Usage Examples]
         - task git:issue:new TITLE="이슈 제목" BODY="상세 내용[br]두번째 줄"
     cmds:
-      - npm run gitea -w apps/agents create-issue "{{.TITLE}}" "{{.BODY}}"
+      - npm run gitea -w apps/agents -- create-issue "{{.TITLE}}" "{{.BODY}}" {{.CLI_ARGS}}
 
   issue:update:
     desc: "Gitea 이슈 제목/본문 수정"
@@ -344,7 +344,7 @@ tasks:
       [Usage Examples]
         - task git:issue:update ISSUE_ID="104" TITLE="수정된 제목" BODY="수정된 내용"
     cmds:
-      - npm run gitea -w apps/agents update-issue "{{.ISSUE_ID}}" "{{.TITLE}}" "{{.BODY}}"
+      - npm run gitea -w apps/agents -- update-issue "{{.ISSUE_ID}}" "{{.TITLE}}" "{{.BODY}}" {{.CLI_ARGS}}
 
   issue:comment:new:
     desc: "Gitea 이슈에 댓글 등록"
@@ -358,7 +358,7 @@ tasks:
       [Usage Examples]
         - task git:issue:comment:new ISSUE_ID="104" BODY="진행 경과 보고[br]- 완료"
     cmds:
-      - npm run gitea -w apps/agents comment "{{.ISSUE_ID}}" "{{.BODY}}"
+      - npm run gitea -w apps/agents -- comment "{{.ISSUE_ID}}" "{{.BODY}}" {{.CLI_ARGS}}
 
   issue:comment:update:
     desc: "Gitea 이슈 댓글 수정"
@@ -372,7 +372,7 @@ tasks:
       [Usage Examples]
         - task git:issue:comment:update COMMENT_ID="2642" BODY="수정된 댓글 내용"
     cmds:
-      - npm run gitea -w apps/agents update-comment "{{.COMMENT_ID}}" "{{.BODY}}"
+      - npm run gitea -w apps/agents -- update-comment "{{.COMMENT_ID}}" "{{.BODY}}" {{.CLI_ARGS}}
 
   issue:close:
     desc: "Gitea 이슈 마감"
@@ -390,7 +390,7 @@ tasks:
           echo "❌ ISSUE_ID가 필요합니다. 사용법: task git:issue:close ISSUE_ID=\"142\""
           exit 1
         fi
-        npm run gitea -w apps/agents close-issue "{{.ISSUE_ID}}"
+        npm run gitea -w apps/agents -- close-issue "{{.ISSUE_ID}}" {{.CLI_ARGS}}
 
   issue:reopen:
     desc: "Gitea 이슈 재오픈"
@@ -408,7 +408,7 @@ tasks:
           echo "❌ ISSUE_ID가 필요합니다. 사용법: task git:issue:reopen ISSUE_ID=\"142\""
           exit 1
         fi
-        npm run gitea -w apps/agents reopen-issue "{{.ISSUE_ID}}"
+        npm run gitea -w apps/agents -- reopen-issue "{{.ISSUE_ID}}" {{.CLI_ARGS}}
 
   issue:label:
     desc: "기존 전체 이슈에 rule-based 라벨 소급 적용"
@@ -449,4 +449,4 @@ tasks:
       [Usage Examples]
         - task git:issue:show ISSUE_ID="104"
     cmds:
-      - npm run gitea -w apps/agents show-issue "{{.ISSUE_ID}}"
+      - npm run gitea -w apps/agents -- show-issue "{{.ISSUE_ID}}" {{.CLI_ARGS}}
