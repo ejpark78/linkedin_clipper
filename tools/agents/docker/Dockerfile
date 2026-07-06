@@ -25,8 +25,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g npm@latest
 
-# opencode-ai, @openai/codex CLI 설치
-RUN npm install -g opencode-ai @openai/codex
+# opencode-ai 플랫폼 에러 우회(glibc 지원되는 linux-arm64 바이너리 수동 매핑 지시)
+# Codex 및 OpenCode 패키지 설치 (강제 플래그 및 플랫폼 우회 명시)
+RUN npm install -g --unsafe-perm --force opencode-ai @openai/codex || \
+    npm install -g --unsafe-perm --force opencode-linux-arm64 @openai/codex
 
 # oh-my-zsh 설치 스크립트 실행 (사용자 coder 환경 대상)
 USER coder
