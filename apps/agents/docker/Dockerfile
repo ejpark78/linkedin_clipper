@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     zsh \
     docker.io \
+    docker-compose-v2 \
     sudo \
     jq \
     && rm -rf /var/lib/apt/lists/*

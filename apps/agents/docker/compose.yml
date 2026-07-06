@@ -16,11 +16,15 @@ services:
     depends_on:
       traefik:
         condition: service_healthy
+    extra_hosts:
+      - "git.localhost:host-gateway"
     environment:
       - PUID=${USER_UID:-1000}
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
       - DANGEROUSLY_SKIP_PERMISSIONS=true
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/traefik-root.crt
+      - GIT_SSL_CAINFO=/etc/ssl/certs/traefik-root.crt
     command: --auth none
     group_add:
       - ${DOCKER_GID:-999}
@@ -36,6 +40,8 @@ services:
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/coder/.gemini
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/coder/.opencode
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/coder/.codex
+      # Traefik Root CA 인증서 마운트 (git.localhost HTTPS 신뢰)
+      - ${HOST_PROJECT_PATH:-.}/data/.services/traefik/certs/rootCA.pem:/etc/ssl/certs/traefik-root.crt:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 15s
