@@ -11,9 +11,9 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "npm run lint --prefix apps/crawler && npm run lint --prefix apps/viewer && cd apps/ebook && .venv/bin/python -m poethepoet lint && cd apps/wiki && uv run ruff check src/worker/ src/web/",
-    "format": "npm run format --prefix apps/crawler && npm run format --prefix apps/viewer && cd apps/ebook && .venv/bin/python -m poethepoet format",
-    "type-check": "npm run type-check --prefix apps/crawler && npm run type-check --prefix apps/viewer && cd apps/ebook && .venv/bin/python -m poethepoet type-check && cd apps/wiki && uv run mypy src/worker/ src/web/",
+    "lint": "npm run lint --workspaces --if-present && cd apps/ebook && .venv/bin/python -m poethepoet lint && cd apps/wiki && uv run poe lint",
+    "format": "npm run format --workspaces --if-present && cd apps/ebook && .venv/bin/python -m poethepoet format && cd apps/wiki && uv run poe format",
+    "type-check": "npm run type-check --workspaces --if-present && cd apps/ebook && .venv/bin/python -m poethepoet type-check && cd apps/wiki && uv run poe type-check",
     "review": "ts-node apps/agents/src/review-changes.ts",
     "gitea": "NODE_OPTIONS=\"--use-system-ca\" ts-node apps/agents/src/gitea.ts",
     "gitea:token": "NODE_OPTIONS=\"--use-system-ca\" npm run gitea generate-token",
