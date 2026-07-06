@@ -65,49 +65,5 @@ tasks:
     cmds:
       - '{{.COMPOSE}} config'
 
-  build:
-    desc: Build all runtime, tool, worker, and viewer images.
-    summary: |
-      Build all Docker images for runtime, developer tools, scrapers, and views without cache.
-      
-      [Usage Examples]
-        - task build
-    vars:
-      BUILD_DATE:
-        sh: date -u +%Y-%m-%dT%H:%M:%SZ
-      VCS_REF:
-        sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
-    cmds:
-      - BUILD_DATE={{.BUILD_DATE}} VCS_REF={{.VCS_REF}} {{.COMPOSE}} --profile runtime --profile tools --profile worker --profile viewer build --no-cache
-
-  up:
-    desc: Start the default worker profile.
-    summary: |
-      Start default worker profiles (MongoDB, Redis, RabbitMQ, scrapers, converters) in the background.
-      
-      [Usage Examples]
-        - task up
-    cmds:
-      - '{{.COMPOSE}} --profile worker up -d'
-
-  down:
-    desc: Stop all project services.
-    summary: |
-      Stop and remove all running containers, networks, and profiles.
-      
-      [Usage Examples]
-        - task down
-    cmds:
-      - '{{.COMPOSE}} --profile "*" down'
-
-  logs:
-    desc: Follow scraper and converter logs.
-    summary: |
-      Follow real-time output streams from scraper and converter worker containers.
-      
-      [Usage Examples]
-        - task logs
-    cmds:
-      - '{{.COMPOSE}} logs -f scraper converter'
 
 
