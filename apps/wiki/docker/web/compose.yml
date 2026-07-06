@@ -4,7 +4,6 @@ services:
       context: ${HOST_PROJECT_PATH:-.}/apps/wiki
       dockerfile: docker/web/Dockerfile
     image: scraper/wiki-web:latest
-    container_name: scraper-wiki-web
     profiles:
       - tools
     depends_on:

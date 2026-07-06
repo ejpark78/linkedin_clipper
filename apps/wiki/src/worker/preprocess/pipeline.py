@@ -25,6 +25,7 @@ def run(
     api_key: str | None = None,
     no_cache: bool = False,
     chunk_size: int = 2000,
+    timeout: int = 360,
 ) -> None:
     cfg = PreprocessConfig.from_env()
     input_dirs = _resolve_input_dirs(input_paths, cfg)
@@ -79,6 +80,7 @@ def run(
                     file_path, input_dir, raw_store, cache, no_cache,
                     model, engine, api_key,
                     entities_writer=en_out, chunk_size=chunk_size,
+                    timeout=timeout,
                 )
                 file_elapsed = time.time() - file_start
                 processed += p

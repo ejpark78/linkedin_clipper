@@ -34,6 +34,7 @@ def worker() -> None:
 @click.option("--model", default=None, help="LLM model")
 @click.option("--chunk-size", default=2000, type=int, help="Chunk token limit")
 @click.option("--sample", default=None, type=int, help="Sample limit count")
+@click.option("--timeout", default=360, type=int, help="LLM request timeout")
 def preprocess(**kwargs: dict) -> None:
     """Run preprocess pipeline."""
     run_preprocess(**kwargs)

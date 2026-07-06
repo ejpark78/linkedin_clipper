@@ -72,6 +72,7 @@ def extract(
     model: str | None = None,
     engine: str = "ollama",
     api_key: str | None = None,
+    timeout: int = 360,
 ) -> dict:
     """Extract metadata + entities via LLM.
 
@@ -95,7 +96,7 @@ def extract(
                 "model": model, "prompt": prompt, "stream": False, "format": "json",
             }).encode("utf-8")
             headers = {"Content-Type": "application/json"}
-            data = _request_json(f"{base}/api/generate", data=payload, headers=headers, timeout=180)
+            data = _request_json(f"{base}/api/generate", data=payload, headers=headers, timeout=timeout)
             if data:
                 return _parse_response(data.get("response", ""))
         else:
@@ -107,7 +108,7 @@ def extract(
             headers = {"Content-Type": "application/json"}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            data = _request_json(f"{base}/v1/chat/completions", data=payload, headers=headers, timeout=180)
+            data = _request_json(f"{base}/v1/chat/completions", data=payload, headers=headers, timeout=timeout)
             if data:
                 choices = data.get("choices", [])
                 if choices:
@@ -147,7 +148,7 @@ Summaries:
 
 
 def _call_llm(prompt: str, model: str, engine: str, api_key: str | None, base: str,
-              timeout: int = 180, chunk_size: int = 1500, batch_label: str = "") -> str | None:
+              timeout: int = 360, chunk_size: int = 1500, batch_label: str = "") -> str | None:
     try:
         if engine == "ollama":
             payload = json.dumps({
@@ -198,6 +199,7 @@ def extract_map_reduce(
     api_key: str | None = None,
     chunk_size: int = 1500,
     batch_size: int = 5,
+    timeout: int = 360,
 ) -> dict:
     """Map-Reduce extraction: split doc into chunks, extract per batch, then reduce.
 
@@ -224,15 +226,14 @@ def extract_map_reduce(
 
     for batch_idx in range(n_batches):
         start = batch_idx * batch_size
-        batch = chunks[start:start + batch_size]
         combined = "\n---\n".join(
-            f"[Part {i + 1}]\n{chunk}" for i, chunk in enumerate(batch)
+            f"[Part {i + 1}]\n{chunk}" for i, chunk in enumerate(chunks[start:start + batch_size])
         )
         prompt = _MAP_PROMPT.format(content=combined)
 
         label = f"Map batch {batch_idx + 1}/{n_batches} "
         raw = _call_llm(prompt, model, engine, api_key, base,
-                        timeout=180, chunk_size=chunk_size, batch_label=label)
+                        timeout=timeout, chunk_size=chunk_size, batch_label=label)
         if raw:
             result = _parse_map_response(raw)
             for ent in result.get("entities", []):
@@ -256,7 +257,7 @@ def extract_map_reduce(
         summaries=json.dumps(summaries_data, ensure_ascii=False)[:3000],
     )
     raw = _call_llm(reduce_prompt, model, engine, api_key, base,
-                    timeout=180, chunk_size=chunk_size, batch_label="Reduce ")
+                    timeout=timeout, chunk_size=chunk_size, batch_label="Reduce ")
     if raw:
         result = _parse_response(raw)
         total = time.time() - total_start

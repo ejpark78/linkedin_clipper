@@ -49,6 +49,7 @@ class SourceHandler(ABC):
         model: str | None, engine: str, api_key: str | None,
         entities_writer: Any = None,
         chunk_size: int = 1500,
+        timeout: int = 360,
     ) -> tuple[int, int]:
         """단일 파일 처리. 반환: (processed, skipped)"""
 
@@ -110,6 +111,7 @@ class AgentHandler(SourceHandler):
         model: str | None, engine: str, api_key: str | None,
         entities_writer: Any = None,
         chunk_size: int = 1500,
+        timeout: int = 360,
     ) -> tuple[int, int]:
         mtime = file_path.stat().st_mtime
         if not no_cache and cache.is_up_to_date(str(file_path), mtime):
@@ -127,7 +129,10 @@ class AgentHandler(SourceHandler):
         date_val = date_match.group(1) if date_match else None
 
         t0 = time.time()
-        llm_result = extract_map_reduce(content, model=model, engine=engine, api_key=api_key, chunk_size=chunk_size)
+        llm_result = extract_map_reduce(
+            content, model=model, engine=engine, api_key=api_key,
+            chunk_size=chunk_size, timeout=timeout
+        )
         time.time() - t0
 
         if not llm_result.get("title") and not llm_result.get("entities"):
@@ -220,6 +225,7 @@ class JoplinHandler(SourceHandler):
         model: str | None, engine: str, api_key: str | None,
         entities_writer: Any = None,
         chunk_size: int = 1500,
+        timeout: int = 360,
     ) -> tuple[int, int]:
         mtime = file_path.stat().st_mtime
         if not no_cache and cache.is_up_to_date(str(file_path), mtime):
@@ -232,7 +238,10 @@ class JoplinHandler(SourceHandler):
         rel_parent = file_path.parent.relative_to(source_dir)
 
         t0 = time.time()
-        llm_result = extract_map_reduce(content, model=model, engine=engine, api_key=api_key, chunk_size=chunk_size)
+        llm_result = extract_map_reduce(
+            content, model=model, engine=engine, api_key=api_key,
+            chunk_size=chunk_size, timeout=timeout
+        )
 
         if not llm_result.get("title") and not llm_result.get("entities"):
             print(f"  ⚠️ LLM returned empty result for {file_path.name}")
