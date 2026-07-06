@@ -48,6 +48,9 @@ tasks:
 
       [Usage Examples]
         - task traefik:mkcert
+
+      [주의 사항]
+        - mkcert 실행 후 브라우저가 새 인증서를 즉시 읽지 못하면, 브라우저 프로세스를 완전히 강제 종료(예: pkill -f "Brave Browser" 또는 pkill -f "Google Chrome")한 뒤 다시 구동해야 캐시가 초기화됩니다.
     cmds:
       - command -v mkcert >/dev/null 2>&1 || { echo "⛔ 호스트에 mkcert가 설치되어 있지 않습니다."; exit 1; }
       - mkcert -install
@@ -63,4 +66,6 @@ tasks:
         mkcert -cert-file data/.services/traefik/certs/local-cert.pem \
                -key-file data/.services/traefik/certs/local-key.pem \
                localhost 127.0.0.1 "*.localhost" $HOSTS
+      - echo "✅ 로컬 SSL 인증서가 성공적으로 생성 및 갱신되었습니다."
+      - echo "💡 브라우저가 새 인증서 상태를 즉시 반영하지 못할 경우, 완전히 종료(pkill -f \"Brave Browser\" 또는 pkill -f \"Google Chrome\") 후 재시작하십시오."
 
