@@ -32,8 +32,8 @@ includes:
   joplin:
     taskfile: ./apps/wiki/docker/joplin/Taskfile.yml
     dir: .
-  git:
-    taskfile: ./tools/git/Taskfile.yml
+  gitea:
+    taskfile: ./infra/gitea/Taskfile.yml
     dir: .
   meili:
     taskfile: ./infra/meilisearch/Taskfile.yml
