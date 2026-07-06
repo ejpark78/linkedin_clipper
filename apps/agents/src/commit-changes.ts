@@ -17,8 +17,19 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// 스크립트 실행 디렉토리에 관계없이 프로젝트 루트 디렉토리를 CWD로 고정
-const projectRoot = path.resolve(__dirname, '..', '..', '..');
+// 동적으로 상위 디렉토리를 탐색하여 프로젝트 루트(.git & package.json이 있는 곳)를 식별
+function findProjectRoot(startDir: string): string {
+  let current = startDir;
+  while (current !== path.parse(current).root) {
+    if (fs.existsSync(path.join(current, '.git')) && fs.existsSync(path.join(current, 'package.json'))) {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+  return startDir;
+}
+
+const projectRoot = process.env.INIT_CWD || findProjectRoot(__dirname);
 process.chdir(projectRoot);
 
 /**
