@@ -22,6 +22,7 @@ include:
   - infra/redis/docker/compose.yml
   - infra/traefik/docker/compose.yml
   - tools/obsidian/docker/compose.yml
+  - tools/agents/docker/compose.yml
   - apps/wiki/docker/web/compose.yml
   - apps/wiki/docker/worker/compose.yml
   - apps/wiki/docker/joplin/compose.yml

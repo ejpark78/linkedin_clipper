@@ -113,4 +113,35 @@ tasks:
     cmds:
       - agy --skill code_review "Run semantic code review on my latest modifications."
 
+  sandbox:up:
+    desc: "코딩 에이전트 개발 샌드박스(agent-sandbox) 실행"
+    summary: |
+      code-server 기반 에이전트 샌드박스 컨테이너를 백그라운드로 실행하고 Traefik 라우팅을 활성화합니다.
+
+      [Usage Examples]
+        - task agents:sandbox:up
+    cmds:
+      - '{{.COMPOSE}} --profile tools up -d agent-sandbox'
+
+  sandbox:down:
+    desc: "코딩 에이전트 개발 샌드박스 중지"
+    summary: |
+      에이전트 샌드박스 컨테이너를 중지합니다.
+
+      [Usage Examples]
+        - task agents:sandbox:down
+    cmds:
+      - '{{.COMPOSE}} stop agent-sandbox'
+
+  sandbox:shell:
+    desc: "코딩 에이전트 개발 샌드박스 내 터미널 셸(bash) 접속"
+    summary: |
+      에이전트 샌드박스 컨테이너 내부 터미널 셸에 인터랙티브하게 접속합니다.
+
+      [Usage Examples]
+        - task agents:sandbox:shell
+    cmds:
+      - '{{.COMPOSE}} exec -it agent-sandbox bash'
+
+
 
