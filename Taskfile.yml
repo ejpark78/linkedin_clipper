@@ -10,9 +10,6 @@ vars:
   ENV_COMMON: -e LIST_SLACK={{.LIST_SLACK | default "3"}} -e SCRAPER_SLACK={{.SCRAPER_SLACK | default "0"}} -e PRIORITY={{.PRIORITY | default "medium"}} -e OVERWRITE={{.OVERWRITE | default "false"}} -e AUTH={{.AUTH | default "false"}} -e CHUNK_SIZE={{.CHUNK_SIZE | default "500"}} -e ERROR_RESET={{.ERROR_RESET | default "false"}} -e RESET={{.RESET | default "false"}} -e TS_NODE_PROJECT=tsconfig.json
 
 includes:
-  gmail:
-    taskfile: ./tools/gmail/Taskfile.yml
-    dir: .
   viewer:
     taskfile: ./apps/viewer/Taskfile.yml
     dir: .
@@ -25,9 +22,7 @@ includes:
   crawler:
     taskfile: ./apps/crawler/Taskfile.yml
     dir: .
-  browser:
-    taskfile: ./tools/browser/Taskfile.yml
-    dir: .
+
   wiki:
     taskfile: ./apps/wiki/Taskfile.yml
     dir: .
