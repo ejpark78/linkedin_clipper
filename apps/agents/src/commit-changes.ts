@@ -297,7 +297,7 @@ class ReleaseCoordinator {
     }
 
     const allStaged = this.git.runCmd('git diff --cached --name-only');
-    if (allStaged.includes('AGENTS.md') || allStaged.includes('.agents/rules/')) {
+    if (allStaged.includes('AGENTS.md') || allStaged.includes('apps/agents/rules/')) {
       return 'docs: update agent rules';
     } else if (allStaged.includes('src/crawler/workers/ConverterWorker.ts')) {
       return 'feat(crawler): retain original image URLs and append collected metadata';

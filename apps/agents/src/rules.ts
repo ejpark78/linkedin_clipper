@@ -15,7 +15,7 @@ import * as path from 'path';
 // 1. Rule Compressor
 // ==============================================================================
 class RuleCompressor {
-  private readonly rulesDir = path.join(__dirname, '../../.agents/rules');
+  private readonly rulesDir = path.join(__dirname, '../rules');
 
   public run(): void {
     try {

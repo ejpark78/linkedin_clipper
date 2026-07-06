@@ -1,0 +1,15 @@
+{
+  "name": "@scraper/agents",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scraper Agent Helper Scripts and Configurations",
+  "scripts": {
+    "review": "ts-node src/review-changes.ts",
+    "gitea": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/gitea.ts",
+    "commit": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/commit-changes.ts",
+    "push": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/push-changes.ts",
+    "sessions": "ts-node --project tsconfig.json src/sessions.ts",
+    "rules": "ts-node --project tsconfig.json src/rules.ts",
+    "usage": "ts-node --project tsconfig.json src/usage.ts"
+  }
+}

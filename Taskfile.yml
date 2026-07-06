@@ -32,7 +32,7 @@ includes:
     taskfile: ./apps/wiki/Taskfile.yml
     dir: .
   agents:
-    taskfile: ./tools/agents/Taskfile.yml
+    taskfile: ./apps/agents/Taskfile.yml
     dir: .
   joplin:
     taskfile: ./apps/wiki/docker/joplin/Taskfile.yml

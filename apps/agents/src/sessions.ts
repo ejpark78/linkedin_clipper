@@ -327,7 +327,7 @@ class TranscriptDumper {
       });
 
       if (category === 'General' && touchedFiles.length > 0) {
-        if (touchedFiles.some(f => f.includes('.agents') || f.includes('AGENTS.md'))) {
+        if (touchedFiles.some(f => f.includes('apps/agents/') || f.includes('AGENTS.md'))) {
           category = 'Doc/Rules';
           tags = '#doc #rules';
         } else if (touchedFiles.some(f => f.includes('src/crawler/sites/'))) {

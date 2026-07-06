@@ -75,10 +75,13 @@ tasks:
       [Usage Examples]
         - task agents:dump:all
     cmds:
-      - task dump:sysinfo
-      - task dump:transcripts AGENTS={{.AGENTS | default "agy,opencode,codex"}}
-      - task dump:context AGENTS={{.AGENTS | default "agy,opencode,codex"}}
-      - task dump:brain AGENTS={{.AGENTS | default "agy,opencode,codex"}}
+      - task: dump:sysinfo
+      - task: dump:transcripts
+        vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}' }
+      - task: dump:context
+        vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}' }
+      - task: dump:brain
+        vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}' }
       - npm run agents:sessions -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}}
       - npm run agents:rules -- --compress
       - npm run agents:rules -- --lint

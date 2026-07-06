@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "description": "Development Root Workspace for LinkedIn Clipper Project",
   "private": true,
+  "workspaces": [
+    "apps/agents",
+    "apps/crawler",
+    "apps/viewer",
+    "apps/wiki"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint:crawler": "npm run lint --prefix apps/crawler",

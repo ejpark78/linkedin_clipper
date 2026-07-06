@@ -11,9 +11,9 @@
 ### 0. 규칙 우선순위와 적용 범위
 * 이 저장소의 운영 규칙은 다음 우선순위로 해석합니다.
   1. `AGENTS.md`
-  2. `.agents/rules/*.md`
-  3. `.agents/skills/*.md`
-  4. `.agents/workflows/*.md`
+  2. `apps/agents/rules/*.md`
+  3. `apps/agents/skills/*.md`
+  4. `apps/agents/workflows/*.md`
 * 상위 문서와 하위 문서가 충돌하면 상위 문서를 우선합니다.
 * `Pre-Approved Commands`는 이 문서에 명시된 명령만 예외로 인정합니다. 그 외의 셸 명령은 읽기 전용이더라도 사용자 승인 대상입니다.
 * Gitea 이슈 생성, 댓글, Close/ Reopen, Commit Diff 링크 갱신 같은 상태 변경 작업은 작업 흐름의 일부이며, 별도 예외 명령으로 해석하지 않습니다.
@@ -28,11 +28,11 @@
   * **Plan 계획서 및 분석 결과를 이슈 본문에 포함**: Gitea 이슈 생성 시 분석 결과(문제점 진단, 근거), 목표, 단계별 실행 계획, 대상 파일 목록을 본문에 상세 기술합니다. 작업 범위와 근거가 명확히 전달되어야 승인 프로세스가 의미를 가집니다. (로컬 `plan.md` 및 `action_items.md` 작성 절차는 폐지하고 Gitea 이슈로 단일화합니다.)
   * **진단 중 개발 작업 전환 시 이슈 생성 강제**: 진단/탐색 중이라도 **구체적인 Plan(수정 대상 파일, 단계별 실행 계획, 예상 결과)이 수립되는 즉시** Gitea 이슈를 생성하고 계획서와 분석 결과를 본문에 포함합니다. 이후 해당 Plan 범위 내의 모든 편집은 추가 이슈 없이 진행 가능합니다. 범위를 벗어나는 새 작업이 발생하면 새 Plan 수립 → 새 이슈를 생성합니다.
   * **Plan 승인 후 이슈 우선 생성**: 사용자가 Plan을 승인한 후에도 **소스 코드 수정 전에 반드시 먼저 Gitea 이슈를 생성**해야 합니다. "Plan 승인 → 이슈 생성 → 구현" 순서를 강제하며, 구현이 먼저 이루어지고 이슈가 나중에 생성되는 것을 금지합니다. 이슈 번호가 발급된 후에만 코드 수정 및 커밋을 진행할 수 있습니다.
-  * **하위 규칙 파일의 사전 스캔 의무**: 세션 시작 시 최상위 `AGENTS.md` 외에 `.agents/rules/*.md` 내의 규칙 변경 사항을 반드시 사전 스캔하여 최신 지침을 누락 없이 적용해야 합니다.
+  * **하위 규칙 파일의 사전 스캔 의무**: 세션 시작 시 최상위 `AGENTS.md` 외에 `apps/agents/rules/*.md` 내의 규칙 변경 사항을 반드시 사전 스캔하여 최신 지침을 누락 없이 적용해야 합니다.
   * **Gitea API 및 헬퍼 스크립트 활용**: 이슈 발행, 댓글 등록, 이슈 마감 등의 상태 제어 시 `task git:*` 래퍼를 우선 사용합니다. 래퍼는 프로젝트에 마련된 TypeScript 헬퍼 스크립트(`npx ts-node apps/agents/src/gitea.ts`, `npm run gitea`)를 호출하는 표준 진입점입니다. 기존 Gitea MCP 및 대화형 CLI 명령어(tea, curl 등)를 사용해 직접 수동으로 Gitea API를 제어하는 셸 호출은 지양합니다.
   * **Gitea 이슈 본문 작성 규격**: 쉘 명령어로 Gitea 이슈를 생성할 때(`task git:issue:new TITLE="..." BODY="..."`), 마크다운 본문의 줄바꿈(LF)은 반드시 `[br]` 기호를 사용해 작성합니다. 단순 `\n`을 쓰면 개행 치환이 되지 않고 본문 포맷이 깨지므로 엄금합니다. npm 인자 전달 경로에서는 `--title`/`--body` 플래그가 npm에 의해 가로채져 동작하지 않으므로 **절대 사용 금지**. 긴 본문이나 특수문자가 포함된 본문은 `GITEA_BODY_FILE=<파일경로>` 환경변수를 사용하여 파일에서 읽어오는 것을 권장합니다.
   * **CLI 셸 이스케이프 및 특수문자 바인딩**: 셸 명령어 인자(`run_command` 등)로 Gitea 이슈 생성/댓글/마감/수정 메시지 등을 전달할 때, 쌍따옴표(`"`) 내부에 백틱(`` ` ``), 큰따옴표, 또는 `$` 기호 등이 노출되면 zsh/bash 셸이 명령 실행이나 프로세스 치환으로 해석하여 `permission denied` 또는 `command not found` 오류가 납니다. 임의 텍스트를 인자로 보낼 때는 반드시 특수문자를 제거하거나 셸 이스케이프 처리를 철저히 하여 안전한 텍스트 형태로만 전송해야하며, 스크립트 기능 미비 시 임의 `curl` PATCH 등 땜빵식(ad-hoc) 명령어로 우회 수정을 가하지 말고 스크립트 도구 자체를 확장·수정하여 사용하십시오. 셸 이스케이프 문제를 피하려면 `GITEA_BODY_FILE=<파일경로>` 환경변수를 통해 파일에서 본문을 읽어오는 방식을 권장합니다.
-* **이슈 템플릿 및 워크플로우 규칙**: `.agents/rules/issue_workflow.md`에 정의된 템플릿 및 이슈 생성/저장 규칙을 준수합니다. 에이전트 컨텍스트 메모리는 `task git:issue:save`로, 새 이슈는 `task git:issue:new`로 생성합니다.
+* **이슈 템플릿 및 워크플로우 규칙**: `apps/agents/rules/issue_workflow.md`에 정의된 템플릿 및 이슈 생성/저장 규칙을 준수합니다. 에이전트 컨텍스트 메모리는 `task git:issue:save`로, 새 이슈는 `task git:issue:new`로 생성합니다.
 * **일관된 릴리즈 및 이슈 자동 종결**: 작업이 완료된 후에는 `npm run commit` 명령을 활용하여 로컬 커밋, 원격 저장소 동기화(Push), 그리고 해당 Gitea 이슈에 대한 Commit Diff 링크가 포함된 완료 댓글 등록 및 이슈 마감(Close)까지 올인원으로 일괄 처리합니다. 이슈 번호는 브랜치명에서 자동 추출되며, 브랜치명이 없거나 추출이 불가능한 경우 `GITEA_ISSUE_ID` 환경변수 또는 `--issue` / `--issue-id` 인자로 명시해야 합니다.
   * **항상 `npm run commit`으로 마감**: `git status`가 clean이어도 `npm run commit`을 실행하여 이슈 코멘트+마감을 처리합니다. `npm run gitea close-issue`나 `npm run gitea create-issue`를 수동으로 호출하지 않고, `GITEA_ISSUE_ID=X npm run commit` 한 번으로 모든 후속 처리를 완료합니다.
   * **완료 보고의 구체성**: 이슈 완료 댓글에는 단순 완료 사실만 쓰지 말고, 실제 해결책, 수정한 파일, 동작 방식, 검증 결과를 항목별로 명시합니다. 작업이 커밋과 연결되는 경우 `🔗 Gitea Commit Diff 링크`를 별도 섹션으로 반드시 포함하며, 링크는 작업 완료 후 생성된 최신 HEAD 커밋만 참조합니다. 커밋 전 추정 링크는 사용하지 않습니다.
@@ -56,7 +56,7 @@
 * **사전 환경 진단 철저**: 환경 변조 전 `docker inspect` 등으로 컨테이너 베이스 및 경로 구조를 분석한 후 작업을 진행합니다. ad-hoc식(임시방편) 해결이나 헬스체크 임의 삭제를 금지합니다.
 
 ### 3. Git 및 협업 방식 (Git & Collaboration)
-* **Git Flow 브랜치 전략 준수**: `main` 직접 수정 절대 금지, 브랜치 전환 전 커밋 완료 필수, 충돌 시 강제 푸시 금지 등 [Git Flow Guide](.agents/rules/git_flow.md)를 따릅니다. 작업 시작 시 브랜치를 확인하고 `main` 또는 `develop`일 경우 브랜치 전환을 제안합니다. 작업 완료 후에는 `git:commit` → `git:merge` → (필요시 `git:push`) 순서로 진행합니다.
+* **Git Flow 브랜치 전략 준수**: `main` 직접 수정 절대 금지, 브랜치 전환 전 커밋 완료 필수, 충돌 시 강제 푸시 금지 등 [Git Flow Guide](apps/agents/rules/git_flow.md)를 따릅니다. 작업 시작 시 브랜치를 확인하고 `main` 또는 `develop`일 경우 브랜치 전환을 제안합니다. 작업 완료 후에는 `git:commit` → `git:merge` → (필요시 `git:push`) 순서로 진행합니다.
 * **자동 Git 커밋**: 유효한 편집 직후 또는 특정 단위 작업 완료 시 `npm run commit`을 실행하여 로컬 저장소에 저장합니다.
 * **상대경로 링크 사용**: 문서 내에서는 상대경로를 사용하고(예: `[Worker](src/Worker.ts)`), `file://` scheme 사용을 금지합니다.
 * **사용자 중요 정보 고지 의무**: 인프라 변경, 계정 정보(ID, 임시 비번), 웹 접속 주소 등 핵심 설정 변경이 발생한 경우, 아티팩트뿐만 아니라 채팅창에도 요약 고지해야 합니다.
@@ -71,12 +71,12 @@
 ---
 
 ## ⚙️ 엔지니어링 및 아키텍처 규칙 (Engineering & Architecture Rules)
-* **공통 규칙 및 DRY 원칙 준수**: 모든 개발 시 strict typing, OOP 설계, 에러 처리를 상시 준수하고, 자세한 가이드는 [Engineering & Architecture Guide](.agents/rules/engineering_architecture.md)를 참고합니다.
+* **공통 규칙 및 DRY 원칙 준수**: 모든 개발 시 strict typing, OOP 설계, 에러 처리를 상시 준수하고, 자세한 가이드는 [Engineering & Architecture Guide](apps/agents/rules/engineering_architecture.md)를 참고합니다.
 
 ---
 
 ## 🛠️ 기술 스택별 작업 규칙 (Tech Stack Rules)
-* **코딩 규칙 준수**: strict typing(`any` 금지), class OOP 설계, `uv` 의존성 관리 등을 따르고, 상세 가이드는 [Tech Stack Guide](.agents/rules/tech_stack.md)를 참고합니다.
+* **코딩 규칙 준수**: strict typing(`any` 금지), class OOP 설계, `uv` 의존성 관리 등을 따르고, 상세 가이드는 [Tech Stack Guide](apps/agents/rules/tech_stack.md)를 참고합니다.
 
 ---
 
@@ -86,9 +86,9 @@
 
 | 컨텍스트 | Skill 파일 | 설명 |
 |:---|:---|:---|
-| 사이트 크롤러/파이프라인 | [develop_sites_skills.md](.agents/skills/develop_sites_skills.md) | Bronze→Silver 파이프라인, Base 클래스 |
-| DB/인덱스 | [database_skills.md](.agents/skills/database_skills.md) | MongoDB/Redis 스키마, 인덱스 |
-| HTML/스크래핑 디버깅 | [html_debugging_skills.md](.agents/skills/html_debugging_skills.md) | HtmlDebugger 유틸, HTML 덤프 |
+| 사이트 크롤러/파이프라인 | [develop_sites_skills.md](apps/agents/skills/develop_sites_skills.md) | Bronze→Silver 파이프라인, Base 클래스 |
+| DB/인덱스 | [database_skills.md](apps/agents/skills/database_skills.md) | MongoDB/Redis 스키마, 인덱스 |
+| HTML/스크래핑 디버깅 | [html_debugging_skills.md](apps/agents/skills/html_debugging_skills.md) | HtmlDebugger 유틸, HTML 덤프 |
 | Firecrawl 웹 검색 | `~/.claude/skills/firecrawl-*/` | Firecrawl CLI 스킬들 |
 
 ---
