@@ -438,15 +438,15 @@ export class JoplinTaskRunner {
 
             let bodyContent = note.body || '';
 
-            const resourceRegex = /\(:\/([a-zA-Z0-9]{32})\)/g;
+            const resourceRegex = /(?:\(|src="):\/?([a-zA-Z0-9]{32})(?:\)|")/g;
             let match;
-            const processedResources = new Set<string>();
+            const resourceIds = new Set<string>();
 
             while ((match = resourceRegex.exec(bodyContent)) !== null) {
-              const resourceId = match[1];
-              if (processedResources.has(resourceId)) continue;
-              processedResources.add(resourceId);
+              resourceIds.add(match[1]);
+            }
 
+            for (const resourceId of resourceIds) {
               try {
                 const meta = await clipperService.getResourceMetadata(resourceId);
                 const fileExt = meta.file_extension ? `.${meta.file_extension}` : '.png';
@@ -459,9 +459,14 @@ export class JoplinTaskRunner {
                   fs.writeFileSync(imagePath, fileBuffer);
                 }
 
-                const targetLink = `(:/${resourceId})`;
-                const localLink = `(images/${imageFileName})`;
-                bodyContent = bodyContent.split(targetLink).join(localLink);
+                // 마크다운 링크 및 HTML src 링크 모두 치환
+                const mdTarget = `(:/${resourceId})`;
+                const mdLocal = `(images/${imageFileName})`;
+                bodyContent = bodyContent.split(mdTarget).join(mdLocal);
+
+                const htmlTarget = `src=":/${resourceId}"`;
+                const htmlLocal = `src="images/${imageFileName}"`;
+                bodyContent = bodyContent.split(htmlTarget).join(htmlLocal);
               } catch (resourceErr: any) {
                 console.error(`      Failed to process resource ${resourceId} for note ${note.title}:`, resourceErr.message);
               }
