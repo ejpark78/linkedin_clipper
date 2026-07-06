@@ -21,14 +21,14 @@ services:
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
 
-    command: --auth none
+    command: --auth none ${PROJECT_PATH:-.}
     group_add:
       - ${DOCKER_GID:-999}
     volumes:
       # DooD 구성을 위한 Docker Socket 마운트
       - /var/run/docker.sock:/var/run/docker.sock
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
-      - ${PROJECT_PATH:-.}:/home/coder/project
+      - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
       # IDE 설정 및 익스텐션 영구 보존 마운트
       - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/local:/home/coder/.local
       - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/config:/home/coder/.config
