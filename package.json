@@ -10,16 +10,7 @@
     "apps/wiki"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "review": "ts-node apps/agents/src/review-changes.ts",
-    "gitea": "NODE_OPTIONS=\"--use-system-ca\" ts-node apps/agents/src/gitea.ts",
-    "gitea:token": "NODE_OPTIONS=\"--use-system-ca\" npm run gitea generate-token",
-    "gitea:token:tea": "NODE_OPTIONS=\"--use-system-ca\" npm run gitea generate-token-tea",
-    "commit": "NODE_OPTIONS=\"--use-system-ca\" ts-node apps/agents/src/commit-changes.ts",
-    "push": "NODE_OPTIONS=\"--use-system-ca\" ts-node apps/agents/src/push-changes.ts",
-    "agents:sessions": "ts-node --project apps/agents/tsconfig.json apps/agents/src/sessions.ts",
-    "agents:rules": "ts-node --project apps/agents/tsconfig.json apps/agents/src/rules.ts",
-    "agents:usage": "ts-node --project apps/agents/tsconfig.json apps/agents/src/usage.ts"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
