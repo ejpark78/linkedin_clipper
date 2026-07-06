@@ -1,24 +1,33 @@
-FROM node:24 AS node_base
+FROM node:24-bookworm AS node_base
 
-FROM codercom/code-server:ubuntu
+FROM ubuntu:26.04
 
-USER root
-
-# 필수 패키지, zsh, locales, sudo, jq 설치
+# 필수 패키지 및 coder 유저 생성
 RUN apt-get update && apt-get install -y \
+    sudo \
+    dumb-init \
     locales \
     git \
     make \
     curl \
     zsh \
+    tmux \
     docker.io \
     docker-compose-v2 \
-    sudo \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
 # coder 유저 비밀번호 없는 sudo 권한 설정
-RUN echo "coder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd
+RUN useradd -m -s /bin/bash coder && \
+    echo "coder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd
+
+# Node 24 LTS 멀티 스테이지 복사 (code-server Extension Host와 충돌 없음)
+COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
+COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+
+# code-server 수동 설치
+RUN curl -fsSL https://code-server.dev/install.sh | sh
 
 # locales 파일 내 주석 제거 및 생성 강제화
 RUN sed -i '/ko_KR.UTF-8/s/^# //g' /etc/locale.gen && \
@@ -28,21 +37,16 @@ ENV LANG=ko_KR.UTF-8
 ENV LANGUAGE=ko_KR.UTF-8
 ENV LC_ALL=ko_KR.UTF-8
 
-# 전역 Node.js v24 복사 설치 (멀티 스테이지 빌드 방식)
-COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
-COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
-
 # uv 의존성 관리자 복사 이식 (멀티 스테이지 복사)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # go-task (task) 자동 설치 스크립트 실행
 RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
 
-# opencode-ai 플랫폼 에러 우회(glibc 지원되는 linux-arm64 바이너리 수동 매핑 지시)
-# Codex 및 OpenCode 패키지 설치 (강제 플래그 및 플랫폼 우회 명시)
-RUN npm install -g --unsafe-perm --force opencode-ai @openai/codex || \
-    npm install -g --unsafe-perm --force opencode-linux-arm64 @openai/codex
+# opencode 설치 (/usr/local/bin에 바이너리 직접 배치)
+RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
+    curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
+    tar -xz -C /usr/local/bin opencode
 
 # GitHub CLI (gh) 공식 apt 저장소 등록 및 설치
 RUN mkdir -p -m 755 /etc/apt/keyrings && \
@@ -80,6 +84,8 @@ USER root
 RUN chsh -s /bin/zsh coder
 
 USER coder
+
+ENTRYPOINT ["dumb-init", "code-server"]
 
 # 헬스체크 설정 (포트 8080에 curl HTTP 요청 전송)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
