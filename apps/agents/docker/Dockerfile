@@ -70,6 +70,8 @@ RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 # coder 사용자의 zshrc에 agy 실행 PATH 강제 추가
 RUN echo 'export PATH=$HOME/.local/bin:$PATH' >> $HOME/.zshrc
+# coder 사용자의 zshrc에 oc alias 추가
+RUN echo 'alias oc="opencode --auto"' >> $HOME/.zshrc
 
 # 기본 shell을 zsh로 강제 지정
 ENV SHELL=/bin/zsh

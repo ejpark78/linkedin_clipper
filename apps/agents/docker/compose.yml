@@ -20,7 +20,7 @@ services:
       - PUID=${USER_UID:-1000}
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
-      - DANGEROUSLY_SKIP_PERMISSIONS=true
+
     command: --auth none
     group_add:
       - ${DOCKER_GID:-999}
