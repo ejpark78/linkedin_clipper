@@ -21,6 +21,7 @@ services:
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
       - DANGEROUSLY_SKIP_PERMISSIONS=true
+    command: --auth none
     volumes:
       # DooD 구성을 위한 Docker Socket 마운트
       - /var/run/docker.sock:/var/run/docker.sock
