@@ -77,3 +77,7 @@ USER root
 RUN chsh -s /bin/zsh coder
 
 USER coder
+
+# 헬스체크 설정 (포트 8080에 curl HTTP 요청 전송)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/ || exit 1

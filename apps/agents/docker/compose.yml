@@ -36,6 +36,11 @@ services:
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/coder/.gemini
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/coder/.opencode
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/coder/.codex
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
