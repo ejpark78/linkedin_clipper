@@ -24,7 +24,7 @@ services:
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
 
-    command: --auth none ${PROJECT_PATH:-.}
+    command: --auth none --bind-addr 0.0.0.0:8080 ${PROJECT_PATH:-.}
     group_add:
       - ${DOCKER_GID:-999}
     volumes:
