@@ -1394,8 +1394,34 @@ class GiteaController {
 
       case 'list-issues': {
         const allIssues = await client.getIssues();
-        const state = args[1] || 'open';
-        const limit = parseInt(args[2], 10) || 20;
+        
+        let state = 'open';
+        let limit = 20;
+
+        // CLI Flags parsing (--all, -s/--state, -l/--limit)
+        if (args.includes('--all')) {
+          state = 'all';
+        }
+        
+        const stateIdx = args.findIndex(a => a === '--state' || a === '-s');
+        if (stateIdx !== -1 && args[stateIdx + 1]) {
+          state = args[stateIdx + 1];
+        }
+
+        const limitIdx = args.findIndex(a => a === '--limit' || a === '-l');
+        if (limitIdx !== -1 && args[limitIdx + 1]) {
+          const l = parseInt(args[limitIdx + 1], 10);
+          if (!isNaN(l)) limit = l;
+        }
+
+        // Fallback to traditional positional arguments if no flags are given
+        const hasFlags = args.some(a => a.startsWith('-'));
+        if (!hasFlags) {
+          if (args[1]) state = args[1];
+          const l = parseInt(args[2], 10);
+          if (!isNaN(l)) limit = l;
+        }
+
         const filtered = state === 'all' ? allIssues : allIssues.filter(i => i.state === state);
         const sliced = filtered.slice(0, limit);
         if (sliced.length === 0) {

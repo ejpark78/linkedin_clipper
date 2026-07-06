@@ -435,7 +435,7 @@ tasks:
         - task git:issue:list STATE="all"
         - task git:issue:list STATE="closed" LIMIT="5"
     cmds:
-      - npm run gitea -w apps/agents list-issues "{{.STATE}}" "{{.LIMIT}}"
+      - npm run gitea -w apps/agents -- list-issues "{{.STATE}}" "{{.LIMIT}}" {{.CLI_ARGS}}
 
   issue:show:
     desc: "Gitea 이슈 본문 조회"
