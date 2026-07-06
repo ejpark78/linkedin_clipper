@@ -35,6 +35,7 @@ services:
       # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/coder/.gemini
       - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/coder/.opencode
+      - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/coder/.codex
     restart: unless-stopped
     labels:
       - "traefik.enable=true"

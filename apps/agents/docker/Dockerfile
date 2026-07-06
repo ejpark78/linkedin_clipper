@@ -31,6 +31,12 @@ COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
 COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
+# uv 의존성 관리자 복사 이식 (멀티 스테이지 복사)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# go-task (task) 자동 설치 스크립트 실행
+RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
 # opencode-ai 플랫폼 에러 우회(glibc 지원되는 linux-arm64 바이너리 수동 매핑 지시)
 # Codex 및 OpenCode 패키지 설치 (강제 플래그 및 플랫폼 우회 명시)
 RUN npm install -g --unsafe-perm --force opencode-ai @openai/codex || \
