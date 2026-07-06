@@ -73,13 +73,13 @@ tasks:
     cmds:
       - rm -f {{.ROOT_DIR}}/data/sessions/{{.SITE | default "linkedin"}}.json
 
-  clear-queue:
+  queue:clear:
     desc: Clear crawler job queue.
     summary: |
       Remove all pending jobs from the crawler queue.
 
       [Usage Examples]
-        - task crawler:clear-queue
+        - task crawler:queue:clear
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:clear'
 
