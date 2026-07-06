@@ -21,7 +21,7 @@ include:
   - infra/meilisearch/docker/compose.yml
   - infra/redis/docker/compose.yml
   - infra/traefik/docker/compose.yml
-  - tools/obsidian/docker/compose.yml
+  - apps/wiki/docker/obsidian/docker/compose.yml
   - apps/agents/docker/compose.yml
   - apps/wiki/docker/web/compose.yml
   - apps/wiki/docker/worker/compose.yml
