@@ -11,8 +11,10 @@ RUN apt-get update && apt-get install -y \
     docker.io \
     && rm -rf /var/lib/apt/lists/*
 
-# ko_KR.UTF-8 Locale 생성 및 기본 언어 셋업
-RUN locale-gen ko_KR.UTF-8
+# locales 파일 내 주석 제거 및 생성 강제화
+RUN sed -i '/ko_KR.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen ko_KR.UTF-8
+
 ENV LANG=ko_KR.UTF-8
 ENV LANGUAGE=ko_KR.UTF-8
 ENV LC_ALL=ko_KR.UTF-8
