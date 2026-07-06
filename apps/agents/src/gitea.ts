@@ -229,11 +229,6 @@ class GiteaClient {
     }
   }
 
-  private formatText(text: string): string {
-    // [br] 기호만 실제 줄바꿈 문자로 변환합니다.
-    return text.replace(/\[br\]/g, '\n');
-  }
-
   /** Gitea Web UI의 host (예: git.localhost) */
   private get gitHost(): string {
     return new URL(this.config.apiUrl).host;
@@ -298,16 +293,12 @@ class GiteaClient {
   }
 
   public async updateIssue(issueId: string, title: string, body: string): Promise<void> {
-    const formattedTitle = this.formatText(title);
-    const formattedBody = this.formatText(body);
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title: formattedTitle, body: formattedBody });
+    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title, body });
   }
 
   public async createIssue(title: string, body: string, skipLabel?: boolean): Promise<number> {
     console.log(`🚀 Gitea 이슈 생성 중... [${title}]`);
-    const formattedTitle = this.formatText(title);
-    const formattedBody = this.formatText(body);
-    const data = await this.request<IssueResponse>(`/repos/${this.config.repo}/issues`, 'POST', { title: formattedTitle, body: formattedBody });
+    const data = await this.request<IssueResponse>(`/repos/${this.config.repo}/issues`, 'POST', { title, body });
     console.log(`✅ 이슈가 성공적으로 생성되었습니다! [Issue #${data.number}]`);
     console.log(`🔗 URL: ${data.html_url}`);
 
@@ -330,15 +321,13 @@ class GiteaClient {
 
   public async createComment(issueId: string, body: string): Promise<void> {
     console.log(`💬 이슈 #${issueId} 에 댓글 등록 중...`);
-    const formattedBody = this.formatText(body);
-    const data = await this.request<CommentResponse>(`/repos/${this.config.repo}/issues/${issueId}/comments`, 'POST', { body: formattedBody });
+    const data = await this.request<CommentResponse>(`/repos/${this.config.repo}/issues/${issueId}/comments`, 'POST', { body });
     console.log(`✅ 댓글이 등록되었습니다! [ID: ${data.id}]`);
   }
 
   public async updateComment(commentId: string, body: string): Promise<void> {
     console.log(`💬 댓글 ID #${commentId} 수정 중...`);
-    const formattedBody = this.formatText(body);
-    await this.request<void>(`/repos/${this.config.repo}/issues/comments/${commentId}`, 'PATCH', { body: formattedBody });
+    await this.request<void>(`/repos/${this.config.repo}/issues/comments/${commentId}`, 'PATCH', { body });
     console.log(`✅ 댓글 ID #${commentId} 수정이 정상 완료되었습니다.`);
   }
 
@@ -356,9 +345,7 @@ class GiteaClient {
 
   public async updateIssueTitle(issueId: string, title: string): Promise<void> {
     console.log(`⚙️ Gitea 이슈 #${issueId} 제목 수정 중... [${title}]`);
-    const formattedTitle = this.formatText(title);
-    // 제목만 수정하기 위해 body 생략
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title: formattedTitle });
+    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title });
     console.log(`✅ 이슈 #${issueId} 제목이 정상 수정되었습니다.`);
   }
 
@@ -1186,6 +1173,19 @@ Body: ${truncated}
 }
 
 /**
+ * CLI 플래그 파서 (--name=value / --name value / -s=value / -s value 형식 지원)
+ */
+function parseFlag(args: string[], name: string, short?: string): string | null {
+  for (const arg of args) {
+    if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
+    if (short && arg.startsWith(`${short}=`)) return arg.slice(short.length + 1);
+  }
+  const idx = args.findIndex(a => a === name || (short && a === short));
+  if (idx !== -1 && args[idx + 1]) return args[idx + 1];
+  return null;
+}
+
+/**
  * 스크립트 실행의 진입점을 제어하는 Controller
  */
 class GiteaController {
@@ -1196,181 +1196,102 @@ class GiteaController {
     const config = new Config();
     const client = new GiteaClient(config);
 
+    function readFile(path: string): string {
+      try { return fs.readFileSync(path, 'utf-8'); }
+      catch (e) { const err = e as Error; console.error(`❌ 파일 읽기 실패: ${err.message}`); process.exit(1); }
+    }
+
     switch (action) {
       case 'create-issue': {
-        let title = '';
-        let body = '';
-        const bodyFileEnv = process.env.GITEA_BODY_FILE;
-        const stdinFlag = args.includes('--stdin');
-
-        // CLI Flags parsing (--title / -t, --body / -b)
-        const titleIdx = args.findIndex(a => a === '--title' || a === '-t');
-        if (titleIdx !== -1 && args[titleIdx + 1]) {
-          title = args[titleIdx + 1];
-        }
-        const bodyIdx = args.findIndex(a => a === '--body' || a === '-b');
-        if (bodyIdx !== -1 && args[bodyIdx + 1]) {
-          body = args[bodyIdx + 1];
-        }
-
-        // Fallback to traditional positional arguments if no flags are given or values not set
-        if (!title && !bodyFileEnv && !stdinFlag) {
-          title = args[1] || '';
-        }
-        
-        if (bodyFileEnv) {
-          try {
-            body = fs.readFileSync(bodyFileEnv, 'utf-8');
-          } catch (e) {
-            console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
-            process.exit(1);
-          }
-          if (!title) title = args[1] || '';
-        } else if (stdinFlag) {
-          const chunks: Buffer[] = [];
-          for await (const chunk of process.stdin) {
-            chunks.push(Buffer.from(chunk));
-          }
-          body = Buffer.concat(chunks).toString('utf-8');
-          if (!title) title = args[1] || '';
-        } else if (!body) {
-          body = args.slice(2).join(' ');
-        }
-        if (!title || !body) {
-          console.error('Usage: npm run gitea create-issue <title> <body>');
-          console.error('  Or: npm run gitea create-issue --title <title> --body <body>');
-          console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea create-issue <title>');
-          console.error('  Stdin: echo "body" | npm run gitea create-issue <title> --stdin');
+        const titleFile = parseFlag(args, '--title-file', '-tf');
+        const bodyFile = parseFlag(args, '--body-file', '-bf');
+        if (!titleFile || !bodyFile) {
+          console.error('Usage: npm run gitea create-issue --title-file=<path> --body-file=<path>');
           console.error('  Options: --no-label  (라벨 자동 분류 비활성화)');
           process.exit(1);
         }
         const skipLabel = args.includes('--no-label');
-        await client.createIssue(title, body, skipLabel);
+        await client.createIssue(readFile(titleFile), readFile(bodyFile), skipLabel);
         break;
       }
 
       case 'comment': {
-        let issueId = '';
-        let body = '';
-        const bodyFileEnv = process.env.GITEA_BODY_FILE;
-
-        // CLI Flags parsing (--issue / -i, --body / -b)
-        const issueIdx = args.findIndex(a => a === '--issue' || a === '-i');
-        if (issueIdx !== -1 && args[issueIdx + 1]) {
-          issueId = args[issueIdx + 1];
-        }
-        const bodyIdx = args.findIndex(a => a === '--body' || a === '-b');
-        if (bodyIdx !== -1 && args[bodyIdx + 1]) {
-          body = args[bodyIdx + 1];
-        }
-
-        // Fallback to traditional positional arguments
-        if (!issueId) {
-          issueId = args[1] || '';
-        }
-
-        if (bodyFileEnv) {
-          try {
-            body = fs.readFileSync(bodyFileEnv, 'utf-8');
-          } catch (e) {
-            console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
-            process.exit(1);
-          }
-        } else if (!body) {
-          body = args.slice(2).join(' ');
-        }
-
-        if (!issueId || !body) {
-          console.error('Usage: npm run gitea comment <issueId> <body>');
-          console.error('  Or: npm run gitea comment --issue <issueId> --body <body>');
-          console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea comment <issueId>');
+        const issueId = parseFlag(args, '--issue', '-i');
+        const bodyFile = parseFlag(args, '--body-file', '-bf');
+        if (!issueId || !bodyFile) {
+          console.error('Usage: npm run gitea comment --issue=<id> --body-file=<path>');
           process.exit(1);
         }
-        await client.createComment(issueId, body);
+        await client.createComment(issueId, readFile(bodyFile));
         break;
       }
 
       case 'update-issue': {
-        let issueId = '';
-        let title = '';
-        let body = '';
-        const bodyFileEnv = process.env.GITEA_BODY_FILE;
-
-        // CLI Flags parsing (--issue / -i, --title / -t, --body / -b)
-        const issueIdx = args.findIndex(a => a === '--issue' || a === '-i');
-        if (issueIdx !== -1 && args[issueIdx + 1]) {
-          issueId = args[issueIdx + 1];
-        }
-        const titleIdx = args.findIndex(a => a === '--title' || a === '-t');
-        if (titleIdx !== -1 && args[titleIdx + 1]) {
-          title = args[titleIdx + 1];
-        }
-        const bodyIdx = args.findIndex(a => a === '--body' || a === '-b');
-        if (bodyIdx !== -1 && args[bodyIdx + 1]) {
-          body = args[bodyIdx + 1];
-        }
-
-        // Fallback to traditional positional arguments
-        if (!issueId) {
-          issueId = args[1] || '';
-        }
-        if (!title) {
-          title = args[2] || '';
-        }
-
-        if (bodyFileEnv) {
-          try {
-            body = fs.readFileSync(bodyFileEnv, 'utf-8');
-          } catch (e) {
-            console.error(`❌ GITEA_BODY_FILE 파일을 읽을 수 없습니다: ${bodyFileEnv}`);
-            process.exit(1);
-          }
-        } else if (!body) {
-          body = args.slice(3).join(' ');
-        }
-
-        if (!issueId || !title || !body) {
-          console.error('Usage: npm run gitea update-issue <issueId> <title> <body>');
-          console.error('  Or: npm run gitea update-issue --issue <issueId> --title <title> --body <body>');
-          console.error('  Long body: GITEA_BODY_FILE=<path> npm run gitea update-issue <issueId> <title>');
+        const issueId = parseFlag(args, '--issue', '-i');
+        const titleFile = parseFlag(args, '--title-file', '-tf');
+        const bodyFile = parseFlag(args, '--body-file', '-bf');
+        if (!issueId || (!titleFile && !bodyFile)) {
+          console.error('Usage: npm run gitea update-issue --issue=<id> [--title-file=<path>] [--body-file=<path>]');
+          console.error('  At least one of --title-file or --body-file is required');
           process.exit(1);
         }
-        await client.updateIssue(issueId, title, body);
+        await client.updateIssue(
+          issueId,
+          titleFile ? readFile(titleFile) : '',
+          bodyFile ? readFile(bodyFile) : ''
+        );
         break;
       }
 
-      case 'update-comment':
-        if (args.length < 3) {
-          console.error('Usage: npm run gitea update-comment <commentId> <body>');
+      case 'update-comment': {
+        const commentId = parseFlag(args, '--comment-id', '-c');
+        const bodyFile = parseFlag(args, '--body-file', '-bf');
+        if (!commentId || !bodyFile) {
+          console.error('Usage: npm run gitea update-comment --comment-id=<id> --body-file=<path>');
           process.exit(1);
         }
-        await client.updateComment(args[1], args[2]);
+        await client.updateComment(commentId, readFile(bodyFile));
         break;
+      }
 
-      case 'close-issue':
-        if (args.length < 2) {
-          console.error('Usage: npm run gitea close-issue <issueId>');
-          process.exit(1);
-        }
-        await client.closeIssue(args[1]);
+      case 'close-issue': {
+        const issueId = parseFlag(args, '--issue', '-i');
+        if (!issueId) { console.error('Usage: npm run gitea close-issue --issue=<id>'); process.exit(1); }
+        await client.closeIssue(issueId);
         break;
+      }
 
-      case 'reopen-issue':
-        if (args.length < 2) {
-          console.error('Usage: npm run gitea reopen-issue <issueId>');
-          process.exit(1);
-        }
-        await client.reopenIssue(args[1]);
+      case 'reopen-issue': {
+        const issueId = parseFlag(args, '--issue', '-i');
+        if (!issueId) { console.error('Usage: npm run gitea reopen-issue --issue=<id>'); process.exit(1); }
+        await client.reopenIssue(issueId);
         break;
+      }
 
-      case 'fix-legacy-issues':
-        if (args.length < 2) {
-          console.error('Usage: npm run gitea fix-legacy-issues <issueId1> <issueId2> ...');
+      case 'update-title': {
+        const issueId = parseFlag(args, '--issue', '-i');
+        const titleFile = parseFlag(args, '--title-file', '-tf');
+        if (!issueId || !titleFile) {
+          console.error('Usage: npm run gitea update-title --issue=<id> --title-file=<path>');
           process.exit(1);
         }
-        const ids = args.slice(1);
-        await client.fixLegacyIssues(ids);
+        await client.updateIssueTitle(issueId, readFile(titleFile));
         break;
+      }
+
+      case 'fix-legacy-issues': {
+        const idsStr = parseFlag(args, '--ids');
+        if (!idsStr) { console.error('Usage: npm run gitea fix-legacy-issues --ids=1,2,3'); process.exit(1); }
+        await client.fixLegacyIssues(idsStr.split(',').map(s => s.trim()).filter(Boolean));
+        break;
+      }
+
+      case 'show-issue': {
+        const issueId = parseFlag(args, '--issue', '-i');
+        if (!issueId) { console.error('Usage: npm run gitea show-issue --issue=<id>'); process.exit(1); }
+        await client.printIssueBody(issueId);
+        break;
+      }
 
       case 'retroactive-commit-links':
         await client.retroactiveCommitLinks();
@@ -1384,24 +1305,8 @@ class GiteaController {
         await client.seedDefaultLabels();
         break;
 
-      case 'update-title':
-        if (args.length < 3) {
-          console.error('Usage: npm run gitea update-title <issueId> <newTitle>');
-          process.exit(1);
-        }
-        await client.updateIssueTitle(args[1], args[2]);
-        break;
-
       case 'find-title-errors':
         await client.printTitleErrorIssues();
-        break;
-
-      case 'show-issue':
-        if (args.length < 2) {
-          console.error('Usage: npm run gitea show-issue <issueId>');
-          process.exit(1);
-        }
-        await client.printIssueBody(args[1]);
         break;
 
       case 'generate-token':
@@ -1416,91 +1321,81 @@ class GiteaController {
         await client.initGitea();
         break;
 
-      case 'repo:dump':
-        await client.repoDump(args[1] || 'data/dumps/gitea');
-        break;
-
-      case 'repo:restore':
-        if (!args[1]) { console.error('Usage: npm run gitea repo:restore <dumpDir>'); process.exit(1); }
-        await client.repoRestore(args[1]);
-        break;
-
-      case 'issue:dump':
-        await client.dumpIssue(args[1] || 'data/dumps/gitea', args[2]);
-        break;
-
-      case 'issue:restore':
-        if (!args[1]) { console.error('Usage: npm run gitea issue:restore <file>'); process.exit(1); }
-        await client.restoreIssue(args[1]);
-        break;
-
-      case 'wiki:init':
-        await client.wikiInit(args[1]);
-        break;
-
-      case 'wiki:dump':
-        await client.dumpWiki(args[1] || 'data/dumps/gitea');
-        break;
-
-      case 'wiki:restore':
-        if (!args[1]) { console.error('Usage: npm run gitea wiki:restore <wikiDir>'); process.exit(1); }
-        await client.restoreWiki(args[1]);
+      case 'format-issues':
+        await client.formatAllIssues();
         break;
 
       case 'issue:save':
         await client.issueSave();
         break;
 
+      case 'repo:dump': {
+        await client.repoDump(parseFlag(args, '--dir') || 'data/dumps/gitea');
+        break;
+      }
+
+      case 'repo:restore': {
+        const dir = parseFlag(args, '--dir');
+        if (!dir) { console.error('Usage: npm run gitea repo:restore --dir=<dumpDir>'); process.exit(1); }
+        await client.repoRestore(dir);
+        break;
+      }
+
+      case 'issue:dump': {
+        await client.dumpIssue(parseFlag(args, '--dir') || 'data/dumps/gitea', parseFlag(args, '--issue', '-i') || '');
+        break;
+      }
+
+      case 'issue:restore': {
+        const file = parseFlag(args, '--file', '-f');
+        if (!file) { console.error('Usage: npm run gitea issue:restore --file=<path>'); process.exit(1); }
+        await client.restoreIssue(file);
+        break;
+      }
+
+      case 'wiki:init': {
+        const dir = parseFlag(args, '--dir');
+        if (!dir) { console.error('Usage: npm run gitea wiki:init --dir=<wikiDir>'); process.exit(1); }
+        await client.wikiInit(dir);
+        break;
+      }
+
+      case 'wiki:dump': {
+        await client.dumpWiki(parseFlag(args, '--dir') || 'data/dumps/gitea');
+        break;
+      }
+
+      case 'wiki:restore': {
+        const dir = parseFlag(args, '--dir');
+        if (!dir) { console.error('Usage: npm run gitea wiki:restore --dir=<wikiDir>'); process.exit(1); }
+        await client.restoreWiki(dir);
+        break;
+      }
+
       case 'list-issues': {
         const allIssues = await client.getIssues();
-        
         let state = 'open';
         let limit = 20;
 
-        // CLI Flags parsing (--all, -s/--state, -l/--limit)
-        if (args.includes('--all')) {
-          state = 'all';
-        }
-        
-        const stateIdx = args.findIndex(a => a === '--state' || a === '-s');
-        if (stateIdx !== -1 && args[stateIdx + 1]) {
-          state = args[stateIdx + 1];
-        }
-
-        const limitIdx = args.findIndex(a => a === '--limit' || a === '-l');
-        if (limitIdx !== -1 && args[limitIdx + 1]) {
-          const l = parseInt(args[limitIdx + 1], 10);
-          if (!isNaN(l)) limit = l;
-        }
-
-        // Fallback to traditional positional arguments if no flags are given
-        const hasFlags = args.some(a => a.startsWith('-'));
-        if (!hasFlags) {
-          if (args[1]) state = args[1];
-          const l = parseInt(args[2], 10);
-          if (!isNaN(l)) limit = l;
-        }
+        if (args.includes('--all')) state = 'all';
+        const stateStr = parseFlag(args, '--state', '-s');
+        if (stateStr) state = stateStr;
+        const limitStr = parseFlag(args, '--limit', '-l');
+        if (limitStr) { const l = parseInt(limitStr, 10); if (!isNaN(l)) limit = l; }
 
         const filtered = state === 'all' ? allIssues : allIssues.filter(i => i.state === state);
         const sliced = filtered.slice(0, limit);
-        if (sliced.length === 0) {
-          console.log('📭 표시할 이슈가 없습니다.');
-          break;
-        }
+        if (sliced.length === 0) { console.log('📭 표시할 이슈가 없습니다.'); break; }
         console.log(`📋 최근 이슈 ${sliced.length}개 (전체 ${filtered.length}개, state=${state}):\n`);
         sliced.forEach(i => {
           const label = i.state === 'closed' ? '✅' : '🟢';
           const date = (i.created_at || '').slice(0, 10);
-          const title = i.title.length > 50 ? i.title.slice(0, 47) + '...' : i.title;
-          console.log(`  ${label} #${String(i.number).padStart(3)}  ${date}  ${title}`);
+          const t = i.title.length > 50 ? i.title.slice(0, 47) + '...' : i.title;
+          console.log(`  ${label} #${String(i.number).padStart(3)}  ${date}  ${t}`);
         });
-        console.log(`\n💡 상세: task git:issue:show ISSUE_ID="번호"`);
+        console.log(`\n💡 상세: task git:issue:show --issue=<번호>`);
         break;
       }
-
-      case 'format-issues':
-        await client.formatAllIssues();
-        break;
 
       default:
         console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, retroactive-labels, seed-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
