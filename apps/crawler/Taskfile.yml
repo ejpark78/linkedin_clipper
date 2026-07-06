@@ -45,7 +45,7 @@ tasks:
       [Usage Examples]
         - task crawler:login SITE="linkedin"
     cmds:
-      - SITE={{.SITE | default "linkedin"}} npx ts-node src/sites/linkedin/Crawler.ts login
+      - SITE={{.SITE | default "linkedin"}} npx ts-node src/sites/linkedin/Crawler.ts login {{.CLI_ARGS}}
 
   open:
     desc: Open the Playwright browser helper.
@@ -58,7 +58,7 @@ tasks:
       [Usage Examples]
         - task crawler:open SITE="linkedin"
     cmds:
-      - SITE={{.SITE | default "linkedin"}} npx ts-node src/tools/browser/open.ts
+      - SITE={{.SITE | default "linkedin"}} npx ts-node src/tools/browser/open.ts {{.CLI_ARGS}}
 
   logout:
     desc: Remove a browser-backed site session.
@@ -81,7 +81,7 @@ tasks:
       [Usage Examples]
         - task crawler:queue:clear
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:clear'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:clear -- {{.CLI_ARGS}}'
 
   queue:status:
     desc: Show crawler queue statistics.
@@ -91,7 +91,7 @@ tasks:
       [Usage Examples]
         - task crawler:queue:status
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status -- {{.CLI_ARGS}}'
 
   queue:dump:
     desc: Dump crawler queue to JSON.
@@ -101,7 +101,7 @@ tasks:
       [Usage Examples]
         - task crawler:queue:dump
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data:/app/data worker npm run queue:dump'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data:/app/data worker npm run queue:dump -- {{.CLI_ARGS}}'
 
   queue:fix-urls:
     desc: Fix malformed URLs in the crawler queue.
@@ -112,7 +112,7 @@ tasks:
         - task crawler:queue:fix-urls
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:fix-urls'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:fix-urls -- {{.CLI_ARGS}}'
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
 
   grep-errors:
@@ -123,7 +123,7 @@ tasks:
       [Usage Examples]
         - task crawler:grep-errors
     cmds:
-      - '{{.COMPOSE}} logs --no-color scraper converter | {{.COMPOSE}} run --rm -T {{.RUN_USER}} worker npm run log:grep-errors'
+      - '{{.COMPOSE}} logs --no-color scraper converter | {{.COMPOSE}} run --rm -T {{.RUN_USER}} worker npm run log:grep-errors -- {{.CLI_ARGS}}'
 
   gmail:sync:
     desc: Sync Gmail messages via Gmail tool.
@@ -133,7 +133,7 @@ tasks:
       [Usage Examples]
         - task crawler:gmail:sync
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data/gmail:/data gmail npm run gmail:sync'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data/gmail:/data gmail npm run gmail:sync -- {{.CLI_ARGS}}'
 
   site:
     desc: "Run a crawler site command. Variables: SITE, CMD, PAGE, LIST_SLACK."
@@ -156,11 +156,11 @@ tasks:
           exit 1
         fi
         if [ "{{.CMD}}" = "list" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:list -- --page "{{.PAGE | default "1"}}" --list-slack "{{.LIST_SLACK | default "2"}}"
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:list -- --page "{{.PAGE | default "1"}}" --list-slack "{{.LIST_SLACK | default "2"}}" {{.CLI_ARGS}}
         elif [ "{{.CMD}}" = "refresh-urls" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-urls
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-urls -- {{.CLI_ARGS}}
         elif [ "{{.CMD}}" = "refresh-silver" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-silver
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-silver -- {{.CLI_ARGS}}
         else
           echo "Unknown crawler command: {{.CMD}}"
           exit 1
@@ -180,7 +180,7 @@ tasks:
         - task crawler:sites:list SITE="geeknews"
         - task crawler:sites:list SITE="yozm" PAGE=2
     cmds:
-      - task site SITE={{.SITE}} CMD=list PAGE={{.PAGE | default "1"}} LIST_SLACK={{.LIST_SLACK | default "2"}}
+      - task site SITE={{.SITE}} CMD=list PAGE={{.PAGE | default "1"}} LIST_SLACK={{.LIST_SLACK | default "2"}} CLI_ARGS={{.CLI_ARGS}}
 
   sites:refresh:urls:
     desc: "Refresh crawler URLs for a site."
@@ -193,7 +193,7 @@ tasks:
       [Usage Examples]
         - task crawler:sites:refresh:urls SITE="gpters"
     cmds:
-      - task site SITE={{.SITE}} CMD=refresh-urls
+      - task site SITE={{.SITE}} CMD=refresh-urls CLI_ARGS={{.CLI_ARGS}}
 
   sites:refresh:silver:
     desc: "Refresh crawler Silver documents for a site."
@@ -206,7 +206,7 @@ tasks:
       [Usage Examples]
         - task crawler:sites:refresh:silver SITE="uppity"
     cmds:
-      - task site SITE={{.SITE}} CMD=refresh-silver
+      - task site SITE={{.SITE}} CMD=refresh-silver CLI_ARGS={{.CLI_ARGS}}
 
   extract:
     desc: Extract a single article for debugging.
@@ -225,7 +225,7 @@ tasks:
           echo "SITE and ID variables are required. Example: task crawler:extract SITE=yozm ID=3800"
           exit 1
         fi
-        {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run extract:article -- --site {{.SITE}} --id {{.ID}}
+        {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run extract:article -- --site {{.SITE}} --id {{.ID}} {{.CLI_ARGS}}
 
   debug:
     desc: Debug HTML parsing for a site or file.
@@ -243,9 +243,9 @@ tasks:
     cmds:
       - |
         if [ -n "{{.FILE}}" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run debug:html -- --file {{.FILE}}
+          {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run debug:html -- --file {{.FILE}} {{.CLI_ARGS}}
         elif [ -n "{{.SITE}}" ] && [ -n "{{.ID}}" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run debug:html -- --site {{.SITE}} --id {{.ID}}
+          {{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run debug:html -- --site {{.SITE}} --id {{.ID}} {{.CLI_ARGS}}
         else
           echo "Either FILE, or SITE and ID variables must be specified."
           echo "Example 1: task app:crawler:debug FILE=tests/sites/yozm/fixtures/3800.html"
