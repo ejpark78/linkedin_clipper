@@ -13,6 +13,11 @@
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
+import * as path from 'path';
+
+// 스크립트 실행 디렉토리에 관계없이 프로젝트 루트 디렉토리를 CWD로 고정
+const projectRoot = path.resolve(__dirname, '..', '..', '..');
+process.chdir(projectRoot);
 
 /**
  * 정적 검증 환경(Docker 컨테이너 여부 등)을 파싱하는 Config 클래스
@@ -99,7 +104,7 @@ class CodeVerifier {
     } else {
       if (fs.existsSync('apps/crawler/node_modules')) {
         try {
-          return execSync('npm run type-check', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+          return execSync('npm run type-check --prefix apps/crawler', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
         } catch (e) {
           const err = e as Error;
           return err.message;
