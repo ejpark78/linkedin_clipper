@@ -32,7 +32,7 @@ includes:
   joplin:
     taskfile: ./apps/wiki/docker/joplin/Taskfile.yml
     dir: .
-  gitea:
+  git:
     taskfile: ./infra/gitea/Taskfile.yml
     dir: .
   meili:
