@@ -21,4 +21,4 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${WIKI_HOST_PATH:-${HOST_PROJECT_PATH:-.}}/data:/data
+      - ${HOST_PROJECT_PATH:-.}/data:/data
