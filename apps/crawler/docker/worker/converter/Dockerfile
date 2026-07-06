@@ -22,10 +22,12 @@ WORKDIR /app
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Install dependencies using cache layers
-COPY package*.json ./
+COPY package*.json tsconfig.json eslint.config.mjs ./
 RUN npm install && npm cache clean --force
 
 # Copy source files
-COPY . .
+COPY src/ ./
+COPY src/ ./src/
+COPY tests/ ./tests/
 
-CMD ["npm", "run", "worker:converter"]
+CMD ["npx", "ts-node", "workers/ConverterWorker.ts"]

@@ -39,7 +39,7 @@ services:
         - BUILD_DATE
         - VCS_REF
     image: scraper/viewer:latest
-    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "src/api/server.ts"]
+    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "api/server.ts"]
     profiles:
       - tools
       - viewer
@@ -74,7 +74,7 @@ services:
       - "traefik.http.routers.viewer-api.entrypoints=websecure"
       - "traefik.http.routers.viewer-api.tls=true"
       - "traefik.http.services.viewer-api.loadbalancer.server.port=3000"
-
+ 
   viewer-mcp:
     build:
       context: ..
@@ -83,7 +83,7 @@ services:
         - BUILD_DATE
         - VCS_REF
     image: scraper/viewer:latest
-    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "src/mcp/mcp-entry.ts"]
+    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "mcp/mcp-entry.ts"]
     profiles:
       - tools
       - viewer

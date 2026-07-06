@@ -25,7 +25,7 @@ RUN npm install -g joplin
 COPY package*.json tsconfig.json ./
 RUN npm install && npm cache clean --force
 
-COPY . .
-COPY src/ /app/
+COPY src/ ./
+COPY src/ ./src/
 
-CMD ["npx", "ts-node", "src/joplin.ts"]
+CMD ["npx", "ts-node", "joplin.ts"]

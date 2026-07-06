@@ -19,12 +19,11 @@ LABEL org.opencontainers.image.licenses="MIT"
 WORKDIR /app
 
 # Install root dependencies using cache layers
-COPY package*.json ./
+COPY package*.json tsconfig.json eslint.config.mjs ./
 RUN npm install && npm cache clean --force
 
-
-
 # Copy source files
-COPY . .
+COPY src/ ./
+COPY src/ ./src/
 
-CMD ["npx", "ts-node", "src/api/server.ts"]
+CMD ["npx", "ts-node", "api/server.ts"]

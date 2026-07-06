@@ -26,11 +26,13 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Install dependencies using cache layers
-COPY package*.json ./
+COPY package*.json tsconfig.json eslint.config.mjs ./
 RUN npm install --legacy-peer-deps && npm cache clean --force
 
 # Copy source files
-COPY . .
+COPY src/ ./
+COPY src/ ./src/
+COPY tests/ ./tests/
 
 # Precreate data and config directories
 RUN mkdir -p data config

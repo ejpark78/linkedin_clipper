@@ -18,9 +18,11 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json tsconfig.json eslint.config.mjs ./
 RUN npm ci
 
-COPY . .
+COPY src/ ./
+COPY src/ ./src/
+COPY tests/ ./tests/
 
 CMD ["tail", "-f", "/dev/null"]
