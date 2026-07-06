@@ -133,100 +133,97 @@ tasks:
     desc: Gitea repo 전체 덤프 (이슈 + 위키)
     summary: |
       Gitea에 생성되어 있는 원본 리포지토리의 이슈 목록 및 위키 전체 페이지 데이터를 로컬 덤프(Dump)합니다.
-      덤프 파일은 data/dumps/gitea 디렉터리에 압축 및 JSON 포맷으로 추출되어 저장됩니다.
 
-      [Variables]
-        - DUMP_PATH: 덤프 데이터가 위치할 로컬 디렉터리 경로 (기본값: "data/dumps/gitea")
+      [Flags]
+        - --dir=<path>: 덤프 디렉터리 (기본값: "data/dumps/gitea")
 
       [Usage Examples]
         - task git:repo:dump
-        - task git:repo:dump DUMP_PATH="data/backup/gitea"
+        - task git:repo:dump -- --dir=data/backup/gitea
     cmds:
-      - npm run gitea -w apps/agents -- repo:dump {{.DUMP_PATH}} {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- repo:dump {{.CLI_ARGS}}
 
   repo:restore:
     desc: "Gitea repo 전체 복원 (이슈 + 위키)"
     summary: |
       기존에 로컬로 덤프해 둔 파일에서 Gitea 리포지토리(이슈+위키) 상태를 완전히 복구(Restore)합니다.
 
-      [Variables]
-        - DUMP_PATH: (필수) 복원 대상 덤프 파일들이 위치한 디렉터리 경로
+      [Flags]
+        - --dir=<path>: (필수) 덤프 디렉터리 경로
 
       [Usage Examples]
-        - task git:repo:restore DUMP_PATH="data/dumps/gitea/20260703"
+        - task git:repo:restore -- --dir=data/dumps/gitea/20260703
     cmds:
-      - npm run gitea -w apps/agents -- repo:restore "{{.DUMP_PATH}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- repo:restore {{.CLI_ARGS}}
 
   issue:dump:
     desc: "Gitea 이슈를 JSON 파일로 내보내기"
     summary: |
       Gitea 서버 내부의 특정 이슈 데이터를 JSON 포맷으로 로컬 백업합니다.
 
-      [Variables]
-        - ISSUE_ID: (옵션) 백업할 특정 이슈 ID (생략 시 전체 이슈 내보내기)
-        - DUMP_PATH: (옵션) 백업 디렉터리 경로 (기본값: "data/dumps/gitea")
+      [Flags]
+        - --dir=<path>: 백업 디렉터리 (기본값: "data/dumps/gitea")
+        - --issue=<id>: (옵션) 특정 이슈 ID (생략 시 전체)
 
       [Usage Examples]
         - task git:issue:dump
-        - task git:issue:dump ISSUE_ID="104"
-        - task git:issue:dump DUMP_PATH="data/backup" ISSUE_ID="104"
+        - task git:issue:dump -- --issue=104
+        - task git:issue:dump -- --dir=data/backup --issue=104
     cmds:
-      - npm run gitea -w apps/agents -- issue:dump {{.DUMP_PATH}} {{.ISSUE_ID}} {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- issue:dump {{.CLI_ARGS}}
 
   issue:restore:
     desc: "JSON 덤프 파일에서 Gitea 이슈 복원"
     summary: |
       로컬에 JSON 포맷으로 백업해둔 백업 파일에서 Gitea 이슈 목록 및 상세 상태를 복원합니다.
 
-      [Variables]
-        - FILE_PATH: (필수) 복원할 Gitea 이슈 JSON 파일 경로
+      [Flags]
+        - --file=<path>: (필수) 복원할 JSON 파일 경로
 
       [Usage Examples]
-        - task git:issue:restore FILE_PATH="data/dumps/gitea/issues.json"
-    requires:
-      vars: [FILE_PATH]
+        - task git:issue:restore -- --file=data/dumps/gitea/issues.json
     cmds:
-      - npm run gitea -w apps/agents -- issue:restore "{{.FILE_PATH}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- issue:restore {{.CLI_ARGS}}
 
   wiki:init:
     desc: "Gitea wiki 저장소 초기화 (로컬 마크다운 → Gitea wiki push)"
     summary: |
       Gitea repo wiki를 활성화하고 로컬 마크다운 파일들을 wiki 저장소에 push합니다.
 
-      [Variables]
-        - FROM_PATH: (옵션) wiki로 push할 로컬 마크다운 디렉토리 (미지정 시 Home.md만 생성)
+      [Flags]
+        - --dir=<path>: (옵션) wiki로 push할 로컬 마크다운 디렉토리
 
       [Usage Examples]
         - task git:wiki:init
-        - task git:wiki:init FROM_PATH="data/docs/wiki"
+        - task git:wiki:init -- --dir=data/docs/wiki
     cmds:
-      - npm run gitea -w apps/agents -- wiki:init {{.FROM_PATH}} {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- wiki:init {{.CLI_ARGS}}
 
   wiki:dump:
     desc: "Gitea wiki 페이지 로컬로 내려받기"
     summary: |
       Gitea wiki 저장소(.wiki.git)를 로컬 디렉토리에 clone합니다.
 
-      [Variables]
-        - DUMP_PATH: (옵션) wiki를 저장할 디렉토리 (기본값: data/dumps/gitea)
+      [Flags]
+        - --dir=<path>: (옵션) wiki 저장 디렉토리 (기본값: data/dumps/gitea)
 
       [Usage Examples]
         - task git:wiki:dump
     cmds:
-      - npm run gitea -w apps/agents -- wiki:dump {{.DUMP_PATH}} {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- wiki:dump {{.CLI_ARGS}}
 
   wiki:restore:
     desc: "로컬 wiki를 Gitea에 복원"
     summary: |
       로컬에 clone된 wiki 저장소를 Gitea에 push하여 복원합니다.
 
-      [Variables]
-        - WIKI_PATH: (필수) 로컬 wiki 저장소 디렉토리 경로
+      [Flags]
+        - --dir=<path>: (필수) 로컬 wiki 저장소 디렉토리 경로
 
       [Usage Examples]
-        - task git:wiki:restore WIKI_PATH="data/dumps/gitea/wiki"
+        - task git:wiki:restore -- --dir=data/dumps/gitea/wiki
     cmds:
-      - npm run gitea -w apps/agents -- wiki:restore "{{.WIKI_PATH}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- wiki:restore {{.CLI_ARGS}}
 
   commit:
     desc: Commit changes through the project commit helper.
@@ -321,94 +318,88 @@ tasks:
     desc: "새 Gitea 이슈 생성"
     summary: |
       새 Gitea 이슈를 생성합니다.
+      title과 body는 반드시 파일(--title-file, --body-file)로 전달해야 합니다.
 
-      [Variables]
-        - TITLE: (필수) 생성할 이슈의 제목
-        - BODY: (필수) 이슈 본문 내용 (개행은 [br] 기호로 변환 권장)
+      [Flags]
+        - --title-file=<path>: (필수) title 파일 (UTF-8)
+        - --body-file=<path>: (필수) body 파일 (UTF-8)
+        - --no-label: 라벨 자동 분류 비활성화
 
       [Usage Examples]
-        - task git:issue:new TITLE="이슈 제목" BODY="상세 내용[br]두번째 줄"
+        - task git:issue:new -- --title-file=/tmp/title.md --body-file=/tmp/body.md
     cmds:
-      - npm run gitea -w apps/agents -- create-issue "{{.TITLE}}" "{{.BODY}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- create-issue {{.CLI_ARGS}}
 
   issue:update:
     desc: "Gitea 이슈 제목/본문 수정"
     summary: |
       기존 Gitea 이슈의 제목과 본문을 수정합니다.
+      title과 body는 반드시 파일로 전달해야 합니다.
 
-      [Variables]
-        - ISSUE_ID: (필수) 대상 이슈 ID 번호 (예: 104)
-        - TITLE: (필수) 새로운 이슈 제목
-        - BODY: (필수) 새로운 이슈 본문
+      [Flags]
+        - --issue=<id>: (필수) 대상 이슈 ID
+        - --title-file=<path>: (옵션) 새 title 파일
+        - --body-file=<path>: (옵션) 새 body 파일
 
       [Usage Examples]
-        - task git:issue:update ISSUE_ID="104" TITLE="수정된 제목" BODY="수정된 내용"
+        - task git:issue:update -- --issue=104 --title-file=/tmp/title.md --body-file=/tmp/body.md
+        - task git:issue:update -- --issue=104 --body-file=/tmp/body.md
     cmds:
-      - npm run gitea -w apps/agents -- update-issue "{{.ISSUE_ID}}" "{{.TITLE}}" "{{.BODY}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- update-issue {{.CLI_ARGS}}
 
   issue:comment:new:
     desc: "Gitea 이슈에 댓글 등록"
     summary: |
       Gitea 이슈에 새 댓글을 등록합니다.
+      body는 반드시 파일로 전달해야 합니다.
 
-      [Variables]
-        - ISSUE_ID: (필수) 대상 이슈 ID 번호
-        - BODY: (필수) 댓글 본문 (개행은 [br] 기호 활용)
+      [Flags]
+        - --issue=<id>: (필수) 대상 이슈 ID
+        - --body-file=<path>: (필수) 댓글 body 파일
 
       [Usage Examples]
-        - task git:issue:comment:new ISSUE_ID="104" BODY="진행 경과 보고[br]- 완료"
-    cmds:
-      - npm run gitea -w apps/agents -- comment "{{.ISSUE_ID}}" "{{.BODY}}" {{.CLI_ARGS}}
+        - task git:issue:comment:new -- --issue=104 --body-file=/tmp/body.md
 
   issue:comment:update:
     desc: "Gitea 이슈 댓글 수정"
     summary: |
       기존 Gitea 이슈 댓글의 내용을 수정합니다.
+      body는 반드시 파일로 전달해야 합니다.
 
-      [Variables]
-        - COMMENT_ID: (필수) 대상 댓글 ID 번호 (예: 2642)
-        - BODY: (필수) 새로운 댓글 본문
+      [Flags]
+        - --comment-id=<id>: (필수) 대상 댓글 ID
+        - --body-file=<path>: (필수) 새 댓글 body 파일
 
       [Usage Examples]
-        - task git:issue:comment:update COMMENT_ID="2642" BODY="수정된 댓글 내용"
+        - task git:issue:comment:update -- --comment-id=2642 --body-file=/tmp/body.md
     cmds:
-      - npm run gitea -w apps/agents -- update-comment "{{.COMMENT_ID}}" "{{.BODY}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- update-comment {{.CLI_ARGS}}
 
   issue:close:
     desc: "Gitea 이슈 마감"
     summary: |
       활성 Gitea 이슈를 마감(Closed) 처리합니다.
 
-      [Variables]
-        - ISSUE_ID: (필수) 닫으려는 이슈 ID 번호
+      [Flags]
+        - --issue=<id>: (필수) 닫으려는 이슈 ID
 
       [Usage Examples]
-        - task git:issue:close ISSUE_ID="142"
+        - task git:issue:close -- --issue=142
     cmds:
-      - |
-        if [ -z "{{.ISSUE_ID}}" ]; then
-          echo "❌ ISSUE_ID가 필요합니다. 사용법: task git:issue:close ISSUE_ID=\"142\""
-          exit 1
-        fi
-        npm run gitea -w apps/agents -- close-issue "{{.ISSUE_ID}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- close-issue {{.CLI_ARGS}}
 
   issue:reopen:
     desc: "Gitea 이슈 재오픈"
     summary: |
       마감된 Gitea 이슈를 다시 엽니다(Reopen).
 
-      [Variables]
-        - ISSUE_ID: (필수) 다시 열려는 이슈 ID 번호
+      [Flags]
+        - --issue=<id>: (필수) 다시 열려는 이슈 ID
 
       [Usage Examples]
-        - task git:issue:reopen ISSUE_ID="142"
+        - task git:issue:reopen -- --issue=142
     cmds:
-      - |
-        if [ -z "{{.ISSUE_ID}}" ]; then
-          echo "❌ ISSUE_ID가 필요합니다. 사용법: task git:issue:reopen ISSUE_ID=\"142\""
-          exit 1
-        fi
-        npm run gitea -w apps/agents -- reopen-issue "{{.ISSUE_ID}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- reopen-issue {{.CLI_ARGS}}
 
   issue:label:
     desc: "기존 전체 이슈에 rule-based 라벨 소급 적용"
@@ -427,26 +418,27 @@ tasks:
       저장소의 이슈 목록을 번호/작성일/제목으로 출력합니다.
       기본값은 최근 열린(open) 이슈 20개를 보여줍니다.
 
-      [Variables]
-        - STATE: (옵션) 필터 상태 (open, closed, all / 기본값: open)
-        - LIMIT: (옵션) 표시할 개수 (기본값: 20)
+      [Flags]
+        - --state / -s: (옵션) 상태 (open, closed, all / 기본값: open)
+        - --limit / -l: (옵션) 표시할 개수 (기본값: 20)
+        - --all: 모든 상태 표시
 
       [Usage Examples]
         - task git:issue:list
-        - task git:issue:list STATE="all"
-        - task git:issue:list STATE="closed" LIMIT="5"
+        - task git:issue:list -- --state=all
+        - task git:issue:list -- --state=closed --limit=5
     cmds:
-      - npm run gitea -w apps/agents -- list-issues "{{.STATE}}" "{{.LIMIT}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- list-issues {{.CLI_ARGS}}
 
   issue:show:
     desc: "Gitea 이슈 본문 조회"
     summary: |
       Gitea 이슈의 본문 내용과 상태를 출력합니다.
 
-      [Variables]
-        - ISSUE_ID: (필수) 조회할 이슈 ID 번호
+      [Flags]
+        - --issue=<id>: (필수) 조회할 이슈 ID
 
       [Usage Examples]
-        - task git:issue:show ISSUE_ID="104"
+        - task git:issue:show -- --issue=104
     cmds:
-      - npm run gitea -w apps/agents -- show-issue "{{.ISSUE_ID}}" {{.CLI_ARGS}}
+      - npm run gitea -w apps/agents -- show-issue {{.CLI_ARGS}}

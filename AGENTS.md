@@ -30,8 +30,21 @@
   * **Plan 승인 후 이슈 우선 생성**: 사용자가 Plan을 승인한 후에도 **소스 코드 수정 전에 반드시 먼저 Gitea 이슈를 생성**해야 합니다. "Plan 승인 → 이슈 생성 → 구현" 순서를 강제하며, 구현이 먼저 이루어지고 이슈가 나중에 생성되는 것을 금지합니다. 이슈 번호가 발급된 후에만 코드 수정 및 커밋을 진행할 수 있습니다.
   * **하위 규칙 파일의 사전 스캔 의무**: 세션 시작 시 최상위 `AGENTS.md` 외에 `apps/agents/rules/*.md` 내의 규칙 변경 사항을 반드시 사전 스캔하여 최신 지침을 누락 없이 적용해야 합니다.
   * **Gitea API 및 헬퍼 스크립트 활용**: 이슈 발행, 댓글 등록, 이슈 마감 등의 상태 제어 시 `task git:*` 래퍼를 우선 사용합니다. 래퍼는 프로젝트에 마련된 TypeScript 헬퍼 스크립트(`npx ts-node apps/agents/src/gitea.ts`, `npm run gitea`)를 호출하는 표준 진입점입니다. 기존 Gitea MCP 및 대화형 CLI 명령어(tea, curl 등)를 사용해 직접 수동으로 Gitea API를 제어하는 셸 호출은 지양합니다.
-  * **Gitea 이슈 본문 작성 규격**: 쉘 명령어로 Gitea 이슈를 생성할 때(`task git:issue:new TITLE="..." BODY="..."` 또는 `task git:issue:new -- --title "제목" --body "본문"`), 마크다운 본문의 줄바꿈(LF)은 반드시 `[br]` 기호를 사용해 작성합니다. 단순 `\n`을 쓰면 개행 치환이 되지 않고 본문 포맷이 깨지므로 엄금합니다. `--` 구분선 뒤에 플래그 형태로 작성하면 npm의 방해 없이 안전하게 옵션을 전송할 수 있습니다. 긴 본문이나 특수문자가 포함된 본문은 `GITEA_BODY_FILE=<파일경로>` 환경변수를 사용하여 파일에서 읽어오는 것을 권장합니다.
-  * **CLI 셸 이스케이프 및 특수문자 바인딩**: 셸 명령어 인자(`run_command` 등)로 Gitea 이슈 생성/댓글/마감/수정 메시지 등을 전달할 때, 쌍따옴표(`"`) 내부에 백틱(`` ` ``), 큰따옴표, 또는 `$` 기호 등이 노출되면 zsh/bash 셸이 명령 실행이나 프로세스 치환으로 해석하여 `permission denied` 또는 `command not found` 오류가 납니다. 임의 텍스트를 인자로 보낼 때는 반드시 특수문자를 제거하거나 셸 이스케이프 처리를 철저히 하여 안전한 텍스트 형태로만 전송해야하며, 스크립트 기능 미비 시 임의 `curl` PATCH 등 땜빵식(ad-hoc) 명령어로 우회 수정을 가하지 말고 스크립트 도구 자체를 확장·수정하여 사용하십시오. 셸 이스케이프 문제를 피하려면 `GITEA_BODY_FILE=<파일경로>` 환경변수를 통해 파일에서 본문을 읽어오는 방식을 권장합니다.
+  * **Gitea 이슈 title/body 작성 규칙**: `task git:issue:*` 명령어 사용 시 title과 body는 **반드시 파일로 전달**해야 합니다. positional `TITLE="..." BODY="..."` 및 inline `--title="..." --body="..."` 방식은 shell escaping 문제로 **사용이 금지**됩니다. 개행 변환(`[br]`, `<br>`)은 파일 입력 시 실제 개행문자를 포함하므로 불필요하며 사용하지 않습니다.
+    - `--title-file=<path>`: title 파일 (UTF-8)
+    - `--body-file=<path>`: body 파일 (UTF-8)
+    - `--issue=<id>`: 이슈 번호
+    - `--comment-id=<id>`: 댓글 ID
+    - `--ids=1,2,3`: 복수 이슈 ID (fix-legacy-issues)
+    사용 예시:
+    ```
+    task git:issue:new -- --title-file=/tmp/title.md --body-file=/tmp/body.md
+    task git:issue:update -- --issue=104 --title-file=/tmp/title.md --body-file=/tmp/body.md
+    task git:issue:comment:new -- --issue=104 --body-file=/tmp/body.md
+    task git:issue:close -- --issue=104
+    task git:issue:show -- --issue=104
+    ```
+  * **CLI 셸 이스케이프 금지**: 셸 명령어 인자로 Gitea 이슈 관련 메시지를 전달할 때, 쌍따옴표 내부에 백틱, 큰따옴표, `$` 기호 등이 노출되면 zsh/bash가 명령 실행/프로세스 치환으로 해석합니다. 반드시 `--title-file=<path>` / `--body-file=<path>` 로 파일을 통해 전달하며, inline 문자열 사용을 금지합니다.
 * **이슈 템플릿 및 워크플로우 규칙**: `apps/agents/rules/issue_workflow.md`에 정의된 템플릿 및 이슈 생성/저장 규칙을 준수합니다. 에이전트 컨텍스트 메모리는 `task git:issue:save`로, 새 이슈는 `task git:issue:new`로 생성합니다.
 * **일관된 릴리즈 및 이슈 자동 종결**: 작업이 완료된 후에는 `npm run commit` 명령을 활용하여 로컬 커밋, 원격 저장소 동기화(Push), 그리고 해당 Gitea 이슈에 대한 Commit Diff 링크가 포함된 완료 댓글 등록 및 이슈 마감(Close)까지 올인원으로 일괄 처리합니다. 이슈 번호는 브랜치명에서 자동 추출되며, 브랜치명이 없거나 추출이 불가능한 경우 `GITEA_ISSUE_ID` 환경변수 또는 `--issue` / `--issue-id` 인자로 명시해야 합니다.
   * **항상 `npm run commit`으로 마감**: `git status`가 clean이어도 `npm run commit`을 실행하여 이슈 코멘트+마감을 처리합니다. `npm run gitea close-issue`나 `npm run gitea create-issue`를 수동으로 호출하지 않고, `GITEA_ISSUE_ID=X npm run commit` 한 번으로 모든 후속 처리를 완료합니다.
