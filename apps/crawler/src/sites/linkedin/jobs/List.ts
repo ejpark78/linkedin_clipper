@@ -22,9 +22,13 @@ export class LinkedInList {
     "linkedin.json",
   );
   private readonly useLogin: boolean;
+  private readonly listSlack: number;
+  private readonly priority: string;
 
-  constructor() {
+  constructor(options: { listSlack?: number; priority?: string } = {}) {
     this.useLogin = AppConfig.USE_LOGIN;
+    this.listSlack = options.listSlack ?? parseInt(process.env.LIST_SLACK || "3", 10);
+    this.priority = options.priority ?? (process.env.PRIORITY || "medium");
   }
 
   private async autoScroll(page: any): Promise<void> {
@@ -310,11 +314,10 @@ export class LinkedInList {
         }
 
         if (this.useLogin && !isFirst) {
-          const sleepSec = parseInt(process.env.LIST_SLACK || "3", 10);
-          if (sleepSec > 0) {
-            console.log(`💤 [대기] 다음 요청까지 ${sleepSec}초 대기 중...`);
+          if (this.listSlack > 0) {
+            console.log(`💤 [대기] 다음 요청까지 ${this.listSlack}초 대기 중...`);
             await new Promise((resolve) =>
-              setTimeout(resolve, sleepSec * 1000),
+              setTimeout(resolve, this.listSlack * 1000),
             );
           }
         }
@@ -568,15 +571,14 @@ export class LinkedInList {
         );
 
         if (job.matchesTarget && !isCompleted && !alreadyPushed) {
-          const priority = process.env.PRIORITY || "medium";
           const scrapeTask = {
             site: "linkedin",
             url: job.url,
             attempt: 1,
-            priority: priority,
+            priority: this.priority,
           };
           await redis.rpush(
-            `sites:linkedin:scrape:${priority}`,
+            `sites:linkedin:scrape:${this.priority}`,
             JSON.stringify(scrapeTask),
           );
           await jobUrlsColl.updateOne(

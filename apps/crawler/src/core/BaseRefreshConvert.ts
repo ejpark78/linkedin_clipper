@@ -18,6 +18,8 @@ export interface RefreshConvertConfig {
   silverCollection?: `silver/${string}`;
   idExtract?: (doc: any) => string | null;
   includeUrlInPayload?: boolean;
+  overwrite?: boolean;
+  reset?: boolean;
 }
 
 export class BaseRefreshConvert {
@@ -44,8 +46,8 @@ export class BaseRefreshConvert {
     const redis = new Redis(REDIS_URL);
 
     try {
-      const reset = AppConfig.RESET;
-      const overwrite = AppConfig.OVERWRITE || reset;
+      const reset = this.config.reset ?? AppConfig.RESET;
+      const overwrite = this.config.overwrite ?? (AppConfig.OVERWRITE || reset);
       const completedIds = new Set<string>();
 
       const silverColl = await mongo.getCollection(silverCollection);

@@ -17,6 +17,9 @@ export interface BaseListConfig {
   cacheSetKey: string;
   bronzeHtmlCollection: `bronze/${string}`;
   urlsCollection: `bronze/${string}`;
+  overwrite?: boolean;
+  priority?: string;
+  scraperSlack?: number;
 }
 
 export abstract class BaseListService {
@@ -90,7 +93,7 @@ export abstract class BaseListService {
     extras?: Record<string, any>,
   ): Promise<boolean> {
     const { site, displayName, cacheSetKey, urlsCollection } = this.config;
-    const overwrite = AppConfig.OVERWRITE;
+    const overwrite = this.config.overwrite ?? AppConfig.OVERWRITE;
 
     if (overwrite) {
       await this.redis.srem(cacheSetKey, id);
@@ -132,8 +135,8 @@ export abstract class BaseListService {
     const alreadyPushed = doc?.pushedToRedis || false;
 
     if (!alreadyPushed) {
-      const priority = AppConfig.PRIORITY;
-      const scraperSlackVal = AppConfig.SCRAPER_SLACK;
+      const priority = this.config.priority ?? AppConfig.PRIORITY;
+      const scraperSlackVal = this.config.scraperSlack ?? AppConfig.SCRAPER_SLACK;
 
       const payload: Record<string, any> = {
         site,

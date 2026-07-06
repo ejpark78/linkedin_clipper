@@ -20,6 +20,9 @@ export interface RefreshUrlsConfig {
   displayName: string;
   cacheSetKey: string;
   legacyQueue?: boolean;
+  priority?: string;
+  overwrite?: boolean;
+  errorReset?: boolean;
 }
 
 export class BaseRefreshUrls {
@@ -62,7 +65,7 @@ export class BaseRefreshUrls {
         `📥 Loaded ${completedIds.length} already completed ${displayName} IDs.`,
       );
 
-      const priority = AppConfig.PRIORITY;
+      const priority = this.config.priority ?? AppConfig.PRIORITY;
       const perSiteQueueKey = `sites:${site}:scrape:${priority}`;
       const existingQueueUrls = new Set<string>();
 
@@ -100,8 +103,8 @@ export class BaseRefreshUrls {
         );
       }
 
-      const overwrite = AppConfig.OVERWRITE;
-      const errorReset = AppConfig.ERROR_RESET;
+      const overwrite = this.config.overwrite ?? AppConfig.OVERWRITE;
+      const errorReset = this.config.errorReset ?? AppConfig.ERROR_RESET;
 
       // Seed URLs registered in site configuration
       if (desc?.seedUrls && desc.seedUrls.length > 0 && desc.scraper) {
@@ -259,7 +262,7 @@ export class BaseRefreshUrls {
     if (!scraper.urlsCollectionName) return;
 
     const urlsColl = await mongo.getCollection(urlsCollection);
-    const priority = AppConfig.PRIORITY;
+    const priority = this.config.priority ?? AppConfig.PRIORITY;
     const perSiteQueueKey = `sites:${site}:scrape:${priority}`;
 
     // Load existing urls set

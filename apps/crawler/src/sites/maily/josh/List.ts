@@ -29,10 +29,10 @@ class MailyJoshList extends BaseListService {
 
   public async run(pageArg?: number): Promise<number> {
     const sleepSec = parseInt(process.env.LIST_SLACK || "2", 10);
-    const pageStr = process.env.PAGE || "1";
-    const pageRange = pageStr.includes("-")
-      ? pageStr.split("-").map(Number)
-      : [1, parseInt(pageStr, 10)];
+    const pageEnv = process.env.PAGE || "";
+    const pageRange = pageEnv.includes("-")
+      ? pageEnv.split("-").map(Number)
+      : [1, parseInt(pageEnv || "1", 10)];
     const startPage = pageArg || pageRange[0];
     const endPage = pageRange[1] || startPage;
 

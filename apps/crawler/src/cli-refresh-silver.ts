@@ -11,10 +11,17 @@ import { getSite } from "./core/SiteRegistry";
 import { BaseRefreshConvert } from "./core/BaseRefreshConvert";
 
 let siteKey = "";
+let overwrite = false;
+let reset = false;
+
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === "--site") {
     siteKey = process.argv[i + 1] || "";
-    break;
+    i++;
+  } else if (process.argv[i] === "--overwrite") {
+    overwrite = true;
+  } else if (process.argv[i] === "--reset") {
+    reset = true;
   }
 }
 if (!siteKey) {
@@ -23,7 +30,7 @@ if (!siteKey) {
 
 if (!siteKey) {
   console.error(
-    "Usage: npx ts-node src/crawler/cli-refresh-silver.ts --site <siteKey>",
+    "Usage: npx ts-node src/crawler/cli-refresh-silver.ts --site <siteKey> [--overwrite] [--reset]",
   );
   process.exit(1);
 }
@@ -33,8 +40,6 @@ if (!desc) {
   console.error(`Unknown site key: ${siteKey}`);
   process.exit(1);
 }
-
-const overwrite = process.env.OVERWRITE === "true";
 
 console.log(`🔄 Running refresh for ${siteKey} (Queue-based)...`);
 if (!desc.scraper?.collectionName) {
@@ -48,6 +53,8 @@ const refreshConvert = new BaseRefreshConvert({
   idExtract:
     siteKey === "gpters" ? (doc: any) => doc.id || doc.postId : undefined,
   includeUrlInPayload: siteKey === "gpters",
+  overwrite,
+  reset,
 });
 refreshConvert
   .run()

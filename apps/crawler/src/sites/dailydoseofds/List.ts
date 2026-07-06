@@ -29,13 +29,15 @@ class DailyDoseDSList extends BaseListService {
   }
 
   public async run(maxPages: number = 1): Promise<number> {
-    const pageStr = process.env.PAGE || "1";
-    let maxPage = 1;
-    if (pageStr.includes("-")) {
-      const [start, end] = pageStr.split("-").map(Number);
-      maxPage = end;
-    } else {
-      maxPage = parseInt(pageStr, 10);
+    const pageEnv = process.env.PAGE || "";
+    let maxPage = maxPages;
+    if (pageEnv) {
+      if (pageEnv.includes("-")) {
+        const [, end] = pageEnv.split("-").map(Number);
+        maxPage = end;
+      } else {
+        maxPage = parseInt(pageEnv, 10);
+      }
     }
     const sleepSec = parseInt(process.env.LIST_SLACK || "3", 10);
 

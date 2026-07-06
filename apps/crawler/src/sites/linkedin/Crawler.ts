@@ -22,15 +22,18 @@ export interface ICrawler {
 }
 
 export class LinkedInCrawler implements ICrawler {
-  private readonly sessionPath: string = path.join(
-    AppConfig.SESSION_DIR,
-    `${AppConfig.SITE}.json`,
-  );
+  private readonly sessionPath: string;
   private readonly useLogin: boolean;
+  private readonly headless: boolean;
 
-  constructor(options: { login?: boolean } = {}) {
+  constructor(options: { login?: boolean; headless?: boolean; site?: string } = {}) {
+    const site = options.site || AppConfig.SITE;
+    this.sessionPath = path.join(AppConfig.SESSION_DIR, `${site}.json`);
     this.useLogin =
       options.login !== undefined ? options.login : AppConfig.USE_LOGIN;
+    this.headless = options.headless !== undefined
+      ? options.headless
+      : process.env.HEADLESS !== "false";
   }
 
   /**
@@ -148,9 +151,8 @@ export class LinkedInCrawler implements ICrawler {
    */
   public async scrapeJob(url: string, outputPath: string): Promise<void> {
     const isLoggedIn = this.useLogin && fs.existsSync(this.sessionPath);
-    const isHeadless = process.env.HEADLESS !== "false";
     const browser: Browser = await chromium.launch({
-      headless: isHeadless,
+      headless: this.headless,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -252,9 +254,8 @@ export class LinkedInCrawler implements ICrawler {
       targetUrl = targetUrl.replace(/\/$/, "") + "/about/";
     }
 
-    const isHeadless = process.env.HEADLESS !== "false";
     const browser: Browser = await chromium.launch({
-      headless: isHeadless,
+      headless: this.headless,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -343,15 +344,44 @@ export class LinkedInCrawler implements ICrawler {
    * 🚀 직접 실행 컨트롤러 엔트리 메서드
    */
   public async run(): Promise<void> {
-    const command = process.argv[2];
+    const args = process.argv.slice(2);
+    let headless: boolean | undefined;
+    let site: string | undefined;
+    let login: boolean | undefined;
+    const positionalArgs: string[] = [];
+
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === "--headless") {
+        headless = true;
+      } else if (args[i] === "--no-headless") {
+        headless = false;
+      } else if (args[i] === "--site") {
+        site = args[i + 1] || "";
+        i++;
+      } else if (args[i] === "--login") {
+        login = true;
+      } else if (args[i] === "--no-login") {
+        login = false;
+      } else {
+        positionalArgs.push(args[i]);
+      }
+    }
+
+    if (headless !== undefined || site !== undefined || login !== undefined) {
+      const crawler = new LinkedInCrawler({ headless, site, login });
+      await crawler.runFromArgs(positionalArgs);
+      return;
+    }
+
+    const command = positionalArgs[0] || "";
 
     try {
       if (command === "login") {
         await this.login();
         process.exit(0);
       } else if (command === "job") {
-        const url = process.argv[3];
-        const outputPath = process.argv[4];
+        const url = positionalArgs[1];
+        const outputPath = positionalArgs[2];
         if (!url || !outputPath) {
           console.error(
             "❌ 사용법: npx ts-node crawler.ts job <공고_URL> <저장_HTML_경로>",
@@ -361,8 +391,8 @@ export class LinkedInCrawler implements ICrawler {
         await this.scrapeJob(url, outputPath);
         process.exit(0);
       } else if (command === "company") {
-        const url = process.argv[3];
-        const outputPath = process.argv[4];
+        const url = positionalArgs[1];
+        const outputPath = positionalArgs[2];
         if (!url || !outputPath) {
           console.error(
             "❌ 사용법: npx ts-node crawler.ts company <회사_URL> <저장_HTML_경로>",
@@ -375,6 +405,40 @@ export class LinkedInCrawler implements ICrawler {
         console.error(
           "❌ 알 수 없는 명령어입니다. 사용 가능한 명령: login, job, company",
         );
+        process.exit(1);
+      }
+    } catch (err: any) {
+      console.error(`\n❌ 크롤러 구동 에러: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
+  public async runFromArgs(positionalArgs: string[]): Promise<void> {
+    const command = positionalArgs[0] || "";
+    try {
+      if (command === "login") {
+        await this.login();
+        process.exit(0);
+      } else if (command === "job") {
+        const url = positionalArgs[1];
+        const outputPath = positionalArgs[2];
+        if (!url || !outputPath) {
+          console.error("❌ 사용법: --site <site> job <공고_URL> <저장_HTML_경로>");
+          process.exit(1);
+        }
+        await this.scrapeJob(url, outputPath);
+        process.exit(0);
+      } else if (command === "company") {
+        const url = positionalArgs[1];
+        const outputPath = positionalArgs[2];
+        if (!url || !outputPath) {
+          console.error("❌ 사용법: --site <site> company <회사_URL> <저장_HTML_경로>");
+          process.exit(1);
+        }
+        await this.scrapeCompanyAbout(url, outputPath);
+        process.exit(0);
+      } else {
+        console.error("❌ 알 수 없는 명령어입니다. 사용 가능한 명령: login, job, company");
         process.exit(1);
       }
     } catch (err: any) {

@@ -29,7 +29,7 @@ class UppityList extends BaseListService {
   }
 
   public async run(pageArg?: number): Promise<number> {
-    const pageStr = process.env.PAGE || "1";
+    const pageEnv = process.env.PAGE || "1";
     const sleepSec = parseInt(process.env.LIST_SLACK || "2", 10);
 
     let sectionsToProcess = SECTIONS;
@@ -43,9 +43,9 @@ class UppityList extends BaseListService {
     let queuedCount = 0;
 
     for (const section of sectionsToProcess) {
-      const pageRange = pageStr.includes("-")
-        ? pageStr.split("-").map(Number)
-        : [1, parseInt(pageStr, 10)];
+      const pageRange = pageEnv.includes("-")
+        ? pageEnv.split("-").map(Number)
+        : [1, parseInt(pageEnv, 10)];
 
       const startPage = pageArg || pageRange[0];
       const endPage = pageRange[1] || startPage;

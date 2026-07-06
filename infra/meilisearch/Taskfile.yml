@@ -46,7 +46,7 @@ tasks:
         - task meili:refresh-index
         - task meili:refresh-index SITE="geeknews"
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts {{if .SITE}}{{printf "--site %s" .SITE}}{{end}} {{.CLI_ARGS}}'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts {{if .SITE}}--site {{.SITE}}{{end}} {{.CLI_ARGS}}'
 
   index:reset:
     desc: Clear and rebuild Meilisearch index.

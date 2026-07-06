@@ -11,10 +11,21 @@ import { BaseRefreshUrls } from "./core/BaseRefreshUrls";
 import { getSite } from "./core/SiteRegistry";
 
 let siteKey = "";
+let priority = "";
+let overwrite = false;
+let errorReset = false;
+
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === "--site") {
     siteKey = process.argv[i + 1] || "";
-    break;
+    i++;
+  } else if (process.argv[i] === "--priority") {
+    priority = process.argv[i + 1] || "";
+    i++;
+  } else if (process.argv[i] === "--overwrite") {
+    overwrite = true;
+  } else if (process.argv[i] === "--error-reset") {
+    errorReset = true;
   }
 }
 if (!siteKey) {
@@ -23,7 +34,7 @@ if (!siteKey) {
 
 if (!siteKey) {
   console.error(
-    "Usage: npx ts-node src/crawler/cli-refresh-urls.ts --site <siteKey>",
+    "Usage: npx ts-node src/crawler/cli-refresh-urls.ts --site <siteKey> [--priority <p>] [--overwrite] [--error-reset]",
   );
   process.exit(1);
 }
@@ -43,6 +54,9 @@ const refresh = new BaseRefreshUrls({
   displayName: desc.name,
   cacheSetKey: desc.converter.completedSetKey,
   legacyQueue: siteKey === "gpters",
+  priority: priority || undefined,
+  overwrite: overwrite || undefined,
+  errorReset: errorReset || undefined,
 });
 
 refresh.run().catch(console.error);

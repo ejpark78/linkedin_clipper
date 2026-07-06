@@ -28,6 +28,7 @@ let siteKey = "";
 let page = "";
 let day = "";
 let limit = "";
+let listSlack = "";
 
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === "--site") {
@@ -42,12 +43,15 @@ for (let i = 2; i < process.argv.length; i++) {
   } else if (process.argv[i] === "--limit") {
     limit = process.argv[i + 1] || "";
     i++;
+  } else if (process.argv[i] === "--list-slack") {
+    listSlack = process.argv[i + 1] || "";
+    i++;
   }
 }
 
 if (!siteKey) {
   console.error(
-    "Usage: npx ts-node src/crawler/cli-list.ts --site <siteKey> [--page <page>] [--day <day>] [--limit <limit>]",
+    "Usage: npx ts-node src/crawler/cli-list.ts --site <siteKey> [--page <page>] [--day <day>] [--limit <limit>] [--list-slack <sec>]",
   );
   process.exit(1);
 }
@@ -70,12 +74,18 @@ console.log(
   `🚀 [cli-list] Running list scraper for ${siteKey} (${targetPath}) with argument: ${arg}`,
 );
 
+const childEnv: Record<string, string | undefined> = {
+  ...process.env,
+};
+if (page) {
+  childEnv.PAGE = page;
+}
+if (listSlack) {
+  childEnv.LIST_SLACK = listSlack;
+}
 const child = spawn("npx", ["ts-node", targetPath, arg], {
   stdio: "inherit",
-  env: {
-    ...process.env,
-    PAGE: page, // Pass PAGE environment variable as fallback
-  },
+  env: childEnv,
 });
 
 child.on("close", (code) => {

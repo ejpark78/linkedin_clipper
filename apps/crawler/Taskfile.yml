@@ -45,7 +45,7 @@ tasks:
       [Usage Examples]
         - task crawler:login SITE="linkedin"
     cmds:
-      - SITE={{.SITE | default "linkedin"}} npx ts-node src/sites/linkedin/Crawler.ts login {{.CLI_ARGS}}
+      - npx ts-node src/sites/linkedin/Crawler.ts --site {{.SITE | default "linkedin"}} login {{.CLI_ARGS}}
 
   open:
     desc: Open the Playwright browser helper.
@@ -158,9 +158,9 @@ tasks:
         if [ "{{.CMD}}" = "list" ]; then
           {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:list -- --page "{{.PAGE | default "1"}}" --list-slack "{{.LIST_SLACK | default "2"}}" {{.CLI_ARGS}}
         elif [ "{{.CMD}}" = "refresh-urls" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-urls -- {{.CLI_ARGS}}
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-urls -- --priority "{{.PRIORITY | default "medium"}}" {{if eq .OVERWRITE "true"}}--overwrite{{end}} {{if eq .ERROR_RESET "true"}}--error-reset{{end}} {{.CLI_ARGS}}
         elif [ "{{.CMD}}" = "refresh-silver" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-silver -- {{.CLI_ARGS}}
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-silver -- {{if eq .OVERWRITE "true"}}--overwrite{{end}} {{if eq .RESET "true"}}--reset{{end}} {{.CLI_ARGS}}
         else
           echo "Unknown crawler command: {{.CMD}}"
           exit 1
