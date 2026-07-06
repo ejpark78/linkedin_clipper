@@ -17,6 +17,10 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// 스크립트 실행 디렉토리에 관계없이 프로젝트 루트 디렉토리를 CWD로 고정
+const projectRoot = path.resolve(__dirname, '..', '..');
+process.chdir(projectRoot);
+
 /**
  * Gitea API 및 릴리즈 설정을 총괄하는 Config 클래스
  */

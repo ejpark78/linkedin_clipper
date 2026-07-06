@@ -15,6 +15,10 @@ import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// 스크립트 실행 디렉토리에 관계없이 프로젝트 루트 디렉토리를 CWD로 고정
+const projectRoot = path.resolve(__dirname, '..', '..');
+process.chdir(projectRoot);
+
 /**
  * 프로젝트 전역 설정을 파싱하고 검증하는 Config 클래스
  */
