@@ -2,7 +2,10 @@ FROM node:24-bookworm AS node_base
 
 FROM ubuntu:26.04
 
-# 필수 패키지 및 coder 유저 생성
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# 필수 패키지 설치
 RUN apt-get update && apt-get install -y \
     sudo \
     dumb-init \
@@ -17,9 +20,11 @@ RUN apt-get update && apt-get install -y \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
-# coder 유저 비밀번호 없는 sudo 권한 설정
-RUN useradd -m -s /bin/bash coder && \
-    echo "coder ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd
+# ubuntu 디폴트 유저의 UID/GID를 호스트에 맞게 변경
+RUN if [ "${USER_UID}" != "1000" ] || [ "${USER_GID}" != "1000" ]; then \
+      groupmod -g ${USER_GID} ubuntu && \
+      usermod -u ${USER_UID} -g ${USER_GID} ubuntu; \
+    fi
 
 # Node 24 LTS 멀티 스테이지 복사 (code-server Extension Host와 충돌 없음)
 COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
@@ -65,8 +70,8 @@ RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/ar
     curl -fsSL -o /usr/local/bin/mkcert "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-$ARCH" && \
     chmod +x /usr/local/bin/mkcert
 
-# oh-my-zsh 설치 스크립트 실행 (사용자 coder 환경 대상)
-USER coder
+# oh-my-zsh 설치 스크립트 실행
+USER ubuntu
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 # Google Antigravity CLI (agy) 설치 (사용자 coder 환경의 로컬 경로에 설치)
@@ -81,9 +86,9 @@ RUN echo 'alias oc="opencode --auto"' >> $HOME/.zshrc
 ENV SHELL=/bin/zsh
 
 USER root
-RUN chsh -s /bin/zsh coder
+RUN chsh -s /bin/zsh ubuntu
 
-USER coder
+USER ubuntu
 
 ENTRYPOINT ["dumb-init", "code-server"]
 

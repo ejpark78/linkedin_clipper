@@ -11,6 +11,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
     profiles:
       - tools
     depends_on:
@@ -30,12 +33,12 @@ services:
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
       # IDE 설정 및 익스텐션 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/local:/home/coder/.local
-      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/config:/home/coder/.config
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/local:/home/ubuntu/.local
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/config:/home/ubuntu/.config
       # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/coder/.gemini
-      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/coder/.opencode
-      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/coder/.codex
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/ubuntu/.gemini
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/ubuntu/.opencode
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/ubuntu/.codex
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 15s
