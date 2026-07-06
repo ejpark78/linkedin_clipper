@@ -133,6 +133,16 @@ tasks:
     cmds:
       - '{{.COMPOSE}} stop agent-sandbox'
 
+  sandbox:build:
+    desc: "코딩 에이전트 개발 샌드박스 이미지 빌드"
+    summary: |
+      샌드박스 이미지 및 의존성 환경을 캐시 없이 강제 재빌드합니다.
+
+      [Usage Examples]
+        - task agents:sandbox:build
+    cmds:
+      - '{{.COMPOSE}} --profile tools build --no-cache agent-sandbox'
+
   sandbox:shell:
     desc: "코딩 에이전트 개발 샌드박스 내 터미널 셸(bash) 접속"
     summary: |
@@ -142,6 +152,7 @@ tasks:
         - task agents:sandbox:shell
     cmds:
       - '{{.COMPOSE}} exec -it agent-sandbox bash'
+
 
 
 
