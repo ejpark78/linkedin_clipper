@@ -65,7 +65,7 @@ tasks:
       - '{{.COMPOSE}} exec -T mongodb sh -c "rm -rf /tmp/mongodb_backup && mkdir -p /tmp/mongodb_backup"'
       - |
         for db in $(echo "{{.DB}}" | tr ',' ' '); do
-          {{.COMPOSE}} exec -T mongodb mongodump --db=$db --gzip --out=/tmp/mongodb_backup
+          {{.COMPOSE}} exec -T mongodb mongodump --db=$db --gzip --out=/tmp/mongodb_backup {{.CLI_ARGS}}
         done
       - '{{.COMPOSE}} cp mongodb:/tmp/mongodb_backup/. {{.DUMP_DIR}}'
       - '{{.COMPOSE}} exec -T mongodb rm -rf /tmp/mongodb_backup'
@@ -88,7 +88,7 @@ tasks:
         fi
       - '{{.COMPOSE}} exec -T mongodb sh -c "rm -rf /tmp/mongodb_restore"'
       - '{{.COMPOSE}} cp {{.ROOT_DIR}}/data/{{.BACKUP_PATH}} mongodb:/tmp/mongodb_restore'
-      - '{{.COMPOSE}} exec -T mongodb mongorestore --gzip /tmp/mongodb_restore'
+      - '{{.COMPOSE}} exec -T mongodb mongorestore --gzip /tmp/mongodb_restore {{.CLI_ARGS}}'
       - '{{.COMPOSE}} exec -T mongodb rm -rf /tmp/mongodb_restore'
 
   index:
@@ -99,7 +99,7 @@ tasks:
       [Usage Examples]
         - task mongo:index
     cmds:
-      - '{{.COMPOSE}} run --rm -T worker npx ts-node src/scripts/sync-indexes.ts'
+      - '{{.COMPOSE}} run --rm -T worker npx ts-node src/scripts/sync-indexes.ts {{.CLI_ARGS}}'
 
   show-columns:
     desc: Map MongoDB collection columns.
@@ -109,4 +109,4 @@ tasks:
       [Usage Examples]
         - task mongo:show-columns
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules worker npx ts-node src/scripts/show_collection_columns.ts'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules worker npx ts-node src/scripts/show_collection_columns.ts {{.CLI_ARGS}}'
