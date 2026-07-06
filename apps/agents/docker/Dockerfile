@@ -4,7 +4,7 @@ FROM codercom/code-server:ubuntu
 
 USER root
 
-# 필수 패키지, zsh, locales, sudo 설치
+# 필수 패키지, zsh, locales, sudo, jq 설치
 RUN apt-get update && apt-get install -y \
     locales \
     git \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     zsh \
     docker.io \
     sudo \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # coder 유저 비밀번호 없는 sudo 권한 설정
@@ -41,6 +42,23 @@ RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/loc
 # Codex 및 OpenCode 패키지 설치 (강제 플래그 및 플랫폼 우회 명시)
 RUN npm install -g --unsafe-perm --force opencode-ai @openai/codex || \
     npm install -g --unsafe-perm --force opencode-linux-arm64 @openai/codex
+
+# GitHub CLI (gh) 공식 apt 저장소 등록 및 설치
+RUN mkdir -p -m 755 /etc/apt/keyrings && \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null && \
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+    apt-get update && apt-get install -y gh
+
+# Gitea CLI (tea) 설치 (아키텍처 맞춤 다운로드)
+RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
+    curl -fsSL -o /usr/local/bin/tea "https://dl.gitea.com/tea/0.9.2/tea-0.9.2-linux-$ARCH" && \
+    chmod +x /usr/local/bin/tea
+
+# mkcert 설치 (아키텍처 맞춤 다운로드)
+RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
+    curl -fsSL -o /usr/local/bin/mkcert "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-$ARCH" && \
+    chmod +x /usr/local/bin/mkcert
 
 # oh-my-zsh 설치 스크립트 실행 (사용자 coder 환경 대상)
 USER coder
