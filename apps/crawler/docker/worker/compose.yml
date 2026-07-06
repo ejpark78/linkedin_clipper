@@ -29,8 +29,8 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - TZ=${TZ:-Asia/Seoul}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/sessions:/app/data/sessions
-      - ${HOST_PROJECT_PATH:-.}/data/sites:/app/data/sites
+      - ${PROJECT_PATH:-.}/data/sessions:/app/data/sessions
+      - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
 
   scraper:
     build:
@@ -54,8 +54,8 @@ services:
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
       - SESSION_DIR=${SESSION_DIR:-/app/data/sessions}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/sessions:/app/data/sessions
-      - ${HOST_PROJECT_PATH:-.}/data/sites:/app/data/sites
+      - ${PROJECT_PATH:-.}/data/sessions:/app/data/sessions
+      - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "[ $$(find /tmp/scraper-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1"]
@@ -87,7 +87,7 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/sites:/app/data/sites
+      - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "[ $$(find /tmp/converter-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1"]

@@ -7,7 +7,7 @@
 services:
   wiki-tool:
     build:
-      context: ${HOST_PROJECT_PATH:-.}/apps/wiki
+      context: ${PROJECT_PATH:-.}/apps/wiki
       dockerfile: docker/joplin/Dockerfile
       args:
         - BUILD_DATE
@@ -25,8 +25,8 @@ services:
       - JOPLIN_TOKEN=${JOPLIN_TOKEN:-}
       - OBSIDIAN_API_URL=${OBSIDIAN_API_URL:-http://host.docker.internal:27123}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data:/app/data
-      - ${HOST_PROJECT_PATH:-.}/.env:/app/.env
+      - ${PROJECT_PATH:-.}/data:/app/data
+      - ${PROJECT_PATH:-.}/.env:/app/.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: "no"

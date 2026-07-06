@@ -18,7 +18,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Seoul}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/.services/redis:/data
+      - ${PROJECT_PATH:-.}/data/.services/redis:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

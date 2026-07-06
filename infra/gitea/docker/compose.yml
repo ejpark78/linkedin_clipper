@@ -3,7 +3,7 @@
 # ==============================================================================
 # - 주소: https://gitea.localhost/
 # - DB: SQLite3 내장 데이터베이스
-# - 데이터 경로: ${HOST_PROJECT_PATH}/data/.services/gitea
+# - 데이터 경로: ${PROJECT_PATH}/data/.services/gitea
 # ==============================================================================
 
 services:
@@ -26,8 +26,8 @@ services:
       - GITEA__repository.unit__DEFAULT_REPOSITORY_UNITS=${GITEA_REPOSITORY_UNIT_DEFAULT_REPOSITORY_UNITS:-code,issues,pulls,releases,wiki}
       - TZ=${TZ:-Asia/Seoul}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/.services/gitea/data:/data
-      - ${HOST_PROJECT_PATH:-.}/data/.services/gitea/repositories:/var/lib/gitea/git
+      - ${PROJECT_PATH:-.}/data/.services/gitea/data:/data
+      - ${PROJECT_PATH:-.}/data/.services/gitea/repositories:/var/lib/gitea/git
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
@@ -55,5 +55,5 @@ services:
       - GITEA_RUNNER_LABELS=${GITEA_RUNNER_LABELS:-ubuntu-latest:docker://node:18-bullseye,ubuntu-22.04:docker://node:18-bullseye}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOST_PROJECT_PATH:-.}/data/.services/gitea/act_runner:/data
+      - ${PROJECT_PATH:-.}/data/.services/gitea/act_runner:/data
     restart: unless-stopped

@@ -20,4 +20,4 @@ services:
       - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
       - IMAP_HOST=${IMAP_HOST:-}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/gmail:/app/data/gmail
+      - ${PROJECT_PATH:-.}/data/gmail:/app/data/gmail

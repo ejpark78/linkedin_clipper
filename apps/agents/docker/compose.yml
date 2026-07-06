@@ -28,14 +28,14 @@ services:
       # DooD 구성을 위한 Docker Socket 마운트
       - /var/run/docker.sock:/var/run/docker.sock
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
-      - ${HOST_PROJECT_PATH:-.}:/home/coder/project
+      - ${PROJECT_PATH:-.}:/home/coder/project
       # IDE 설정 및 익스텐션 영구 보존 마운트
-      - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/local:/home/coder/.local
-      - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/config:/home/coder/.config
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/local:/home/coder/.local
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/config:/home/coder/.config
       # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
-      - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/coder/.gemini
-      - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/coder/.opencode
-      - ${HOST_PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/coder/.codex
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/gemini:/home/coder/.gemini
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/opencode:/home/coder/.opencode
+      - ${PROJECT_PATH:-.}/data/.services/agent-sandbox/codex:/home/coder/.codex
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 15s

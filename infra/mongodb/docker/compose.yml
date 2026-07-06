@@ -20,7 +20,7 @@ services:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-linkedin}
     volumes:
-      - ${HOST_PROJECT_PATH:-.}/data/.services/mongodb:/data/db
+      - ${PROJECT_PATH:-.}/data/.services/mongodb:/data/db
     restart: unless-stopped
     networks:
       default:
