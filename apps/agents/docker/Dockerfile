@@ -1,4 +1,6 @@
-FROM codercom/code-server:latest
+FROM node:24 AS node_base
+
+FROM codercom/code-server:ubuntu
 
 USER root
 
@@ -20,10 +22,10 @@ ENV LANG=ko_KR.UTF-8
 ENV LANGUAGE=ko_KR.UTF-8
 ENV LC_ALL=ko_KR.UTF-8
 
-# 전역 Node.js 패키지 설치
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    npm install -g npm@latest
+# 전역 Node.js v24 복사 설치 (멀티 스테이지 빌드 방식)
+COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
+COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
 # opencode-ai 플랫폼 에러 우회(glibc 지원되는 linux-arm64 바이너리 수동 매핑 지시)
 # Codex 및 OpenCode 패키지 설치 (강제 플래그 및 플랫폼 우회 명시)
