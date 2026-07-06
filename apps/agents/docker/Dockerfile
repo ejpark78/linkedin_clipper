@@ -20,10 +20,9 @@ RUN apt-get update && apt-get install -y \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
-# ubuntu 디폴트 유저의 UID/GID를 호스트에 맞게 변경
-RUN if [ "${USER_UID}" != "1000" ] || [ "${USER_GID}" != "1000" ]; then \
-      groupmod -g ${USER_GID} ubuntu && \
-      usermod -u ${USER_UID} -g ${USER_GID} ubuntu; \
+# ubuntu 디폴트 유저의 UID를 호스트에 맞게 변경 (GID는 컨테이너 그룹과 충돌 방지)
+RUN if [ "${USER_UID}" != "1000" ]; then \
+      usermod -u ${USER_UID} ubuntu; \
     fi
 
 # Node 24 LTS 멀티 스테이지 복사 (code-server Extension Host와 충돌 없음)
