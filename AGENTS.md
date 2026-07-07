@@ -11,7 +11,7 @@
 에이전트 운영 규칙은 `agents/AGENTS.md`를 최우선으로 따릅니다:
 
 1. **[Primary Agent Rules](agents/AGENTS.md)**
-2. [Agent Rules](agents/rules/) (Git Workflow, Engineering, Tech Stack 등)
+2. [Agent Rules](agents/rules/) (Git Flow, Issue Workflow, Engineering, Tech Stack 등)
 3. [Agent Skills](agents/skills/)
 4. [Agent Workflows](agents/workflows/)
 
