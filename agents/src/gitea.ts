@@ -329,7 +329,8 @@ class GiteaClient {
 
   public async updateIssueTitle(issueId: string, title: string): Promise<void> {
     console.log(`⚙️ Gitea 이슈 #${issueId} 제목 수정 중... [${title}]`);
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title });
+    const issue = await this.getIssue(issueId);
+    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title, body: issue.body });
     console.log(`✅ 이슈 #${issueId} 제목이 정상 수정되었습니다.`);
   }
 
