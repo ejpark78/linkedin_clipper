@@ -7,7 +7,7 @@ includes:
     taskfile: ./docker/traefik/Taskfile.yml
 
 tasks:
-  dump:
+  session:dump:
     desc: "Dump agent sessions."
     summary: |
       Extract and dump agent session artifacts and diagnostics data.
@@ -16,12 +16,12 @@ tasks:
         - AGENTS: (옵션) 덤프할 에이전트명 (기본값: "agy,opencode,codex" 멀티 지정)
 
       [Usage Examples]
-        - task agents:dump
-        - task agents:dump AGENTS="agy"
+        - task agents:session:dump
+        - task agents:session:dump AGENTS="agy"
     cmds:
       - npm run sessions -w agents -- --all-targets --all --agent={{.AGENTS | default "agy,opencode,codex"}} {{.CLI_ARGS}}
 
-  dump:transcripts:
+  session:dump:transcripts:
     desc: "Dump agent transcripts."
     summary: |
       Dump JSONL raw transcripts for specific agent conversations.
@@ -30,11 +30,11 @@ tasks:
         - AGENTS: (옵션) 대상 에이전트 식별자 목록 (기본값: "agy,opencode,codex")
 
       [Usage Examples]
-        - task agents:dump:transcripts
+        - task agents:session:dump:transcripts
     cmds:
       - npm run sessions -w agents -- --transcript --all --agent={{.AGENTS | default "agy,opencode,codex"}} {{.CLI_ARGS}}
 
-  dump:context:
+  session:dump:context:
     desc: "Dump agent context."
     summary: |
       Dump current active codebase context gathered by agents.
@@ -43,11 +43,11 @@ tasks:
         - AGENTS: (옵션) 대상 에이전트 식별자 목록
 
       [Usage Examples]
-        - task agents:dump:context
+        - task agents:session:dump:context
     cmds:
       - npm run sessions -w agents -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}} {{.CLI_ARGS}}
 
-  dump:brain:
+  session:dump:brain:
     desc: "Dump agent brain/session memory."
     summary: |
       Dump semantic brain logs and memory segments of active agents.
@@ -56,21 +56,21 @@ tasks:
         - AGENTS: (옵션) 대상 에이전트 식별자 목록
 
       [Usage Examples]
-        - task agents:dump:brain
+        - task agents:session:dump:brain
     cmds:
       - npm run sessions -w agents -- --brain --all --agent={{.AGENTS | default "agy,opencode,codex"}} {{.CLI_ARGS}}
 
-  dump:sysinfo:
+  session:dump:sysinfo:
     desc: Dump agent system information.
     summary: |
       Display Antigravity CLI system configurations and operational state.
 
       [Usage Examples]
-        - task agents:dump:sysinfo
+        - task agents:session:dump:sysinfo
     cmds:
       - npm run sessions -w agents -- --sysinfo {{.CLI_ARGS}}
 
-  dump:all:
+  session:dump:all:
     desc: "Dump all agent diagnostics."
     summary: |
       Perform a comprehensive diagnostic dump (transcripts, brain, sysinfo, compressed rules).
@@ -79,15 +79,15 @@ tasks:
         - AGENTS: (옵션) 대상 에이전트 식별자 목록
 
       [Usage Examples]
-        - task agents:dump:all
+        - task agents:session:dump:all
     cmds:
-      - task: dump:sysinfo
+      - task: session:dump:sysinfo
         vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
-      - task: dump:transcripts
+      - task: session:dump:transcripts
         vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}', CLI_ARGS: '{{.CLI_ARGS}}' }
-      - task: dump:context
+      - task: session:dump:context
         vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}', CLI_ARGS: '{{.CLI_ARGS}}' }
-      - task: dump:brain
+      - task: session:dump:brain
         vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}', CLI_ARGS: '{{.CLI_ARGS}}' }
       - npm run sessions -w agents -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}} {{.CLI_ARGS}}
       - npm run rules -w agents -- --compress {{.CLI_ARGS}}
