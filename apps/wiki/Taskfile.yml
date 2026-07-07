@@ -40,7 +40,7 @@ tasks:
 
       [Usage]
         task wiki:pipeline:preprocess
-        task wiki:pipeline:preprocess -- --input data/agents/agy --output preprocessed
+        task wiki:pipeline:preprocess -- --input agents/data/sessions/agy --output preprocessed
         task wiki:pipeline:preprocess -- --chunk-size 1000
 
       [Options]
@@ -59,6 +59,6 @@ tasks:
 
       [Usage]
         task wiki:pipeline:openkb
-        task wiki:pipeline:openkb -- --input data/agents/agy --output data/obsidian
+        task wiki:pipeline:openkb -- --input agents/data/sessions/agy --output data/obsidian
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m worker openkb {{.CLI_ARGS}}'

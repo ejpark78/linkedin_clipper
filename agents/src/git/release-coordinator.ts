@@ -165,7 +165,7 @@ export class ReleaseCoordinator {
       `## Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``,
     ];
 
-    const agentsDir = path.resolve(process.cwd(), 'data/agents');
+    const agentsDir = path.resolve(process.cwd(), 'agents/data/sessions');
     try {
       if (fs.existsSync(agentsDir)) {
         const agentDirs = fs.readdirSync(agentsDir).filter(d =>
