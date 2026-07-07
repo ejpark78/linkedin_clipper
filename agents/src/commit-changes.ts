@@ -339,18 +339,19 @@ class ReleaseCoordinator {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: process.env.LLM_MODEL || 'qwen3.5:9b-mlx',
+          model: process.env.LLM_MODEL || 'gemma4:e4b-mlx',
           prompt: `You are a developer writing a Gitea issue summary. From these commits, create a concise title (first line) and description.
 Commits:\n${commits || 'none'}
 Diff stats:\n${stat || 'none'}`,
           stream: false,
           options: { num_predict: 200 },
         }),
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(30000),
       });
       if (ollamaRes.ok) {
         const data = await ollamaRes.json() as any;
-        const response = (data.response || '').trim();
+        let response = (data.response || '').trim();
+        if (!response) response = (data.thinking || '').trim();
         if (response) {
           const lines = response.split('\n');
           title = lines[0].replace(/^#+\s*/, '').slice(0, 100) || title;
