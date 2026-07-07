@@ -497,7 +497,7 @@ Diff stats:\n${stat || 'none'}`,
 이슈 #${issueId} 관련 변경 사항이 성공적으로 검증되어 \`develop\` 브랜치에 자동 병합 및 원격 저장소 동기화(Push) 완료되었습니다.
 
 ### 🔗 Gitea Commit Diff 링크 (변경 사항 확인)
-- [Commit Diff #${commitHash.substring(0, 8)}](/${this.config.repo}/commit/${commitHash})
+- [Commit Diff #${commitHash.substring(0, 8)}](/commit/${commitHash})
 
 이슈 처리가 완수되어 본 이슈를 자동으로 마감합니다.`;
 
