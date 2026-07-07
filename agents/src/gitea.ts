@@ -1052,6 +1052,43 @@ Body: ${truncated}
     console.log(`🎉 ${targets.length}개 이슈 본문 복구 완료`);
   }
 
+  public async fixTitleErrors(): Promise<void> {
+    console.log('🔍 Ollama 문장이 제목이 된 이슈 검색 중...');
+    const issues = await this.getIssues();
+    const starPattern = /^\s*\*\s+/;
+    const targets = issues.filter(i => starPattern.test(i.title));
+
+    if (targets.length === 0) {
+      console.log('✅ 깨진 제목 이슈가 존재하지 않습니다.');
+      return;
+    }
+
+    console.log(`⚠️ 총 ${targets.length}개 이슈 발견:`);
+    for (const issue of targets) {
+      const id = String(issue.number);
+      const body = issue.body || '';
+
+      const commitMatch = body.match(/```\n[0-9a-f]+\s+(.+?)(?:\n|$)/);
+      const derivedTitle = commitMatch
+        ? commitMatch[1].replace(/^feat:|^fix:|^chore:|^docs:|^refactor:|^test:/, m => m.trim()).trim()
+        : '';
+
+      const newTitle = derivedTitle && derivedTitle.length > 5 && derivedTitle.length <= 100
+        ? derivedTitle
+        : `chore: ${issue.title.replace(/^\*\s*/, '').trim().slice(0, 70)}`;
+
+      if (newTitle === issue.title) {
+        console.log(`   ℹ️ #${id}: title unchanged, skipping`);
+        continue;
+      }
+
+      await this.updateIssueTitle(id, newTitle);
+      console.log(`   ✅ #${id}: "${issue.title.slice(0, 50)}..." → "${newTitle}"`);
+      await new Promise(r => setTimeout(r, 300));
+    }
+    console.log(`🎉 ${targets.length}개 이슈 제목 복구 완료`);
+  }
+
   public async formatAllIssues(): Promise<void> {
     console.log('🔄 전체 이슈 포맷 마이그레이션 시작 (Issue #156)...');
 
@@ -1418,6 +1455,10 @@ class GiteaController {
 
       case 'fix-empty-body':
         await client.fixEmptyBodyIssues();
+        break;
+
+      case 'fix-title-errors':
+        await client.fixTitleErrors();
         break;
 
       case 'fix-legacy-issues': {
