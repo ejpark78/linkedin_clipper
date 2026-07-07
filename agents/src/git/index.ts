@@ -19,6 +19,14 @@ import { ReleaseCoordinator } from './release-coordinator';
 import { LabelService } from './label-service';
 import { parseFlag, readFileOrExit } from './util';
 
+function resolveBodyPlaceholders(body: string, git: GitService): string {
+  const commitHash = git.runCmd('git rev-parse HEAD', true);
+  if (!commitHash) return body;
+  return body
+    .replace(/\{\{COMMIT_HASH_SHORT\}\}/g, commitHash.substring(0, 8))
+    .replace(/\{\{COMMIT_HASH\}\}/g, commitHash);
+}
+
 class GitController {
   static async execute(): Promise<void> {
     const args = process.argv.slice(2);
@@ -40,7 +48,8 @@ class GitController {
           process.exit(1);
         }
         const skipLabel = args.includes('--no-label');
-        const issueNumber = await gitea.createIssue(readFileOrExit(titleFile), readFileOrExit(bodyFile), skipLabel);
+        const body = resolveBodyPlaceholders(readFileOrExit(bodyFile), git);
+        const issueNumber = await gitea.createIssue(readFileOrExit(titleFile), body, skipLabel);
         const commitHash = git.runCmd('git rev-parse HEAD', true);
         if (commitHash) {
           const refBody = `## 🔗 References\n- [Commit Diff: ${commitHash.substring(0, 8)}](/commit/${commitHash})`;
@@ -72,7 +81,8 @@ class GitController {
           console.warn('Warning: You have uncommitted changes. Use `npm run git commit` before closing this issue.');
         }
         if (bodyFile) {
-          await gitea.updateIssue(issueId, titleFile ? readFileOrExit(titleFile) : '', readFileOrExit(bodyFile));
+          const body = resolveBodyPlaceholders(readFileOrExit(bodyFile), git);
+          await gitea.updateIssue(issueId, titleFile ? readFileOrExit(titleFile) : '', body);
           const commitHash = git.runCmd('git rev-parse HEAD', true);
           if (commitHash) {
             const refBody = `## 🔗 References\n- [Commit Diff: ${commitHash.substring(0, 8)}](/commit/${commitHash})`;
