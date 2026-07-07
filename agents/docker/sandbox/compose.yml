@@ -26,7 +26,7 @@ services:
       - PUID=${USER_UID:-1000}
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
-    command: --auth none --bind-addr 0.0.0.0:8080 --user-data-dir /home/ubuntu/.code-server-data ${PROJECT_PATH:-.}
+    command: --auth none --bind-addr 0.0.0.0:8080 ${PROJECT_PATH:-.}
     group_add:
       - ${DOCKER_GID:-999}
     volumes:

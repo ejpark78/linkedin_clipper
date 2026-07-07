@@ -1011,6 +1011,47 @@ Body: ${truncated}
     return result;
   }
 
+  public async fixEmptyBodyIssues(): Promise<void> {
+    console.log('🔍 본문이 빈 이슈 검색 중...');
+    const issues = await this.getIssues();
+    const targets = issues.filter(i => !i.body || i.body.trim().length === 0);
+
+    if (targets.length === 0) {
+      console.log('✅ 본문이 빈 이슈가 존재하지 않습니다.');
+      return;
+    }
+
+    console.log(`⚠️ 총 ${targets.length}개 이슈 발견:`);
+    for (const issue of targets) {
+      const id = String(issue.number);
+      const comments = await this.getComments(id);
+      const commentBodies = comments
+        .filter(c => c.body && c.body.trim().length > 0)
+        .map(c => c.body);
+
+      const contextLines: string[] = [];
+      contextLines.push(`> ⚠️ 이슈 생성 시 본문이 누락되어 댓글에서 컨텍스트를 복구했습니다.`);
+      if (commentBodies.length > 0) {
+        contextLines.push(``);
+        contextLines.push(`## 💬 복구된 댓글 컨텍스트`);
+        commentBodies.slice(0, 3).forEach((cb, i) => {
+          const snippet = cb.length > 500 ? cb.slice(0, 500) + '...' : cb;
+          contextLines.push(`\n---\n${snippet}`);
+        });
+      }
+      if (commentBodies.length > 3) {
+        contextLines.push(`\n---\n*(+ ${commentBodies.length - 3}개 댓글 추가 있음)*`);
+      }
+
+      const newBody = `# ${issue.title}\n\n## 🎯 Goal\n${issue.title}\n\n## 🧠 Context Memory\nN/A\n\n## ✅ Solution\nN/A\n\n## 🔗 References\nN/A\n\n${contextLines.join('\n')}`;
+      await this.updateIssue(id, issue.title, newBody);
+      console.log(`   ✅ #${id}: "${issue.title}" → 본문 복구 완료 (${newBody.length}자)`);
+
+      await new Promise(r => setTimeout(r, 500));
+    }
+    console.log(`🎉 ${targets.length}개 이슈 본문 복구 완료`);
+  }
+
   public async formatAllIssues(): Promise<void> {
     console.log('🔄 전체 이슈 포맷 마이그레이션 시작 (Issue #156)...');
 
@@ -1374,6 +1415,10 @@ class GiteaController {
         await client.updateIssueTitle(issueId, readFile(titleFile));
         break;
       }
+
+      case 'fix-empty-body':
+        await client.fixEmptyBodyIssues();
+        break;
 
       case 'fix-legacy-issues': {
         const idsStr = parseFlag(args, '--ids');

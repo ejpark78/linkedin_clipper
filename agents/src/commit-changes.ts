@@ -330,8 +330,8 @@ class ReleaseCoordinator {
       return '';
     }
 
+    const body = `## 📋 Commits\n\`\`\`\n${commits || '(no recent commits)'}\n\`\`\`\n\n## 📁 Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``;
     let title = `session: ${today}`;
-    let body = `## 📋 Commits\n\`\`\`\n${commits || '(no recent commits)'}\n\`\`\`\n\n## 📁 Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``;
 
     try {
       const llmUrl = process.env.LLM_URL || 'http://host.docker.internal:11434';
@@ -340,32 +340,25 @@ class ReleaseCoordinator {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: process.env.LLM_MODEL || 'qwen3.5:9b-mlx',
-          prompt: `You are a developer writing a Gitea issue summary. From these commits, create a concise title (first line) and description.
-Commits:\n${commits || 'none'}
-Diff stats:\n${stat || 'none'}`,
+          prompt: `Generate a concise Gitea issue title (max 80 chars, plain text, no markdown, no quotes) based on these commits. Return ONLY the title, nothing else.\n\nCommits:\n${commits || 'none'}\nDiff stats:\n${stat || 'none'}`,
           stream: false,
-          options: { num_predict: 200 },
+          options: { num_predict: 100 },
         }),
         signal: AbortSignal.timeout(30000),
       });
       if (ollamaRes.ok) {
         const data = await ollamaRes.json() as any;
-        let response = (data.response || '').trim();
-        if (!response) {
-          const thinkingText = (data.thinking || '').trim();
-          if (thinkingText) {
-            const lines = thinkingText.split('\n').filter((l: string) => l.trim());
-            const lastLine = lines[lines.length - 1]?.trim() || '';
-            const processPrefix = /^(Thinking Process|Step|Note|Key|Goal|Task|Analyze|Evaluate|Determine|Check|Synthesize|Extract|Identify|Consider|Look|Review|Understand|Plan|Approach)[:\s]/i;
-            if (!processPrefix.test(lastLine) && lastLine.length > 5) {
-              response = lastLine;
-            }
-          }
-        }
+        let response = (data.response || data.thinking || '').trim();
         if (response) {
-          const clean = response.replace(/^["']|["']$/g, '').trim();
-          if (clean.length > 5) {
-            title = clean.slice(0, 100);
+          const lines = response.split('\n').filter((l: string) => {
+            const trimmed = l.trim();
+            if (!trimmed) return false;
+            const prefix = /^(Thinking Process|Step|Note|Key|Goal|Task|Analyze|Evaluate|Determine|Check|Synthesize|Extract|Identify|Consider|Look|Review|Understand|Plan|Approach|Here|I'll|Based on|From these|The title|A good|This|These)[:\s]/i;
+            return !prefix.test(trimmed);
+          });
+          const candidate = lines[lines.length - 1]?.trim().replace(/^["']|["']$/g, '') || '';
+          if (candidate.length > 5 && candidate.length <= 100) {
+            title = candidate;
           }
         }
       }

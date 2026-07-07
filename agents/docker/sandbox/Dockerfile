@@ -82,18 +82,16 @@ RUN mkdir -p /usr/local/share/fonts/jetbrains-mono && \
     curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz | \
     tar -xJ -C /usr/local/share/fonts/jetbrains-mono && \
     fc-cache -f && \
-    mkdir -p /home/ubuntu/.code-server-data/User && \
-    chown -R ubuntu:ubuntu /home/ubuntu/.code-server-data
+    mkdir -p /home/ubuntu/.local && chown -R ubuntu:ubuntu /home/ubuntu/.local
 USER ubuntu
-RUN cat > /home/ubuntu/.code-server-data/User/settings.json << 'EOF'
-{
-    "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font'",
-    "editor.fontFamily": "'JetBrainsMono Nerd Font'",
-    "editor.fontLigatures": true,
-    "editor.fontSize": 14,
-    "terminal.integrated.fontSize": 14
-}
-EOF
+RUN mkdir -p $HOME/.local/share/code-server/User && printf '%s\n' \
+    '{' \
+    '    "terminal.integrated.fontFamily": "JetBrainsMono Nerd Font",' \
+    '    "editor.fontFamily": "JetBrainsMono Nerd Font",' \
+    '    "editor.fontLigatures": true,' \
+    '    "editor.fontSize": 14,' \
+    '    "terminal.integrated.fontSize": 14' \
+    '}' > $HOME/.local/share/code-server/User/settings.json
 
 # Google Antigravity CLI (agy) 및 OpenAI Codex CLI 설치 (root 권한 필요)
 USER root
