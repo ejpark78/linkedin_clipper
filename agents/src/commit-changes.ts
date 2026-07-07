@@ -218,7 +218,19 @@ class GiteaClient {
 
   public async closeIssue(issueId: string): Promise<void> {
     console.log(`🔒 Gitea 이슈 #${issueId} 마감 중...`);
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { state: 'closed' });
+    const apiUrl = this.config.apiUrl;
+    const token = this.config.accessToken;
+    let body = '';
+    try {
+      const res = await fetch(`${apiUrl}/repos/${this.config.repo}/issues/${issueId}`, {
+        headers: { 'Authorization': `token ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        body = data.body || '';
+      }
+    } catch {}
+    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { state: 'closed', body });
     console.log(`✅ 이슈 #${issueId} 가 정상 마감(Closed)되었습니다.`);
   }
 }
@@ -330,7 +342,7 @@ class ReleaseCoordinator {
       return '';
     }
 
-    const body = `## 📋 Commits\n\`\`\`\n${commits || '(no recent commits)'}\n\`\`\`\n\n## 📁 Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``;
+    const body = await this.buildIssueBody(commits, stat, today);
     let title = `session: ${today}`;
 
     try {
@@ -407,6 +419,57 @@ class ReleaseCoordinator {
       console.warn('⚠️ 이슈 자동 생성 실패:', err.message);
     }
     return '';
+  }
+
+  private async buildIssueBody(commits: string, stat: string, today: string): Promise<string> {
+    const parts: string[] = [
+      `# Agent Context: ${today}`,
+      `## 📋 Commits\n\`\`\`\n${commits || '(no recent commits)'}\n\`\`\``,
+      `## 📁 Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``,
+    ];
+
+    // 오늘 날짜의 session artifact 스캔
+    const agentsDir = path.resolve(process.cwd(), 'data/agents');
+    try {
+      if (fs.existsSync(agentsDir)) {
+        const agentDirs = fs.readdirSync(agentsDir).filter(d =>
+          fs.statSync(path.join(agentsDir, d)).isDirectory()
+        );
+        for (const agent of agentDirs) {
+          const dateDir = path.join(agentsDir, agent, today);
+          if (!fs.existsSync(dateDir)) continue;
+
+          const tags = fs.readdirSync(dateDir).filter(d =>
+            fs.statSync(path.join(dateDir, d)).isDirectory()
+          );
+          if (tags.length === 0) continue;
+
+          tags.sort().reverse();
+          const tagDir = path.join(dateDir, tags[0]);
+
+          const ctxPath = path.join(tagDir, 'context_memory.md');
+          if (fs.existsSync(ctxPath)) {
+            const ctx = fs.readFileSync(ctxPath, 'utf-8').slice(0, 2000);
+            parts.push(`## 🧠 Session Context (${agent})\n${ctx}`);
+          }
+
+          const sessPath = path.join(tagDir, 'session.md');
+          if (fs.existsSync(sessPath)) {
+            const lines = fs.readFileSync(sessPath, 'utf-8').split('\n');
+            const tail = lines.slice(-50).join('\n');
+            parts.push(`## 📝 Session Summary (${agent})\n${tail}`);
+          }
+
+          const planPath = path.join(tagDir, 'plan.md');
+          if (fs.existsSync(planPath)) {
+            const plan = fs.readFileSync(planPath, 'utf-8').slice(0, 3000);
+            parts.push(`## 📋 Plan (${agent})\n${plan}`);
+          }
+        }
+      }
+    } catch {}
+
+    return parts.join('\n\n');
   }
 
   private classifyLabels(title: string, body: string): string[] {

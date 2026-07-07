@@ -277,6 +277,11 @@ class GiteaClient {
   }
 
   public async updateIssue(issueId: string, title: string, body: string): Promise<void> {
+    if (!body || !body.trim()) {
+      console.warn(`⚠️ 이슈 #${issueId}: body is empty, skipping PATCH`);
+      const issue = await this.getIssue(issueId);
+      body = issue.body || '';
+    }
     await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title, body });
   }
 
@@ -317,13 +322,15 @@ class GiteaClient {
 
   public async closeIssue(issueId: string): Promise<void> {
     console.log(`🔒 이슈 #${issueId} 마감 중...`);
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { state: 'closed' });
+    const issue = await this.getIssue(issueId);
+    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { state: 'closed', body: issue.body || '' });
     console.log(`✅ 이슈 #${issueId} 가 마감(Closed)되었습니다.`);
   }
 
   public async reopenIssue(issueId: string): Promise<void> {
     console.log(`🔓 이슈 #${issueId} 재오픈 중...`);
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { state: 'open' });
+    const issue = await this.getIssue(issueId);
+    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { state: 'open', body: issue.body || '' });
     console.log(`✅ 이슈 #${issueId} 가 다시 오픈(Open)되었습니다.`);
   }
 
@@ -672,6 +679,7 @@ class GiteaClient {
       if (item.state === 'closed') {
         await this.request(`/repos/${this.config.repo}/issues/${data.number}`, 'PATCH', {
           state: 'closed',
+          body: bodyWithRef,
         });
       }
 
@@ -1410,11 +1418,15 @@ class GiteaController {
           console.error('  At least one of --title-file or --body-file is required');
           process.exit(1);
         }
-        await client.updateIssue(
-          issueId,
-          titleFile ? readFile(titleFile) : '',
-          bodyFile ? readFile(bodyFile) : ''
-        );
+        if (bodyFile) {
+          await client.updateIssue(
+            issueId,
+            titleFile ? readFile(titleFile) : '',
+            readFile(bodyFile)
+          );
+        } else {
+          await client.updateIssueTitle(issueId, readFile(titleFile!));
+        }
         break;
       }
 
