@@ -1225,6 +1225,10 @@ Body: ${truncated}
     console.log('');
 
     let renamed = 0;
+    const titleBackend = new OllamaBackend(
+      process.env.LLM_URL || 'http://host.docker.internal:11434',
+      process.env.LLM_MODEL?.includes('qwen') ? 'gemma4:e4b-mlx' : (process.env.LLM_MODEL || 'gemma4:e4b-mlx')
+    );
     for (let idx = 0; idx < targets.length; idx++) {
       const issue = targets[idx];
       const issueId = String(issue.number);
@@ -1232,7 +1236,7 @@ Body: ${truncated}
 
       process.stdout.write(`\r⏳ [${idx + 1}/${targets.length}] #${issueId} 제목 생성 중...`);
 
-      // Ollama로 제목 생성
+      // Ollama로 제목 생성 (title 전용 gemma4 사용 — qwen3.5는 thinking 모델이라 response 미반환)
       const prompt = `<start_of_turn>user
 Generate a concise, descriptive Gitea issue title (max 80 characters, plain text, no markdown, no quotes) based on the following issue body. If the body has a ## 🎯 Goal section, extract the key point from there. Return ONLY the title, nothing else.
 
@@ -1244,7 +1248,7 @@ ${body}
 
       let newTitle: string | null = null;
       try {
-        const response = await this.config.llmBackend.generate(prompt, { numPredict: 128, timeout: 30000 });
+        const response = await titleBackend.generate(prompt, { numPredict: 128, timeout: 30000 });
         if (response && response.length > 5 && response.length <= 100) {
           newTitle = response.replace(/^["']|["']$/g, '').trim();
         }
