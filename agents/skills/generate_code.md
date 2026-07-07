@@ -15,4 +15,4 @@ Your goal as the Full-Stack Engineer is to write clean, strongly-typed TypeScrip
 1. **Read the Spec**: Study the approved plan and designs under `docs/plans/`.
 2. **Write OOP Code**: Implement components following the project's base classes (e.g., `BaseListService`, `BaseRefreshUrls`, `IConverter`).
 3. **Handle Errors & Connections**: Ensure robust error handling and always close DB/Redis connections in `finally` blocks.
-4. **Automatic Commits**: Run `npm run git commit` after making code edits to commit, push, and auto-close the Gitea issue.
+4. **Commit**: After making code edits, commit using `git add -A && git commit -m "feat: <description>" && git push`.
