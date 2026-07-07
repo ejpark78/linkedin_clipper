@@ -70,7 +70,6 @@ export class Config {
     if (explicitFlagIndex >= 0 && args[explicitFlagIndex + 1]) {
       return args[explicitFlagIndex + 1];
     }
-    const envIssueId = process.env.GITEA_ISSUE_ID;
-    return envIssueId && envIssueId.trim().length > 0 ? envIssueId.trim() : null;
+    return null;
   }
 }
