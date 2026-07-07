@@ -478,16 +478,20 @@ class GiteaClient {
 
     if (!skipLabel) {
       const labelService = new LabelService(this.config.llmBackend);
-      const labels = await labelService.classifyWithLLM(title, body);
-      if (labels && (labels.type || labels.area)) {
+      const llmLabels = await labelService.classifyWithLLM(title, body);
+      let labelNames: string[] = [];
+      if (llmLabels.type || llmLabels.area) {
+        labelNames = [llmLabels.type, llmLabels.area].filter((l): l is string => l !== null);
+      } else {
+        labelNames = labelService.classifyByRule(title, body);
+      }
+      if (labelNames.length > 0) {
         const repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
         const nameToId = new Map(repoLabels.map((l: any) => [l.name, l.id]));
-        const labelIds: number[] = [];
-        if (labels.type && nameToId.has(labels.type)) labelIds.push(nameToId.get(labels.type)!);
-        if (labels.area && nameToId.has(labels.area)) labelIds.push(nameToId.get(labels.area)!);
+        const labelIds = labelNames.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
         if (labelIds.length > 0) {
           await this.request(`/repos/${this.config.repo}/issues/${data.number}/labels`, 'PUT', { labels: labelIds });
-          console.log(`Labels auto-classified: ${labels.type}${labels.area ? ', ' + labels.area : ''}`);
+          console.log(`Labels auto-classified: ${labelNames.join(', ')}`);
         }
       }
     }
