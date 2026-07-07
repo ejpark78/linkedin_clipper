@@ -351,11 +351,22 @@ Diff stats:\n${stat || 'none'}`,
       if (ollamaRes.ok) {
         const data = await ollamaRes.json() as any;
         let response = (data.response || '').trim();
-        if (!response) response = (data.thinking || '').trim();
+        if (!response) {
+          const thinkingText = (data.thinking || '').trim();
+          if (thinkingText) {
+            const lines = thinkingText.split('\n').filter((l: string) => l.trim());
+            const lastLine = lines[lines.length - 1]?.trim() || '';
+            const processPrefix = /^(Thinking Process|Step|Note|Key|Goal|Task|Analyze|Evaluate|Determine|Check|Synthesize|Extract|Identify|Consider|Look|Review|Understand|Plan|Approach)[:\s]/i;
+            if (!processPrefix.test(lastLine) && lastLine.length > 5) {
+              response = lastLine;
+            }
+          }
+        }
         if (response) {
-          const lines = response.split('\n');
-          title = lines[0].replace(/^#+\s*/, '').slice(0, 100) || title;
-          body = lines.slice(1).join('\n').trim() || body;
+          const clean = response.replace(/^["']|["']$/g, '').trim();
+          if (clean.length > 5) {
+            title = clean.slice(0, 100);
+          }
         }
       }
     } catch {
@@ -372,6 +383,30 @@ Diff stats:\n${stat || 'none'}`,
         const issue = await createRes.json() as any;
         console.log(`✅ 이슈 자동 생성됨: #${issue.number} - ${title}`);
         console.log(`🔗 ${issue.html_url}`);
+
+        // 라벨 자동 분류
+        try {
+          const labels = this.classifyLabels(title, body);
+          if (labels.length > 0) {
+            const repoLabelsRes = await fetch(`${apiUrl}/repos/${this.config.repo}/labels`, {
+              headers: { 'Authorization': `token ${token}` },
+            });
+            if (repoLabelsRes.ok) {
+              const repoLabels = await repoLabelsRes.json() as any[];
+              const nameToId = new Map(repoLabels.map((l: any) => [l.name, l.id]));
+              const labelIds = labels.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
+              if (labelIds.length > 0) {
+                await fetch(`${apiUrl}/repos/${this.config.repo}/issues/${issue.number}/labels`, {
+                  method: 'PUT',
+                  headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ labels: labelIds }),
+                });
+                console.log(`🏷️  라벨 자동 분류: ${labels.join(', ')}`);
+              }
+            }
+          }
+        } catch {}
+
         return String(issue.number);
       }
     } catch (e) {
@@ -379,6 +414,24 @@ Diff stats:\n${stat || 'none'}`,
       console.warn('⚠️ 이슈 자동 생성 실패:', err.message);
     }
     return '';
+  }
+
+  private classifyLabels(title: string, body: string): string[] {
+    const combo = title + '\n' + body;
+    const labels: string[] = [];
+
+    if (/^\[?feat/i.test(title) || /^feat\b/i.test(title)) labels.push('feature');
+    else if (/^\[?fix/i.test(title) || /^fix\b/i.test(title) || /^\[?bug/i.test(title)) labels.push('bug');
+    else labels.push('chore');
+
+    if (/agents(?:\/|$)/.test(combo)) labels.push('agent');
+    else if (/apps\/wiki(?:\/|$)/.test(combo)) labels.push('wiki');
+    else if (/apps\/crawler(?:\/|$)/.test(combo)) labels.push('crawler');
+    else if (/apps\/ebook(?:\/|$)/.test(combo)) labels.push('ebook');
+    else if (/apps\/viewer(?:\/|$)/.test(combo)) labels.push('viewer');
+    else if (/infra\//.test(combo)) labels.push('infra');
+
+    return labels;
   }
 
   public async execute(): Promise<void> {
