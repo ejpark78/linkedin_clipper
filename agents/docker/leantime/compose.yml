@@ -3,7 +3,7 @@
 # ==============================================================================
 # - 주소: https://pm.localhost/
 # - DB: MySQL 8.4
-# - 데이터 경로: ${PROJECT_PATH}/data/.services/leantime
+# - 데이터 경로: ${PROJECT_PATH}/agents/.volumes/leantime
 # - 최초 설치: https://pm.localhost/install 접속 후 DB 정보 입력 + 관리자 계정 생성
 # ==============================================================================
 
@@ -38,10 +38,10 @@ services:
       - LEAN_LOG_CHANNELS=stderr
       - TZ=${TZ:-Asia/Seoul}
     volumes:
-      - ${PROJECT_PATH:-.}/data/.services/leantime/public_userfiles:/var/www/html/public/userfiles
-      - ${PROJECT_PATH:-.}/data/.services/leantime/userfiles:/var/www/html/userfiles
-      - ${PROJECT_PATH:-.}/data/.services/leantime/plugins:/var/www/html/app/Plugins
-      - ${PROJECT_PATH:-.}/data/.services/leantime/logs:/var/www/html/storage/logs
+      - ${PROJECT_PATH:-.}/agents/.volumes/leantime/public_userfiles:/var/www/html/public/userfiles
+      - ${PROJECT_PATH:-.}/agents/.volumes/leantime/userfiles:/var/www/html/userfiles
+      - ${PROJECT_PATH:-.}/agents/.volumes/leantime/plugins:/var/www/html/app/Plugins
+      - ${PROJECT_PATH:-.}/agents/.volumes/leantime/logs:/var/www/html/storage/logs
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -61,7 +61,7 @@ services:
       - MYSQL_PASSWORD=${LEANTIME_DB_PASSWORD:-leantime}
       - TZ=${TZ:-Asia/Seoul}
     volumes:
-      - ${PROJECT_PATH:-.}/data/.services/leantime/mysql:/var/lib/mysql
+      - ${PROJECT_PATH:-.}/agents/.volumes/leantime/mysql:/var/lib/mysql
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -75,5 +75,5 @@ services:
       - helper
     command: chown -R mysql:mysql /var/lib/mysql
     volumes:
-      - ${PROJECT_PATH:-.}/data/.services/leantime/mysql:/var/lib/mysql
+      - ${PROJECT_PATH:-.}/agents/.volumes/leantime/mysql:/var/lib/mysql
     user: root

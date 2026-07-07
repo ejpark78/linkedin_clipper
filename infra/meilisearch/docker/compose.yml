@@ -2,7 +2,7 @@
 # 🔍 Meilisearch Service Block (Full-text Search Engine)
 # ==============================================================================
 # - 용도: 고속 텍스트 검색 및 다국어 필터링 전용 검색엔진
-# - 볼륨: 프로젝트 루트의 `data/.services/meilisearch` 경로에 데이터 보존
+# - 볼륨: 프로젝트 루트의 `infra/.volumes/meilisearch` 경로에 데이터 보존
 # - 라우팅: Traefik 프록시를 통해 TLS 라우팅 서비스 (포트 7700)
 # - 접속 URL: https://search.localhost
 # ==============================================================================
@@ -16,7 +16,7 @@ services:
       - MEILI_NO_ANALYTICS=${MEILI_NO_ANALYTICS:-true}
       - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-}
     volumes:
-      - ${PROJECT_PATH:-.}/data/.services/meilisearch:/meili_data
+      - ${PROJECT_PATH:-.}/infra/.volumes/meilisearch:/meili_data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--spider", "http://127.0.0.1:7700/health"]

@@ -30,11 +30,11 @@ services:
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
       # sandbox와 자격증명/설정 정보 영구 공유
-      - ${PROJECT_PATH:-.}/data/.services/sandbox/local:/config/.local
-      - ${PROJECT_PATH:-.}/data/.services/sandbox/config:/config/.config
-      - ${PROJECT_PATH:-.}/data/.services/sandbox/gemini:/config/.gemini
-      - ${PROJECT_PATH:-.}/data/.services/sandbox/opencode:/config/.opencode
-      - ${PROJECT_PATH:-.}/data/.services/sandbox/codex:/config/.codex
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/local:/config/.local
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/config:/config/.config
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/gemini:/config/.gemini
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/opencode:/config/.opencode
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/config/.codex
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
       interval: 15s
