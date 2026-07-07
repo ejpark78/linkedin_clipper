@@ -64,4 +64,4 @@ trigger: always_on
 - **세션 종료 시**: `task git:issue:save`로 컨텍스트 저장
 - **긴급/단순 작업**: 템플릿 생략 가능 (`task git:issue:new TITLE="..." BODY="..."` 또는 `task git:issue:new -- --title "..." --body "..."`)
 - **기존 이슈 참조**: 이슈 본문에 `#NNN` 형식으로 관련 이슈 번호 명시
-- **이슈 생성 후 구현**: 이슈 번호가 발급된 후에만 `GITEA_ISSUE_ID={#}`를 설정하고 코드 수정 및 커밋을 진행합니다.
+- **이슈 생성 후 구현**: branch를 `feature/<issue#>-<description>` 형식으로 생성하면 자동으로 이슈와 연결됩니다.
