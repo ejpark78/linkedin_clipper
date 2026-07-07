@@ -492,16 +492,12 @@ Diff stats:\n${stat || 'none'}`,
   }
 
   private async postGiteaReport(issueId: string, commitHash: string): Promise<void> {
-    const externalHost = process.env.GITEA_SERVER_DOMAIN || new URL(this.config.apiUrl).host;
-    const scheme = externalHost.includes('localhost') ? 'https' : 'http';
-    const commitUrl = `${scheme}://${externalHost}/${this.config.repo}/commit/${commitHash}`;
-
     const commentBody = `## 🏁 작업 완료 보고 (All-In-One 자동화)
 
 이슈 #${issueId} 관련 변경 사항이 성공적으로 검증되어 \`develop\` 브랜치에 자동 병합 및 원격 저장소 동기화(Push) 완료되었습니다.
 
 ### 🔗 Gitea Commit Diff 링크 (변경 사항 확인)
-- [Commit Diff #${commitHash.substring(0, 8)}](${commitUrl})
+- [Commit Diff #${commitHash.substring(0, 8)}](/${this.config.repo}/commit/${commitHash})
 
 이슈 처리가 완수되어 본 이슈를 자동으로 마감합니다.`;
 
