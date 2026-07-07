@@ -30,7 +30,8 @@ RUN if [ "${USER_UID}" != "1000" ]; then \
 # Node 24 LTS 멀티 스테이지 복사 (code-server Extension Host와 충돌 없음)
 COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
 COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # code-server 수동 설치
 RUN curl -fsSL https://code-server.dev/install.sh | sh
@@ -94,12 +95,13 @@ RUN cat > /home/ubuntu/.code-server-data/User/settings.json << 'EOF'
 }
 EOF
 
-# Google Antigravity CLI (agy) 설치 (사용자 coder 환경의 로컬 경로에 설치)
-RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
+# Google Antigravity CLI (agy) 및 OpenAI Codex CLI 설치 (root 권한 필요)
+USER root
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
+    npm install -g @openai/codex
 
-# coder 사용자의 zshrc에 agy 실행 PATH 강제 추가
-RUN echo 'export PATH=$HOME/.local/bin:$PATH' >> $HOME/.zshrc
 # coder 사용자의 zshrc에 oc alias 추가
+USER ubuntu
 RUN echo 'alias oc="opencode --auto"' >> $HOME/.zshrc
 
 # 기본 shell을 zsh로 강제 지정
