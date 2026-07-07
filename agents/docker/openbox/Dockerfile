@@ -1,11 +1,13 @@
 FROM node:24-bookworm AS node_base
 
-FROM ubuntu:26.04
+FROM lscr.io/linuxserver/webtop:ubuntu-openbox
 
-ARG USER_UID=1000
-ARG USER_GID=1000
+# 한글 입력기(IME) 환경 변수 설정
+ENV GTK_IM_MODULE=fcitx
+ENV QT_IM_MODULE=fcitx
+ENV XMODIFIERS=@im=fcitx
 
-# 필수 패키지 설치
+# OS 패키지 의존성 설치
 RUN apt-get update && apt-get install -y \
     sudo \
     dumb-init \
@@ -19,47 +21,40 @@ RUN apt-get update && apt-get install -y \
     curl \
     zsh \
     tmux \
-    docker.io \
-    docker-compose-v2 \
     jq \
     fontconfig \
     xz-utils \
     redis-tools \
     gnupg \
+    fcitx \
+    fcitx-hangul \
+    dbus-x11 \
+    fonts-nanum \
     && rm -rf /var/lib/apt/lists/*
 
-# ubuntu 디폴트 유저의 UID를 호스트에 맞게 변경 (GID는 컨테이너 그룹과 충돌 방지)
-RUN if [ "${USER_UID}" != "1000" ]; then \
-      usermod -u ${USER_UID} ubuntu; \
-    fi
+# Docker CLI 및 Docker Compose 플러그인 직접 설치 (apt containerd/compose 충돌 방지)
+RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/' | sed 's/arm64/aarch64/') && \
+    curl -fsSL "https://download.docker.com/linux/static/stable/${ARCH}/docker-26.1.4.tgz" | \
+    tar -xz -C /tmp && \
+    mv /tmp/docker/docker /usr/local/bin/docker && \
+    rm -rf /tmp/docker && \
+    mkdir -p /usr/local/lib/docker/cli-plugins && \
+    curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+    "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose && \
+    ln -s /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
 
-# Node 24 LTS 멀티 스테이지 복사 (code-server Extension Host와 충돌 없음)
-COPY --from=node_base /usr/local/bin/node /usr/local/bin/node
-COPY --from=node_base /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
-    ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-
-# code-server 수동 설치
-RUN curl -fsSL https://code-server.dev/install.sh | sh
-
-# locales 파일 내 주석 제거 및 생성 강제화
-RUN sed -i '/ko_KR.UTF-8/s/^# //g' /etc/locale.gen && \
-    locale-gen ko_KR.UTF-8
-
-ENV LANG=ko_KR.UTF-8
-ENV LANGUAGE=ko_KR.UTF-8
-ENV LC_ALL=ko_KR.UTF-8
+# Node 24 LTS 복사 이식 (Webtop 내부 kclient node 버전 충돌 방지를 위해 /opt/node24 격리)
+COPY --from=node_base /usr/local/bin/node /opt/node24/bin/node
+COPY --from=node_base /usr/local/lib/node_modules /opt/node24/lib/node_modules
+RUN ln -s /opt/node24/lib/node_modules/npm/bin/npm-cli.js /opt/node24/bin/npm && \
+    ln -s /opt/node24/lib/node_modules/npm/bin/npx-cli.js /opt/node24/bin/npx
 
 # uv 의존성 관리자 복사 이식 (멀티 스테이지 복사)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# go-task (task) 자동 설치 스크립트 실행
+# go-task (task) 자동 설치
 RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-
-# opencode 설치 (/usr/local/bin에 바이너리 직접 배치)
-RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
-    curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
-    tar -xz -C /usr/local/bin opencode
 
 # GitHub CLI (gh), Google Cloud SDK (gcloud), MongoDB Shell (mongosh) 공식 apt 저장소 등록 및 설치
 RUN mkdir -p -m 755 /etc/apt/keyrings && \
@@ -85,40 +80,39 @@ RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/' | sed 's/arm64/arm6
     mv /tmp/jira_${VERSION}_linux_${ARCH}/bin/jira /usr/local/bin/jira && \
     rm -rf /tmp/jira.tar.gz /tmp/jira_${VERSION}_linux_${ARCH}
 
+# OpenCode CLI 설치
+RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
+    curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
+    tar -xz -C /usr/local/bin opencode
+
+# OpenCode Desktop (GUI) 설치 (.deb 패키지 다운로드 및 의존성 설치)
+RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
+    curl -fsSL -o /tmp/opencode.deb "https://github.com/anomalyco/opencode/releases/latest/download/opencode-desktop-linux-$ARCH.deb" && \
+    apt-get update && apt-get install -y /tmp/opencode.deb && \
+    rm -f /tmp/opencode.deb
+
 # mkcert 설치 (아키텍처 맞춤 다운로드)
 RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
     curl -fsSL -o /usr/local/bin/mkcert "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-$ARCH" && \
     chmod +x /usr/local/bin/mkcert
 
-# 뼈대(skel) 설정 파일 복사 및 ubuntu 사용자 홈에 반영
-COPY skel/ /etc/skel/
-RUN cp -rT /etc/skel/ /home/ubuntu/ && \
-    chown -R ubuntu:ubuntu /home/ubuntu
-
-# oh-my-zsh 설치 스크립트 실행 (홈 디렉토리 구성 이후 zsh 초기 설정용)
-USER ubuntu
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# Google Antigravity CLI (agy), OpenAI Codex CLI, Joplin CLI 설치 (root 권한 필요)
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
+    /opt/node24/bin/npm install -g @openai/codex joplin
 
 # JetBrainsMono Nerd Font 설치 및 캐시 갱신
-USER root
 RUN mkdir -p /usr/local/share/fonts/jetbrains-mono && \
     curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz | \
     tar -xJ -C /usr/local/share/fonts/jetbrains-mono && \
     fc-cache -f
 
-# Google Antigravity CLI (agy), OpenAI Codex CLI, Joplin CLI 설치 (root 권한 필요)
-USER root
-RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
-    npm install -g @openai/codex joplin
+# 뼈대(skel) 파일을 컨테이너 런타임 초기화 용도로 /opt/skel에 복사
+COPY skel/ /opt/skel/
 
-# 기본 shell을 zsh로 강제 지정
+# Webtop의 초기화 라이프사이클(/etc/cont-init.d)을 활용한 사용자 설정 동적 주입
+COPY init-scripts/ /etc/cont-init.d/
+RUN chmod +x /etc/cont-init.d/*
+
+# 기본 쉘 설정 및 권한 설정
 ENV SHELL=/bin/zsh
-RUN chsh -s /bin/zsh ubuntu
-
-USER ubuntu
-
-ENTRYPOINT ["dumb-init", "code-server"]
-
-# 헬스체크 설정 (포트 8080에 curl HTTP 요청 전송)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8080/ || exit 1
+RUN chsh -s /bin/zsh abc

@@ -37,6 +37,7 @@
 * **투명한 이슈 처리**: 오류 즉시 보고, 무음 복구 금지.
 * **명령어 실행 에러 공개**: 모든 비정상 종료를 사용자에게 공개합니다.
 * **AI 처리 및 응답 한국어**: 모든 AI 로그, 상태 메시지, 채팅 응답은 한국어.
+* **대화 로깅**: 세션 중 모든 요청/응답을 `data/chat/YYYY-mm-dd.md`에 날짜별로 기록합니다. `data/`는 `.gitignore`에 포함되어 로컬 전용이며 커밋되지 않습니다.
 
 ### 2. 코드 검증 및 런타임 제약
 * **Docker 중심 테스트 및 실행**: 로컬 스크립트는 `docker compose` 내부망에서 실행.
@@ -61,6 +62,7 @@
 ## 🛠️ 기술 스택별 작업 규칙
 * **코딩 규칙 준수**: strict typing(`any` 금지), class OOP 설계, [Tech Stack Guide](agents/rules/tech_stack.md) 참조.
 * **공통 엔지니어링 규칙**: [Engineering & Architecture Guide](agents/rules/engineering_architecture.md) 참조.
+* **AI 사고 프레임워크**: [Thinking Framework Guide](agents/rules/thinking_framework.md) 참조 — 의사결정 및 문제 해결 접근법.
 
 ---
 
