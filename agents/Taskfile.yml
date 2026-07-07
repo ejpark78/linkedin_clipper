@@ -97,7 +97,7 @@ tasks:
     cmds:
       - npm run usage -w agents -- {{.CLI_ARGS}}
 
-  prune:
+  session:prune:
     desc: Prune agent session data.
     summary: |
       Clean up old workspace directories, scratch records, and cached transcripts.
