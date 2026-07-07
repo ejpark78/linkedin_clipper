@@ -334,56 +334,11 @@ class GiteaClient {
     console.log(`✅ 이슈 #${issueId} 가 다시 오픈(Open)되었습니다.`);
   }
 
-  public async updateIssueTitle(issueId: string, title: string): Promise<void> {
-    console.log(`⚙️ Gitea 이슈 #${issueId} 제목 수정 중... [${title}]`);
-    const issue = await this.getIssue(issueId);
-    await this.request<void>(`/repos/${this.config.repo}/issues/${issueId}`, 'PATCH', { title, body: issue.body });
-    console.log(`✅ 이슈 #${issueId} 제목이 정상 수정되었습니다.`);
-  }
-
   public async printIssueBody(issueId: string): Promise<void> {
     const issue = await this.getIssue(issueId);
     console.log(`====== Issue #${issue.number} Body ======`);
     console.log(issue.body);
     console.log(`==========================================`);
-  }
-
-  public async printTitleErrorIssues(): Promise<void> {
-    console.log('🔍 제목이 --title로 시작하는 오염된 이슈를 검색 중...');
-    const issues = await this.getIssues();
-    const targets = issues.filter(i => i.title.startsWith('--title') || i.title === '--title');
-    
-    if (targets.length === 0) {
-      console.log('✅ --title 제목 오류를 가진 이슈가 존재하지 않습니다.');
-      return;
-    }
-
-    console.log(`⚠️ 총 ${targets.length}개의 오염된 이슈를 발견했습니다:`);
-    targets.forEach(t => {
-      console.log(`   - [#${t.number}] 제목: "${t.title}" (URL: ${t.html_url})`);
-    });
-  }
-
-  public async fixLegacyIssues(issueIds: string[]): Promise<void> {
-    console.log(`⚙️ 기존 깨진 이슈 본문 복구 프로세스 시작... 대상 이슈: [${issueIds.join(', ')}]`);
-    for (const id of issueIds) {
-      try {
-        const issue = await this.getIssue(id);
-        const originalBody = issue.body;
-        const fixedBody = originalBody.replace(/\\n/g, '\n');
-
-        if (originalBody !== fixedBody) {
-          await this.updateIssue(id, issue.title, fixedBody);
-          console.log(`   ✅ 이슈 #${id} 본문 복구 완료!`);
-        } else {
-          console.log(`   ℹ️ 이슈 #${id} 는 이미 정상 포맷이거나 치환할 문자열이 없습니다.`);
-        }
-      } catch (e) {
-        const err = e as Error;
-        console.error(`   ❌ 이슈 #${id} 복구 실패:`, err.message);
-      }
-    }
-    console.log('🎉 일괄 복구 프로세스가 성공적으로 완료되었습니다.');
   }
 
   public async generateTokenWithTea(): Promise<void> {
@@ -857,118 +812,6 @@ ${statLines.split('\n').map(l => `- ${l}`).join('\n') || '(none)'}
     }
   }
 
-  public async retroactiveCommitLinks(): Promise<void> {
-    console.log('🔍 전체 이슈 대상 Commit Diff 링크 소급 매핑 프로세스 기동 (v3)...');
-    try {
-      const issues = await this.getIssues();
-      console.log(`📄 조회된 Gitea 이슈 개수: ${issues.length}`);
-
-      for (const issue of issues) {
-        const issueId = issue.number;
-        const comments = await this.getComments(String(issueId));
-
-        // 엄밀한 검사: 본문(body)이나 댓글(comments) 타임라인 통틀어 Commit Diff 링크(/commit/)가 존재하는지 확인
-        const hasDiffLink = issue.body.includes('Gitea Commit Diff') ||
-                            issue.body.includes('/commit/') ||
-                            comments.some((c) => c.body.includes('Gitea Commit Diff') || c.body.includes('/commit/'));
-
-        if (hasDiffLink) {
-          console.log(`   ℹ️ 이슈 #${issueId}: 이미 Commit Diff 링크가 매핑되어 있습니다. 건너뜁니다.`);
-          continue;
-        }
-
-        let commitHash: string | undefined = undefined;
-
-        // 1단계: Git 커밋 메시지에서 번호 매칭 시도
-        const paddedIssueId = String(issueId).padStart(3, '0'); // 예: 92 -> 092
-        let gitLogCmd = `git log --grep="(${issueId})" --grep="(${paddedIssueId})" --oneline -n 1`;
-        if (issueId === 92) {
-          gitLogCmd = `git log --grep="(115)" --oneline -n 1`;
-        }
-        
-        const logOutput = this.runGitCmd(gitLogCmd);
-        if (logOutput) {
-          commitHash = logOutput.split(/\s+/)[0];
-        }
-
-        // 2단계: Gitea 이슈 타임라인 API를 역추적하여 커밋 참조 해시 추출 (Fallback)
-        if (!commitHash) {
-          try {
-            const timeline = await this.getTimeline(String(issueId));
-            // event === 'reference' 혹은 commit_id가 있는 객체 추적
-            const commitRef = timeline.find((e) => e.commit_id && e.commit_id.length > 0);
-            if (commitRef) {
-              commitHash = commitRef.commit_id;
-              console.log(`   🎯 이슈 #${issueId} ➡ Gitea 타임라인 참조 역추적 성공! [${commitHash}]`);
-            }
-          } catch (e) {
-            // timeline 조회 실패 시 로깅 생략
-          }
-        }
-
-        if (!commitHash) {
-          console.log(`   ℹ️ 이슈 #${issueId}: 매칭되는 Git 커밋 및 Gitea 타임라인 참조를 찾지 못했습니다. 건너뜁니다.`);
-          continue;
-        }
-
-        console.log(`   🎯 이슈 #${issueId} ➡ 매칭 커밋 해시: [${commitHash}]`);
-
-        const reportComment = comments.find((c) => c.body.includes('🏁 작업 완료 보고'));
-
-        if (reportComment) {
-          // 1. 완료 보고 댓글이 존재할 시, 해당 댓글 하단에 덧붙임
-          const retroactiveLink = `\n\n### 🔗 Gitea Commit Diff 링크 (소급 매핑)\n- [Commit Diff #${commitHash.substring(0, 8)}](https://${this.gitHost}/${this.config.repo}/commit/${commitHash})`;
-          const updatedBody = reportComment.body + retroactiveLink;
-          await this.updateComment(String(reportComment.id), updatedBody);
-          console.log(`      ✅ 댓글 ID #${reportComment.id} 에 Commit Diff 링크 소급 주입 완료!`);
-        } else {
-          // 2. 완료 보고 댓글이 존재하지 않는 과거 이슈 (#1~#91 등) ➡ 이슈 본문(body) 가장 하단에 직접 주입
-          const retroactiveLink = `\n\n### 🔗 Gitea Commit Diff 링크 (소급 매핑)\n- [Commit Diff #${commitHash.substring(0, 8)}](https://${this.gitHost}/${this.config.repo}/commit/${commitHash})`;
-          const updatedIssueBody = issue.body + retroactiveLink;
-          await this.updateIssue(String(issueId), issue.title, updatedIssueBody);
-          console.log(`      ✅ 이슈 #${issueId} 본문(body)에 직접 Commit Diff 링크 소급 주입 완료!`);
-        }
-      }
-      console.log('🎉 전체 이슈 대상 Commit Diff 링크 소급 매핑이 완료되었습니다!');
-    } catch (error) {
-      const err = error as Error;
-      console.error('❌ 소급 매핑 실패:', err.message);
-    }
-  }
-
-  public async formatIssueWithOllama(title: string, body: string): Promise<string | null> {
-    const truncatedBody = body.length > 4000 ? body.substring(0, 4000) + '\n\n...(truncated)' : body;
-
-    const prompt = `<start_of_turn>user
-Reformat this Gitea issue into these 4 sections:
-
-# {TITLE}
-
-## 🎯 Goal
-## 🧠 Context Memory
-## ✅ Solution
-## 🔗 References
-
-Rules:
-1. Copy ALL existing text into the appropriate section.
-2. Infer goal from the title and content.
-3. Keep section descriptions as subheadings when present.
-4. Do not add new text.
-5. Return ONLY the reformatted markdown.
-
-Title: ${title}
----BODY---
-${truncatedBody}
----END---
-<end_of_turn>
-<start_of_turn>model
-`;
-
-    const response = await this.config.llmBackend.generate(prompt, { numPredict: 4096, timeout: 120000 });
-    if (response && response.length > 20) return response;
-    return null;
-  }
-
   /**
    * Ollama로 이슈 제목+본문을 분석하여 Type(feature|bug|chore)과 Area(agent|wiki|crawler|ebook|viewer|infra|null) 추정.
    * Ollama 실패 시 rule-based 결과를 반환합니다.
@@ -1020,339 +863,7 @@ Body: ${truncated}
     return result;
   }
 
-  public async fixEmptyBodyIssues(): Promise<void> {
-    console.log('🔍 본문이 빈 이슈 검색 중...');
-    const issues = await this.getIssues();
-    const targets = issues.filter(i => !i.body || i.body.trim().length === 0);
 
-    if (targets.length === 0) {
-      console.log('✅ 본문이 빈 이슈가 존재하지 않습니다.');
-      return;
-    }
-
-    console.log(`⚠️ 총 ${targets.length}개 이슈 발견:`);
-    for (const issue of targets) {
-      const id = String(issue.number);
-      const comments = await this.getComments(id);
-      const commentBodies = comments
-        .filter(c => c.body && c.body.trim().length > 0)
-        .map(c => c.body);
-
-      const contextLines: string[] = [];
-      contextLines.push(`> ⚠️ 이슈 생성 시 본문이 누락되어 댓글에서 컨텍스트를 복구했습니다.`);
-      if (commentBodies.length > 0) {
-        contextLines.push(``);
-        contextLines.push(`## 💬 복구된 댓글 컨텍스트`);
-        commentBodies.slice(0, 3).forEach((cb, i) => {
-          const snippet = cb.length > 500 ? cb.slice(0, 500) + '...' : cb;
-          contextLines.push(`\n---\n${snippet}`);
-        });
-      }
-      if (commentBodies.length > 3) {
-        contextLines.push(`\n---\n*(+ ${commentBodies.length - 3}개 댓글 추가 있음)*`);
-      }
-
-      const newBody = `# ${issue.title}\n\n## 🎯 Goal\n${issue.title}\n\n## 🧠 Context Memory\nN/A\n\n## ✅ Solution\nN/A\n\n## 🔗 References\nN/A\n\n${contextLines.join('\n')}`;
-      await this.updateIssue(id, issue.title, newBody);
-      console.log(`   ✅ #${id}: "${issue.title}" → 본문 복구 완료 (${newBody.length}자)`);
-
-      await new Promise(r => setTimeout(r, 500));
-    }
-    console.log(`🎉 ${targets.length}개 이슈 본문 복구 완료`);
-  }
-
-  public async fixTitleErrors(): Promise<void> {
-    console.log('🔍 Ollama 문장이 제목이 된 이슈 검색 중...');
-    const issues = await this.getIssues();
-    const starPattern = /^\s*\*\s+/;
-    const targets = issues.filter(i => starPattern.test(i.title));
-
-    if (targets.length === 0) {
-      console.log('✅ 깨진 제목 이슈가 존재하지 않습니다.');
-      return;
-    }
-
-    console.log(`⚠️ 총 ${targets.length}개 이슈 발견:`);
-    for (const issue of targets) {
-      const id = String(issue.number);
-      const body = issue.body || '';
-
-      const commitMatch = body.match(/```\n[0-9a-f]+\s+(.+?)(?:\n|$)/);
-      const derivedTitle = commitMatch
-        ? commitMatch[1].replace(/^feat:|^fix:|^chore:|^docs:|^refactor:|^test:/, m => m.trim()).trim()
-        : '';
-
-      const newTitle = derivedTitle && derivedTitle.length > 5 && derivedTitle.length <= 100
-        ? derivedTitle
-        : `chore: ${issue.title.replace(/^\*\s*/, '').trim().slice(0, 70)}`;
-
-      if (newTitle === issue.title) {
-        console.log(`   ℹ️ #${id}: title unchanged, skipping`);
-        continue;
-      }
-
-      await this.updateIssueTitle(id, newTitle);
-      console.log(`   ✅ #${id}: "${issue.title.slice(0, 50)}..." → "${newTitle}"`);
-      await new Promise(r => setTimeout(r, 300));
-    }
-    console.log(`🎉 ${targets.length}개 이슈 제목 복구 완료`);
-  }
-
-  public async formatAllIssues(): Promise<void> {
-    console.log('🔄 전체 이슈 포맷 마이그레이션 시작 (Issue #156)...');
-
-    // 1. 삭제 대상 이슈 close 처리
-    const deleteIds = ['97', '130', '131', '111', '112'];
-    const allIssues = await this.getIssues();
-    const existingIds = new Set(allIssues.map(i => String(i.number)));
-
-    for (const id of deleteIds) {
-      if (existingIds.has(id)) {
-        try {
-          await this.createComment(id, '🧹 테스트/빈 본문 이슈로 확인되어 이슈 포맷 마이그레이션(#156) 과정에서 정리하였습니다.');
-          await this.closeIssue(id);
-          console.log(`   ✅ #${id} close 완료`);
-        } catch (e) {
-          console.error(`   ❌ #${id} close 실패:`, (e as Error).message);
-        }
-      } else {
-        console.log(`   ℹ️ #${id} 는 이미 존재하지 않음`);
-      }
-    }
-
-    // 2. 변환 대상 필터링
-    const issues = existingIds.size > 0
-      ? allIssues
-      : await this.getIssues();
-
-    const toConvert = issues.filter(i => {
-      if (deleteIds.includes(String(i.number))) return false;
-      if (!i.body || i.body.trim().length === 0) return true;
-      const hasAllSections = i.body.includes('## 🎯 Goal') &&
-                             i.body.includes('## 🧠 Context Memory') &&
-                             i.body.includes('## ✅ Solution') &&
-                             i.body.includes('## 🔗 References');
-      return !hasAllSections;
-    });
-
-    console.log(`   📄 전체 ${issues.length}개, 변환 대상 ${toConvert.length}개`);
-
-    // 3. 변환 실행
-    let success = 0, fallback = 0, skipped = 0;
-
-    for (const issue of toConvert) {
-      const id = String(issue.number);
-      const title = issue.title || '';
-      const body = issue.body || '';
-
-      // 이미 변환된 경우 스킵
-      if (body.includes('## 🎯 Goal') && body.includes('## 🧠 Context Memory') &&
-          body.includes('## ✅ Solution') && body.includes('## 🔗 References')) {
-        skipped++;
-        continue;
-      }
-
-      process.stdout.write(`   ⏳ #${id} 변환 중... (${body.length}자)`);
-
-      const converted = await this.formatIssueWithOllama(title, body);
-
-      if (converted && converted.length > 20) {
-        await this.updateIssue(id, title, converted);
-        console.log(` ✅`);
-        success++;
-      } else {
-        const fallbackBody = this.buildFallbackBody(title, body);
-        await this.updateIssue(id, title, fallbackBody);
-        console.log(` ⚠️ fallback`);
-        fallback++;
-      }
-
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    console.log(`\n📊 변환 완료: 성공 ${success}, fallback ${fallback}, skip ${skipped}`);
-  }
-
-  private buildFallbackBody(title: string, body: string): string {
-    const sections = body.split('\n## ').filter(s => s.trim());
-    let goal = body;
-    let context = 'N/A';
-    let solution = 'N/A';
-    let refs = 'N/A';
-
-    if (sections.length > 1) {
-      goal = sections[0].replace(/^#+\s*/, '').trim();
-      const remaining = sections.slice(1);
-      context = remaining.slice(0, Math.ceil(remaining.length / 2)).join('\n\n## ').trim();
-      solution = remaining.slice(Math.ceil(remaining.length / 2)).join('\n\n## ').trim();
-    }
-
-    return `# ${title}\n\n## 🎯 Goal\n${goal}\n\n## 🧠 Context Memory\n${context}\n\n## ✅ Solution\n${solution}\n\n## 🔗 References\n${refs}`;
-  }
-
-  /**
-   * 기존 전체 이슈에 제목 prefix + 변경 파일 경로 기반으로 라벨을 소급 적용합니다.
-   * (rule-based, no AI 필요)
-   */
-  public async retroactiveLabelIssues(): Promise<void> {
-    console.log('🏷️  전체 이슈 rule-based 라벨링 시작...');
-
-    let repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
-    if (repoLabels.length === 0) {
-      console.log('📭 라벨이 없습니다. seedDefaultLabels()로 기본 라벨을 생성합니다...');
-      await this.seedDefaultLabels();
-      repoLabels = await this.request<any[]>(`/repos/${this.config.repo}/labels`, 'GET');
-    }
-
-    const issues = await this.getIssues();
-    const nameToId = new Map<string, number>();
-    for (const rl of repoLabels) {
-      nameToId.set(rl.name, rl.id);
-    }
-
-    const total = issues.length;
-    let updated = 0;
-    for (let idx = 0; idx < total; idx++) {
-      const issue = issues[idx];
-      const title = issue.title || '';
-      const body = (issue.body || '') + title;
-      const currentLabels: { id: number; name: string }[] = (issue as any).labels || [];
-
-      if (currentLabels.length > 0) continue;
-
-      process.stdout.write(`\r⏳ [${idx + 1}/${total}] classifying #${issue.number}...`);
-
-      const ollamaResult = await this.classifyIssueLabels(title, body);
-      const labels: string[] = [];
-      if (ollamaResult.type) labels.push(ollamaResult.type);
-      if (ollamaResult.area) labels.push(ollamaResult.area);
-
-      if (labels.length === 0) continue;
-
-      const labelIds = labels.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
-      if (labelIds.length === 0) continue;
-
-      await this.request(`/repos/${this.config.repo}/issues/${issue.number}/labels`, 'PUT', {
-        labels: labelIds,
-      });
-      updated++;
-    }
-    process.stdout.write('\n');
-    console.log(`✅ ${updated}/${total}개 이슈에 라벨이 소급 적용되었습니다.`);
-  }
-
-  /**
-   * 전체 이슈의 commit diff URL을 `/commit/HASH` 형태로 정규화합니다.
-   * 잘못된 패턴 (`http://gitea:3000/...`, `https://git.localhost/...`, `/gitea/scraper/commit/...`)을
-   * `/commit/HASH`로 일괄 교체합니다.
-   */
-  public async normalizeCommitDiffLinks(): Promise<void> {
-    console.log('🔗 전체 이슈 commit diff URL 정규화 시작...');
-    const issues = await this.getIssues();
-    const total = issues.length;
-    const commitUrlPattern = /(?:https?:\/\/[^\/]+)?\/gitea\/scraper\/commit\/([0-9a-f]{40})/g;
-    let bodyUpdated = 0;
-    let commentUpdated = 0;
-
-    for (let idx = 0; idx < total; idx++) {
-      const issue = issues[idx];
-      const issueId = String(issue.number);
-      process.stdout.write(`\r⏳ [${idx + 1}/${total}] #${issueId}...`);
-
-      // 이슈 본문(body) 치환
-      let newBody = issue.body || '';
-      let bodyChanged = false;
-      newBody = newBody.replace(commitUrlPattern, (_match, hash) => {
-        bodyChanged = true;
-        return `/commit/${hash}`;
-      });
-      if (bodyChanged) {
-        await this.updateIssue(issueId, issue.title, newBody);
-        bodyUpdated++;
-      }
-
-      // 댓글(comments) 치환
-      const comments = await this.getComments(issueId);
-      for (const comment of comments) {
-        let newCommentBody = comment.body || '';
-        let commentChanged = false;
-        newCommentBody = newCommentBody.replace(commitUrlPattern, (_match, hash) => {
-          commentChanged = true;
-          return `/commit/${hash}`;
-        });
-        if (commentChanged) {
-          await this.updateComment(String(comment.id), newCommentBody);
-          commentUpdated++;
-        }
-      }
-    }
-    process.stdout.write('\n');
-    console.log(`✅ 본문 ${bodyUpdated}건, 댓글 ${commentUpdated}건 수정 완료 (총 ${total}개 이슈 스캔)`);
-  }
-
-  /**
-   * Ollama로 session 자동 생성 제목(session: YYYY-MM-DD, Agent Context Memory: YYYY-MM-DD)을
-   * 본문 내용 기반으로 적절한 제목으로 재명명합니다.
-   */
-  public async renameSessionIssues(): Promise<void> {
-    console.log('🏷️  session 자동 생성 제목 Ollama 재명명 시작...');
-    const issues = await this.getIssues();
-    const sessionPattern = /^(session:|Agent Context Memory:)\s*\d{4}-\d{2}-\d{2}/;
-    const targets = issues.filter(i => sessionPattern.test(i.title));
-
-    if (targets.length === 0) {
-      console.log('📭 session 제목을 가진 이슈가 없습니다.');
-      return;
-    }
-
-    console.log(`🎯 총 ${targets.length}개 이슈 대상:`);
-    for (const issue of targets) {
-      console.log(`   #${issue.number}: "${issue.title}"`);
-    }
-    console.log('');
-
-    let renamed = 0;
-    const titleBackend = new OllamaBackend(
-      process.env.LLM_URL || 'http://host.docker.internal:11434',
-      process.env.LLM_MODEL?.includes('qwen') ? 'gemma4:e4b-mlx' : (process.env.LLM_MODEL || 'gemma4:e4b-mlx')
-    );
-    for (let idx = 0; idx < targets.length; idx++) {
-      const issue = targets[idx];
-      const issueId = String(issue.number);
-      const body = (issue.body || '').substring(0, 2000);
-
-      process.stdout.write(`\r⏳ [${idx + 1}/${targets.length}] #${issueId} 제목 생성 중...`);
-
-      // Ollama로 제목 생성 (title 전용 gemma4 사용 — qwen3.5는 thinking 모델이라 response 미반환)
-      const prompt = `<start_of_turn>user
-Generate a concise, descriptive Gitea issue title (max 80 characters, plain text, no markdown, no quotes) based on the following issue body. If the body has a ## 🎯 Goal section, extract the key point from there. Return ONLY the title, nothing else.
-
-Issue body:
-${body}
-<end_of_turn>
-<start_of_turn>model
-`;
-
-      let newTitle: string | null = null;
-      try {
-        const response = await titleBackend.generate(prompt, { numPredict: 128, timeout: 30000 });
-        if (response && response.length > 5 && response.length <= 100) {
-          newTitle = response.replace(/^["']|["']$/g, '').trim();
-        }
-      } catch {}
-
-      if (!newTitle) {
-        console.log(`\n   ⚠️ #${issueId} Ollama 응답 실패, 건너뜁니다.`);
-        continue;
-      }
-
-      await this.updateIssueTitle(issueId, newTitle);
-      console.log(`\n   ✅ #${issueId}: "${issue.title}" → "${newTitle}"`);
-      renamed++;
-    }
-
-    console.log(`\n✅ ${renamed}/${targets.length}개 이슈 제목 재명명 완료`);
-  }
 }
 
 /**
@@ -1425,7 +936,8 @@ class GiteaController {
             readFile(bodyFile)
           );
         } else {
-          await client.updateIssueTitle(issueId, readFile(titleFile!));
+          console.error('--body-file is required for update-issue');
+          process.exit(1);
         }
         break;
       }
@@ -1455,62 +967,12 @@ class GiteaController {
         break;
       }
 
-      case 'update-title': {
-        const issueId = parseFlag(args, '--issue', '-i');
-        const titleFile = parseFlag(args, '--title-file', '-tf');
-        if (!issueId || !titleFile) {
-          console.error('Usage: npm run gitea update-title --issue=<id> --title-file=<path>');
-          process.exit(1);
-        }
-        await client.updateIssueTitle(issueId, readFile(titleFile));
-        break;
-      }
-
-      case 'fix-empty-body':
-        await client.fixEmptyBodyIssues();
-        break;
-
-      case 'fix-title-errors':
-        await client.fixTitleErrors();
-        break;
-
-      case 'fix-legacy-issues': {
-        const idsStr = parseFlag(args, '--ids');
-        if (!idsStr) { console.error('Usage: npm run gitea fix-legacy-issues --ids=1,2,3'); process.exit(1); }
-        await client.fixLegacyIssues(idsStr.split(',').map(s => s.trim()).filter(Boolean));
-        break;
-      }
-
       case 'show-issue': {
         const issueId = parseFlag(args, '--issue', '-i');
         if (!issueId) { console.error('Usage: npm run gitea show-issue --issue=<id>'); process.exit(1); }
         await client.printIssueBody(issueId);
         break;
       }
-
-      case 'retroactive-commit-links':
-        await client.retroactiveCommitLinks();
-        break;
-
-      case 'normalize-commit-links':
-        await client.normalizeCommitDiffLinks();
-        break;
-
-      case 'rename-session-issues':
-        await client.renameSessionIssues();
-        break;
-
-      case 'retroactive-labels':
-        await client.retroactiveLabelIssues();
-        break;
-
-      case 'seed-labels':
-        await client.seedDefaultLabels();
-        break;
-
-      case 'find-title-errors':
-        await client.printTitleErrorIssues();
-        break;
 
       case 'generate-token':
         await client.generateToken();
@@ -1522,10 +984,6 @@ class GiteaController {
 
       case 'init':
         await client.initGitea();
-        break;
-
-      case 'format-issues':
-        await client.formatAllIssues();
         break;
 
       case 'issue:save':
@@ -1601,7 +1059,7 @@ class GiteaController {
       }
 
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, normalize-commit-links, rename-session-issues, retroactive-labels, seed-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, comment, update-issue, update-comment, close-issue, reopen-issue, show-issue, list-issues, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save');
         process.exit(1);
     }
   }

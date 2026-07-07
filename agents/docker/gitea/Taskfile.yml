@@ -359,6 +359,8 @@ tasks:
 
       [Usage Examples]
         - task git:issue:comment:new -- --issue=104 --body-file=/tmp/body.md
+    cmds:
+      - npm run gitea -w agents -- comment {{.CLI_ARGS}}
 
   issue:comment:update:
     desc: "Gitea 이슈 댓글 수정"
@@ -400,40 +402,6 @@ tasks:
         - task git:issue:reopen -- --issue=142
     cmds:
       - npm run gitea -w agents -- reopen-issue {{.CLI_ARGS}}
-
-  issue:normalize-links:
-    desc: "전체 이슈 commit diff URL을 /commit/HASH로 정규화"
-    summary: |
-      모든 이슈의 본문과 댓글에서 잘못된 commit diff URL 패턴
-      (http://gitea:3000/..., https://git.localhost/..., /gitea/scraper/commit/...)을
-      /commit/HASH로 일괄 교체합니다.
-
-      [Usage Examples]
-        - task git:issue:normalize-links
-    cmds:
-      - npm run gitea -w agents -- normalize-commit-links
-
-  issue:rename-session:
-    desc: "Ollama로 session 자동 생성 제목 재명명"
-    summary: |
-      session: YYYY-MM-DD 형식의 자동 생성 제목을 Ollama로 분석하여
-      본문 내용에 맞는 적절한 제목으로 재명명합니다.
-
-      [Usage Examples]
-        - task git:issue:rename-session
-    cmds:
-      - npm run gitea -w agents -- rename-session-issues
-
-  issue:label:
-    desc: "기존 전체 이슈에 rule-based 라벨 소급 적용"
-    summary: |
-      기존 이슈의 제목 prefix(feat/fix/refactor 등)와 변경 파일 경로를 분석하여
-      Type + Area 라벨을 소급 적용합니다.
-
-      [Usage Examples]
-        - task git:issue:label
-    cmds:
-      - npm run gitea -w agents retroactive-labels
 
   issue:list:
     desc: "Gitea 이슈 목록 조회"
