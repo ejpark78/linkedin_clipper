@@ -401,6 +401,29 @@ tasks:
     cmds:
       - npm run gitea -w agents -- reopen-issue {{.CLI_ARGS}}
 
+  issue:normalize-links:
+    desc: "전체 이슈 commit diff URL을 /commit/HASH로 정규화"
+    summary: |
+      모든 이슈의 본문과 댓글에서 잘못된 commit diff URL 패턴
+      (http://gitea:3000/..., https://git.localhost/..., /gitea/scraper/commit/...)을
+      /commit/HASH로 일괄 교체합니다.
+
+      [Usage Examples]
+        - task git:issue:normalize-links
+    cmds:
+      - npm run gitea -w agents -- normalize-commit-links
+
+  issue:rename-session:
+    desc: "Ollama로 session 자동 생성 제목 재명명"
+    summary: |
+      session: YYYY-MM-DD 형식의 자동 생성 제목을 Ollama로 분석하여
+      본문 내용에 맞는 적절한 제목으로 재명명합니다.
+
+      [Usage Examples]
+        - task git:issue:rename-session
+    cmds:
+      - npm run gitea -w agents -- rename-session-issues
+
   issue:label:
     desc: "기존 전체 이슈에 rule-based 라벨 소급 적용"
     summary: |

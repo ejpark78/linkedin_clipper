@@ -40,48 +40,32 @@ interface LLmBackend {
 
 /** Ollama 백엔드 */
 class OllamaBackend implements LLmBackend {
-  private broken = false;
-
   constructor(private readonly baseUrl: string, private readonly model: string) {}
 
   async generate(prompt: string, options: { numPredict: number; timeout: number }): Promise<string | null> {
-    if (this.broken) return null;
-    try {
-      const ping = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(500) });
-      if (!ping.ok) { this.broken = true; return null; }
-    } catch { this.broken = true; return null; }
-    try { execSync(`ollama ps 2>/dev/null | tail -n +2 | grep -v "^${this.model} " | awk '{print $1}' | xargs -I{} ollama stop {} 2>/dev/null >/dev/null`); } catch {}
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(`${this.baseUrl}/api/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ model: this.model, prompt, stream: false, options: { num_predict: options.numPredict } }),
-          signal: AbortSignal.timeout(Math.min(options.timeout, 8000)),
+          signal: AbortSignal.timeout(Math.min(options.timeout, 30000)),
         });
-        if (!res.ok) { if (attempt === 0) await this.restart(); else { this.broken = true; break; } continue; }
+        if (!res.ok) { continue; }
         const data = await res.json() as any;
-        const text = (data.response || '').trim();
-        if (!text) { if (attempt === 0) { await this.restart(); continue; } else { this.broken = true; break; } }
-        return text;
-      } catch { if (attempt === 0) { await this.restart(); continue; } else { this.broken = true; break; } }
+        const responseText = (data.response || '').trim();
+        let text = responseText;
+        if (!text) {
+          const thinkingText = (data.thinking || '').trim();
+          if (thinkingText) {
+            const lines = thinkingText.split('\n').filter((l: string) => l.trim());
+            text = lines[lines.length - 1]?.trim() || '';
+          }
+        }
+        if (text) return text;
+      } catch {}
     }
     return null;
-  }
-
-  private async restart(): Promise<void> {
-    // 먼저 모든 모델 정리
-    try { execSync('ollama ps 2>/dev/null | tail -n +2 | awk \'{print $1}\' | xargs -I{} ollama stop {} 2>/dev/null >/dev/null'); } catch {}
-    await new Promise(r => setTimeout(r, 2000));
-    // 서버 자체가 먹통인지 확인
-    try {
-      const test = await fetch(`${this.baseUrl}/api/tags`, { signal: AbortSignal.timeout(2000) });
-      const testJson = await test.json() as any;
-      if (!testJson?.models?.length) throw new Error('stuck');
-    } catch {
-      try { execSync('pkill -f "ollama serve" 2>/dev/null; pkill -f "ollama runner" 2>/dev/null; sleep 2; ollama serve >/dev/null 2>&1 &'); } catch {}
-      await new Promise(r => setTimeout(r, 3000));
-    }
   }
 }
 
@@ -123,7 +107,7 @@ class Config {
     this.accessToken = token;
 
     const backendType = process.env.LLM_BACKEND || 'ollama';
-    const llmUrl = process.env.LLM_URL || 'http://127.0.0.1:11434';
+    const llmUrl = process.env.LLM_URL || 'http://host.docker.internal:11434';
     const llmModel = process.env.LLM_MODEL || 'qwen3.5:9b-mlx';
     if (backendType === 'llamacpp') {
       this.llmBackend = new LlamaCppBackend(llmUrl);
@@ -810,7 +794,7 @@ For each decision, provide a markdown table row in this exact format (without ex
 | decision | rationale |
 Only output the table rows, nothing else.`;
 
-      const llmUrl = process.env.LLM_URL || 'http://127.0.0.1:11434';
+      const llmUrl = process.env.LLM_URL || 'http://host.docker.internal:11434';
       const ollamaRes = await fetch(`${llmUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1169,6 +1153,115 @@ Body: ${truncated}
     process.stdout.write('\n');
     console.log(`✅ ${updated}/${total}개 이슈에 라벨이 소급 적용되었습니다.`);
   }
+
+  /**
+   * 전체 이슈의 commit diff URL을 `/commit/HASH` 형태로 정규화합니다.
+   * 잘못된 패턴 (`http://gitea:3000/...`, `https://git.localhost/...`, `/gitea/scraper/commit/...`)을
+   * `/commit/HASH`로 일괄 교체합니다.
+   */
+  public async normalizeCommitDiffLinks(): Promise<void> {
+    console.log('🔗 전체 이슈 commit diff URL 정규화 시작...');
+    const issues = await this.getIssues();
+    const total = issues.length;
+    const commitUrlPattern = /(?:https?:\/\/[^\/]+)?\/gitea\/scraper\/commit\/([0-9a-f]{40})/g;
+    let bodyUpdated = 0;
+    let commentUpdated = 0;
+
+    for (let idx = 0; idx < total; idx++) {
+      const issue = issues[idx];
+      const issueId = String(issue.number);
+      process.stdout.write(`\r⏳ [${idx + 1}/${total}] #${issueId}...`);
+
+      // 이슈 본문(body) 치환
+      let newBody = issue.body || '';
+      let bodyChanged = false;
+      newBody = newBody.replace(commitUrlPattern, (_match, hash) => {
+        bodyChanged = true;
+        return `/commit/${hash}`;
+      });
+      if (bodyChanged) {
+        await this.updateIssue(issueId, issue.title, newBody);
+        bodyUpdated++;
+      }
+
+      // 댓글(comments) 치환
+      const comments = await this.getComments(issueId);
+      for (const comment of comments) {
+        let newCommentBody = comment.body || '';
+        let commentChanged = false;
+        newCommentBody = newCommentBody.replace(commitUrlPattern, (_match, hash) => {
+          commentChanged = true;
+          return `/commit/${hash}`;
+        });
+        if (commentChanged) {
+          await this.updateComment(String(comment.id), newCommentBody);
+          commentUpdated++;
+        }
+      }
+    }
+    process.stdout.write('\n');
+    console.log(`✅ 본문 ${bodyUpdated}건, 댓글 ${commentUpdated}건 수정 완료 (총 ${total}개 이슈 스캔)`);
+  }
+
+  /**
+   * Ollama로 session 자동 생성 제목(session: YYYY-MM-DD, Agent Context Memory: YYYY-MM-DD)을
+   * 본문 내용 기반으로 적절한 제목으로 재명명합니다.
+   */
+  public async renameSessionIssues(): Promise<void> {
+    console.log('🏷️  session 자동 생성 제목 Ollama 재명명 시작...');
+    const issues = await this.getIssues();
+    const sessionPattern = /^(session:|Agent Context Memory:)\s*\d{4}-\d{2}-\d{2}/;
+    const targets = issues.filter(i => sessionPattern.test(i.title));
+
+    if (targets.length === 0) {
+      console.log('📭 session 제목을 가진 이슈가 없습니다.');
+      return;
+    }
+
+    console.log(`🎯 총 ${targets.length}개 이슈 대상:`);
+    for (const issue of targets) {
+      console.log(`   #${issue.number}: "${issue.title}"`);
+    }
+    console.log('');
+
+    let renamed = 0;
+    for (let idx = 0; idx < targets.length; idx++) {
+      const issue = targets[idx];
+      const issueId = String(issue.number);
+      const body = (issue.body || '').substring(0, 2000);
+
+      process.stdout.write(`\r⏳ [${idx + 1}/${targets.length}] #${issueId} 제목 생성 중...`);
+
+      // Ollama로 제목 생성
+      const prompt = `<start_of_turn>user
+Generate a concise, descriptive Gitea issue title (max 80 characters, plain text, no markdown, no quotes) based on the following issue body. If the body has a ## 🎯 Goal section, extract the key point from there. Return ONLY the title, nothing else.
+
+Issue body:
+${body}
+<end_of_turn>
+<start_of_turn>model
+`;
+
+      let newTitle: string | null = null;
+      try {
+        const response = await this.config.llmBackend.generate(prompt, { numPredict: 128, timeout: 30000 });
+        if (response && response.length > 5 && response.length <= 100) {
+          newTitle = response.replace(/^["']|["']$/g, '').trim();
+        }
+      } catch {}
+
+      if (!newTitle) {
+        console.log(`\n   ⚠️ #${issueId} Ollama 응답 실패, 건너뜁니다.`);
+        continue;
+      }
+
+      await this.updateIssueTitle(issueId, newTitle);
+      console.log(`\n   ✅ #${issueId}: "${issue.title}" → "${newTitle}"`);
+      renamed++;
+    }
+
+    console.log(`\n✅ ${renamed}/${targets.length}개 이슈 제목 재명명 완료`);
+  }
 }
 
 /**
@@ -1296,6 +1389,14 @@ class GiteaController {
         await client.retroactiveCommitLinks();
         break;
 
+      case 'normalize-commit-links':
+        await client.normalizeCommitDiffLinks();
+        break;
+
+      case 'rename-session-issues':
+        await client.renameSessionIssues();
+        break;
+
       case 'retroactive-labels':
         await client.retroactiveLabelIssues();
         break;
@@ -1397,7 +1498,7 @@ class GiteaController {
       }
 
       default:
-        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, retroactive-labels, seed-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
+        console.error('❌ 알 수 없는 작업명입니다. 지원하는 명령어: create-issue, update-issue, comment, update-comment, close-issue, reopen-issue, update-title, show-issue, list-issues, find-title-errors, fix-legacy-issues, retroactive-commit-links, normalize-commit-links, rename-session-issues, retroactive-labels, seed-labels, generate-token, generate-token-tea, init, repo:dump, repo:restore, issue:dump, issue:restore, wiki:init, wiki:dump, wiki:restore, issue:save, format-issues');
         process.exit(1);
     }
   }

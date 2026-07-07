@@ -334,7 +334,7 @@ class ReleaseCoordinator {
     let body = `## 📋 Commits\n\`\`\`\n${commits || '(no recent commits)'}\n\`\`\`\n\n## 📁 Changes\n\`\`\`\n${stat || '(no changes)'}\n\`\`\``;
 
     try {
-      const llmUrl = process.env.LLM_URL || 'http://127.0.0.1:11434';
+      const llmUrl = process.env.LLM_URL || 'http://host.docker.internal:11434';
       const ollamaRes = await fetch(`${llmUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

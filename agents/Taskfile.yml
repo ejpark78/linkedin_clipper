@@ -118,14 +118,14 @@ tasks:
       - agy --skill code_review "Run semantic code review on my latest modifications." {{.CLI_ARGS}}
 
   sandbox:up:
-    desc: "코딩 에이전트 개발 샌드박스(agent-sandbox) 실행"
+    desc: "코딩 에이전트 개발 샌드박스(sandbox) 실행"
     summary: |
       code-server 기반 에이전트 샌드박스 컨테이너를 백그라운드로 실행하고 Traefik 라우팅을 활성화합니다.
 
       [Usage Examples]
         - task agents:sandbox:up
     cmds:
-      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} --profile tools up -d agent-sandbox'
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} --profile tools up -d sandbox'
 
   sandbox:down:
     desc: "코딩 에이전트 개발 샌드박스 중지"
@@ -135,7 +135,7 @@ tasks:
       [Usage Examples]
         - task agents:sandbox:down
     cmds:
-      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} stop agent-sandbox'
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} stop sandbox'
 
   sandbox:build:
     desc: "코딩 에이전트 개발 샌드박스 이미지 빌드"
@@ -145,7 +145,7 @@ tasks:
       [Usage Examples]
         - task agents:sandbox:build
     cmds:
-      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} --profile tools build --no-cache agent-sandbox'
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} --profile tools build --no-cache sandbox'
 
   sandbox:shell:
     desc: "코딩 에이전트 개발 샌드박스 내 터미널 셸(bash) 접속"
@@ -155,4 +155,4 @@ tasks:
       [Usage Examples]
         - task agents:sandbox:shell
     cmds:
-      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} exec -it agent-sandbox bash'
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} exec -it sandbox bash'
