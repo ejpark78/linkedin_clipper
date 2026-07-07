@@ -93,8 +93,7 @@ export abstract class BaseGiteaClient {
       return JSON.parse(text) as T;
     } catch (error) {
       const err = error as Error;
-      console.error(`API error [${method} ${url}]:`, err.message);
-      process.exit(1);
+      throw new Error(`API error [${method} ${url}]: ${err.message}`);
     }
   }
 
