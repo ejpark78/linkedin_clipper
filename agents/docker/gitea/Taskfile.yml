@@ -246,10 +246,9 @@ tasks:
       - npm run git -w agents -- push {{.CLI_ARGS}}
 
   merge:
-    desc: "현재 브랜치를 develop → main 순으로 병합"
+    desc: "현재 브랜치를 main에 병합"
     summary: |
-      현재 브랜치를 develop에 병합한 후, develop을 main에 병합합니다.
-      브랜치 타입과 무관하게 항상 양쪽(main + develop)에 반영됩니다.
+      현재 브랜치를 main에 직접 병합합니다.
 
       [Variables]
         - BRANCH: (옵션) 병합할 브랜치명 (미지정 시 현재 브랜치)
@@ -263,24 +262,23 @@ tasks:
         if [ -z "$BRANCH" ]; then
           BRANCH=$(git rev-parse --abbrev-ref HEAD)
         fi
-        echo "🔀 Merging $BRANCH → develop → main"
-        git checkout develop && git pull github develop && git merge "$BRANCH" --no-ff {{.CLI_ARGS}}
-        git checkout main && git pull github main && git merge develop --no-ff {{.CLI_ARGS}}
-        git checkout develop
-        echo "✅ Merge 완료: $BRANCH → develop → main (develop으로 복귀)"
+        echo "🔀 Merging $BRANCH → main"
+        git checkout main && git pull github main && git merge "$BRANCH" --no-ff {{.CLI_ARGS}}
+        git branch -d "$BRANCH"
+        echo "✅ Merge 완료: $BRANCH → main"
 
   prune:
     desc: "Merge된 feature 브랜치 및 원격 ref 정리"
     summary: |
-      develop에 병합된 로컬 feature/* 브랜치를 삭제하고
+      main에 병합된 로컬 feature/* 브랜치를 삭제하고
       원격 저장소의 사라진 브랜치 참조(ref)를 정리합니다.
 
       [Usage Examples]
         - task git:prune
     cmds:
-      - git checkout develop
-      - git pull github develop
-      - git branch --merged | grep -E 'feature/|hotfix/' | xargs git branch -d
+      - git checkout main
+      - git pull github main
+      - git branch --merged | grep -E 'feature/' | xargs git branch -d
       - git fetch --prune github
 
   issue:save:

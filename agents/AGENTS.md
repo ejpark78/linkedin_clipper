@@ -46,7 +46,7 @@
 * **범위 외 수정 금지**: 명시적 요청 외 파일 수정 금지.
 
 ### 3. Git 및 협업 방식
-* **Git Flow 브랜치 전략 준수**: `main` 직접 수정 금지, [Git Flow Guide](agents/rules/git_flow.md) 참조.
+* **GitHub Flow 브랜치 전략 준수**: `main` 직접 수정 금지, [Git Flow Guide](agents/rules/git_flow.md) 참조.
 * **자동 Git 커밋**: 유효한 편집 직후 `npm run commit` 실행.
 * **상대경로 링크 사용**: 문서 내 상대경로 사용, `file://` scheme 금지.
 

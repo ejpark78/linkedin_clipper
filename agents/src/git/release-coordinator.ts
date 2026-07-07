@@ -45,16 +45,11 @@ export class ReleaseCoordinator {
 
   private generateCommitMessage(branchName: string): string {
     const featureMatch = branchName.match(/^feature\/([0-9]{3})-(.+)$/);
-    const hotfixMatch = branchName.match(/^hotfix\/([0-9]{3})-(.+)$/);
 
     if (featureMatch) {
       const num = featureMatch[1];
       const desc = featureMatch[2].replace(/-/g, ' ');
       return `feat(${num}): ${desc}`;
-    } else if (hotfixMatch) {
-      const num = hotfixMatch[1];
-      const desc = hotfixMatch[2].replace(/-/g, ' ');
-      return `fix(${num}): ${desc}`;
     }
 
     const allStaged = this.git.runCmd('git diff --cached --name-only', true);
@@ -220,16 +215,14 @@ export class ReleaseCoordinator {
     const branchName = this.git.runCmd('git rev-parse --abbrev-ref HEAD', true);
 
     if (branchName === 'main') {
-      console.error('ERROR: Direct commit to main branch is prohibited by Git Flow.');
+      console.error('ERROR: Direct commit to main branch is prohibited by GitHub Flow.');
       process.exit(1);
     }
 
     let parsedIssueId: string | null = this.config.issueId;
     const featureMatch = branchName.match(/^feature\/([0-9]{3})-(.+)$/);
-    const hotfixMatch = branchName.match(/^hotfix\/([0-9]{3})-(.+)$/);
     if (!parsedIssueId) {
       if (featureMatch) parsedIssueId = featureMatch[1];
-      else if (hotfixMatch) parsedIssueId = hotfixMatch[1];
     }
 
     if (!parsedIssueId && this.config.accessToken) {
@@ -294,12 +287,12 @@ export class ReleaseCoordinator {
   }
 
   private async runReleaseSequence(branchName: string, issueId: string | null): Promise<void> {
-    if (this.config.autoMerge && branchName !== 'develop' && branchName !== 'main') {
-      console.log('Auto-merge option detected. Transitioning to develop...');
+    if (this.config.autoMerge && branchName !== 'main') {
+      console.log('Auto-merge option detected. Merging to main...');
       try {
-        this.git.runCmd('git checkout develop');
+        this.git.runCmd('git checkout main');
         this.git.runCmd(`git merge "${branchName}"`);
-        console.log(`Merged ${branchName} into develop.`);
+        console.log(`Merged ${branchName} into main.`);
       } catch {
         console.error('ERROR: Merge conflict detected! Please resolve manually.');
         process.exit(1);
@@ -315,13 +308,13 @@ export class ReleaseCoordinator {
   }
 
   private pushToRemote(): void {
-    console.log('Pushing develop to remote Gitea...');
+    console.log('Pushing main to remote Gitea...');
     if (!this.config.accessToken) {
       console.warn('Warning: No access token. Push skipped.');
       return;
     }
     const pushUrl = this.git.buildPushUrl(this.config.apiUrl, this.config.repo, this.config.accessToken);
-    this.git.runCmd(`git push "${pushUrl}" develop --no-verify`);
+    this.git.runCmd(`git push "${pushUrl}" main --no-verify`);
     console.log('Remote sync complete.');
   }
 
@@ -348,7 +341,7 @@ export class ReleaseCoordinator {
   private async postGiteaReport(issueId: string, commitHash: string): Promise<void> {
     const commentBody = `## Work Complete Report
 
-Issue #${issueId} changes have been verified, auto-merged to develop, and pushed.
+Issue #${issueId} changes have been verified, auto-merged to main, and pushed.
 
 ### Commit Diff
 - [Commit Diff #${commitHash.substring(0, 8)}](/commit/${commitHash})
@@ -363,73 +356,5 @@ Closing this issue automatically.`;
       const err = error as Error;
       console.error('Gitea API call failed:', err.message);
     }
-  }
-}
-
-// ================================================================
-// Release Helper (develop -> main merge & push)
-// ================================================================
-
-export class ReleaseHelper {
-  private git: GitService;
-  private config: Config;
-
-  constructor(git: GitService, config: Config) {
-    this.git = git;
-    this.config = config;
-  }
-
-  execute(): void {
-    console.log('Starting push-changes release sequence...');
-
-    if (!this.config.accessToken) {
-      console.error('ERROR: GITEA_ACCESS_TOKEN not set. Cannot push.');
-      process.exit(1);
-    }
-
-    this.git.runCmd('git config http.sslVerify false');
-
-    const currentBranch = this.git.runCmd('git rev-parse --abbrev-ref HEAD', true);
-
-    if (currentBranch !== 'develop') {
-      console.log(`Current branch is '${currentBranch}'. Switching to develop...`);
-
-      const statusPorcelain = this.git.runCmd('git status --porcelain', true);
-      if (statusPorcelain) {
-        console.error('ERROR: Uncommitted changes. Commit or stash first.');
-        process.exit(1);
-      }
-
-      this.git.runCmd('git checkout develop');
-    }
-
-    const pushUrl = this.git.buildPushUrl(
-      this.config.apiUrl,
-      this.config.repo,
-      this.config.accessToken,
-    );
-
-    console.log("Pushing 'develop' to remote...");
-    this.git.runCmd(`git push "${pushUrl}" develop`);
-
-    console.log("Merging 'develop' into 'main'...");
-    this.git.runCmd('git checkout main');
-
-    try {
-      this.git.runCmd('git merge develop');
-    } catch {
-      console.error('ERROR: Merge conflict detected! Rolling back.');
-      this.git.runCmd('git merge --abort');
-      this.git.runCmd('git checkout develop');
-      process.exit(1);
-    }
-
-    console.log("Pushing 'main' to remote...");
-    this.git.runCmd(`git push "${pushUrl}" main`);
-
-    console.log('Returning to develop...');
-    this.git.runCmd('git checkout develop');
-
-    console.log('Merge and push complete!');
   }
 }

@@ -15,7 +15,7 @@ import { Config } from './config';
 import { GitService } from './git-service';
 import { GiteaClient } from './gitea-client/client';
 import { ValidationService } from './validation-service';
-import { ReleaseCoordinator, ReleaseHelper } from './release-coordinator';
+import { ReleaseCoordinator } from './release-coordinator';
 import { LabelService } from './label-service';
 import { parseFlag, readFileOrExit } from './util';
 
@@ -223,10 +223,13 @@ class GitController {
         break;
       }
 
-      // ---- Push (from push-changes.ts) ----
+      // ---- Push (push current branch to remote) ----
       case 'push': {
-        const helper = new ReleaseHelper(git, config);
-        helper.execute();
+        const pushUrl = git.buildPushUrl(config.apiUrl, config.repo, config.accessToken || '');
+        const branch = git.currentBranch();
+        console.log(`Pushing '${branch}' to remote...`);
+        git.runCmd(`git push "${pushUrl}" "${branch}" --no-verify`, true);
+        console.log('Remote sync complete.');
         break;
       }
 
@@ -243,7 +246,7 @@ class GitController {
         if (stashed) {
           git.stash();
         }
-        git.checkout('develop');
+        git.checkout('main');
         git.pull();
         git.checkoutNew(branchName);
         if (stashed) {
