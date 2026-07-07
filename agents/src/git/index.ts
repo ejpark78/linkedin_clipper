@@ -63,6 +63,9 @@ class GitController {
           console.error('Usage: npm run git update-issue --issue=<id> [--title-file=<path>] [--body-file=<path>]');
           process.exit(1);
         }
+        if (git.hasUncommitted()) {
+          console.warn('Warning: You have uncommitted changes. Use `npm run git commit` before closing this issue.');
+        }
         if (bodyFile) {
           await gitea.updateIssue(issueId, titleFile ? readFileOrExit(titleFile) : '', readFileOrExit(bodyFile));
         } else {
@@ -86,6 +89,11 @@ class GitController {
       case 'close-issue': {
         const issueId = parseFlag(args, '--issue', '-i');
         if (!issueId) { console.error('Usage: npm run git close-issue --issue=<id>'); process.exit(1); }
+        if (git.hasUncommitted()) {
+          console.error('ERROR: Uncommitted changes detected. Use `npm run git commit` to commit and close together.');
+          console.error('  To force close without committing, stash your changes first: git stash');
+          process.exit(1);
+        }
         await gitea.closeIssue(issueId);
         break;
       }

@@ -132,6 +132,14 @@ export class GiteaClient {
     return this.admin.seedDefaultLabels();
   }
 
+  async getRepoLabels(): Promise<{ id: number; name: string }[]> {
+    return this.issues.getRepoLabels();
+  }
+
+  async addLabels(issueNumber: number, labelIds: number[]): Promise<void> {
+    return this.issues.addLabels(issueNumber, labelIds);
+  }
+
   // ---- Delegated Wiki Operations ----
 
   async wikiInit(fromDir?: string): Promise<void> {

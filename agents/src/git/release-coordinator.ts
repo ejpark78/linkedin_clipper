@@ -258,10 +258,38 @@ export class ReleaseCoordinator {
       this.git.runCmd(`git commit -m "${msg}"`);
       console.log(`Committed: ${msg}`);
 
+      if (parsedIssueId) {
+        await this.addLabelsToIssue(parsedIssueId, branchName, diffSummary || '');
+      }
+
       await this.runReleaseSequence(branchName, parsedIssueId);
     } else {
       console.log('No changes to commit.');
       await this.runReleaseSequence(branchName, parsedIssueId);
+    }
+  }
+
+  private async addLabelsToIssue(issueId: string, branchName: string, diffSummary: string): Promise<void> {
+    try {
+      const combo = `${branchName}\n${diffSummary}`;
+      const llmLabels = await this.labelService.classifyWithLLM(branchName, diffSummary);
+      let labelNames: string[] = [];
+      if (llmLabels.type || llmLabels.area) {
+        labelNames = [llmLabels.type, llmLabels.area].filter((l): l is string => l !== null);
+      } else {
+        labelNames = this.labelService.classifyByRule(branchName, diffSummary);
+      }
+      if (labelNames.length > 0 && this.config.accessToken) {
+        const repoLabels = await this.gitea.getRepoLabels();
+        const nameToId = new Map(repoLabels.map(l => [l.name, l.id]));
+        const labelIds = labelNames.map(n => nameToId.get(n)).filter((id): id is number => id !== undefined);
+        if (labelIds.length > 0) {
+          await this.gitea.addLabels(parseInt(issueId, 10), labelIds);
+          console.log(`Labels auto-classified: ${labelNames.join(', ')}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`ReleaseCoordinator: label classification failed — ${err}`);
     }
   }
 
