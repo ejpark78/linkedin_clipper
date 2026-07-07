@@ -151,7 +151,7 @@ export class GitService {
     this.runCmd(`git checkout -b ${branch}`);
   }
 
-  pull(branch = 'develop'): void {
+  pull(branch = 'main'): void {
     const remotes = this.runCmd('git remote', true).split('\n').filter(Boolean);
     const remote = remotes[0] || 'origin';
     this.runCmd(`git pull ${remote} ${branch}`);
