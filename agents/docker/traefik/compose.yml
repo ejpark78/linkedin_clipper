@@ -39,7 +39,7 @@ services:
       - DOCKER_API_VERSION=${DOCKER_API_VERSION:-1.40}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ${PROJECT_PATH:-.}/data/.services/traefik/certs:/certs:ro
+      - ${PROJECT_PATH:-.}/agents/.volumes/traefik/certs:/certs:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]

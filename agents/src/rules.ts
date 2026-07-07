@@ -34,12 +34,12 @@ class RuleCompressor {
         compressedText += `\n[File: ${file}]\n${compressed}\n`;
       });
 
-      // Write to data/agents/agy/
-      const transcriptsAgyDir = path.join(__dirname, '../../data/agents/agy');
+      // Write to agents/data/sessions/agy/
+      const transcriptsAgyDir = path.join(__dirname, '../data/sessions/agy');
       fs.mkdirSync(transcriptsAgyDir, { recursive: true });
       const destPath = path.join(transcriptsAgyDir, 'rules_compact.txt');
       fs.writeFileSync(destPath, compressedText.trim(), 'utf-8');
-      console.log(`✅ Compressed rules written to data/agents/agy: ${destPath}`);
+      console.log(`✅ Compressed rules written to agents/data/sessions/agy: ${destPath}`);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error('❌ Error compressing rules:', errMsg);
@@ -71,7 +71,7 @@ interface BadLinkItem {
 }
 
 class RulesLinter {
-  private readonly transcriptsDir = path.join(__dirname, '../../data/agents');
+  private readonly transcriptsDir = path.join(__dirname, '../data/sessions');
 
   public run(): void {
     try {

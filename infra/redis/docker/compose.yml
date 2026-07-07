@@ -3,7 +3,7 @@
 # ==============================================================================
 # 1. redis
 #    - 용도: 분산 크롤러 워커(Worker)들이 비동기로 작업을 할당받을 수 있는 메시지 큐 시스템 (BullMQ용)
-#    - 볼륨: 프로젝트 루트의 `data/.services/redis` 경로에 Redis 스냅샷 데이터 저장
+#    - 볼륨: 프로젝트 루트의 `infra/.volumes/redis` 경로에 Redis 스냅샷 데이터 저장
 #    - 헬스체크: redis-cli ping 명령어로 감시
 #
 # 2. redisinsight (profile: tools)
@@ -18,7 +18,7 @@ services:
     environment:
       - TZ=${TZ:-Asia/Seoul}
     volumes:
-      - ${PROJECT_PATH:-.}/data/.services/redis:/data
+      - ${PROJECT_PATH:-.}/infra/.volumes/redis:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

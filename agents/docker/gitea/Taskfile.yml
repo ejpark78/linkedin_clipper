@@ -135,11 +135,11 @@ tasks:
       Gitea에 생성되어 있는 원본 리포지토리의 이슈 목록 및 위키 전체 페이지 데이터를 로컬 덤프(Dump)합니다.
 
       [Flags]
-        - --dir=<path>: 덤프 디렉터리 (기본값: "data/dumps/gitea")
+        - --dir=<path>: 덤프 디렉터리 (기본값: "agents/data/dumps/gitea")
 
       [Usage Examples]
         - task git:repo:dump
-        - task git:repo:dump -- --dir=data/backup/gitea
+        - task git:repo:dump -- --dir=agents/data/backup/gitea
     cmds:
       - npm run git -w agents -- repo:dump {{.CLI_ARGS}}
 
@@ -152,7 +152,7 @@ tasks:
         - --dir=<path>: (필수) 덤프 디렉터리 경로
 
       [Usage Examples]
-        - task git:repo:restore -- --dir=data/dumps/gitea/20260703
+        - task git:repo:restore -- --dir=agents/data/dumps/gitea/20260703
     cmds:
       - npm run git -w agents -- repo:restore {{.CLI_ARGS}}
 
@@ -162,13 +162,13 @@ tasks:
       Gitea 서버 내부의 특정 이슈 데이터를 JSON 포맷으로 로컬 백업합니다.
 
       [Flags]
-        - --dir=<path>: 백업 디렉터리 (기본값: "data/dumps/gitea")
+        - --dir=<path>: 백업 디렉터리 (기본값: "agents/data/dumps/gitea")
         - --issue=<id>: (옵션) 특정 이슈 ID (생략 시 전체)
 
       [Usage Examples]
         - task git:issue:dump
         - task git:issue:dump -- --issue=104
-        - task git:issue:dump -- --dir=data/backup --issue=104
+        - task git:issue:dump -- --dir=agents/data/backup --issue=104
     cmds:
       - npm run git -w agents -- issue:dump {{.CLI_ARGS}}
 
@@ -181,7 +181,7 @@ tasks:
         - --file=<path>: (필수) 복원할 JSON 파일 경로
 
       [Usage Examples]
-        - task git:issue:restore -- --file=data/dumps/gitea/issues.json
+        - task git:issue:restore -- --file=agents/data/dumps/gitea/issues.json
     cmds:
       - npm run git -w agents -- issue:restore {{.CLI_ARGS}}
 
@@ -195,7 +195,7 @@ tasks:
 
       [Usage Examples]
         - task git:wiki:init
-        - task git:wiki:init -- --dir=data/docs/wiki
+        - task git:wiki:init -- --dir=agents/data/docs/wiki
     cmds:
       - npm run git -w agents -- wiki:init {{.CLI_ARGS}}
 
@@ -205,7 +205,7 @@ tasks:
       Gitea wiki 저장소(.wiki.git)를 로컬 디렉토리에 clone합니다.
 
       [Flags]
-        - --dir=<path>: (옵션) wiki 저장 디렉토리 (기본값: data/dumps/gitea)
+        - --dir=<path>: (옵션) wiki 저장 디렉토리 (기본값: agents/data/dumps/gitea)
 
       [Usage Examples]
         - task git:wiki:dump
@@ -221,7 +221,7 @@ tasks:
         - --dir=<path>: (필수) 로컬 wiki 저장소 디렉토리 경로
 
       [Usage Examples]
-        - task git:wiki:restore -- --dir=data/dumps/gitea/wiki
+        - task git:wiki:restore -- --dir=agents/data/dumps/gitea/wiki
     cmds:
       - npm run git -w agents -- wiki:restore {{.CLI_ARGS}}
 

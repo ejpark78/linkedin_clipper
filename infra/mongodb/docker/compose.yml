@@ -3,7 +3,7 @@
 # ==============================================================================
 # 1. mongodb
 #    - 용도: 크롤러가 수집한 원본 채용 정보(Bronze) 및 정제 데이터(Silver) 영구 적재 데이터베이스
-#    - 볼륨: 프로젝트 루트의 `data/.services/mongodb` 경로에 데이터 보존
+#    - 볼륨: 프로젝트 루트의 `infra/.volumes/mongodb` 경로에 데이터 보존
 #    - 헬스체크: mongosh ping 테스트를 통해 정상 구동 확인
 #
 # 2. mongo-express (profile: tools)
@@ -20,7 +20,7 @@ services:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-linkedin}
     volumes:
-      - ${PROJECT_PATH:-.}/data/.services/mongodb:/data/db
+      - ${PROJECT_PATH:-.}/infra/.volumes/mongodb:/data/db
     restart: unless-stopped
     networks:
       default:

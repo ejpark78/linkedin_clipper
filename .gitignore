@@ -3,6 +3,7 @@
 .vscode/
 data/
 data/sessions/
+agents/data/
 node_modules/
 notebooks/.*
 
@@ -13,3 +14,4 @@ notebooks/.*
 .pytest_cache/
 .ruff_cache/
 .mypy_cache
+.volumes

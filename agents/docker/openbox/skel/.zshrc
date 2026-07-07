@@ -7,7 +7,7 @@ export ZSH="$HOME/.oh-my-zsh"
 
 # 테마 및 플러그인 정의
 ZSH_THEME="robbyrussell"
-plugins=(git docker docker-compose jq)
+plugins=(git docker docker-compose)
 
 source $ZSH/oh-my-zsh.sh 2>/dev/null || true
 

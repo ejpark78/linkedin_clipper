@@ -690,11 +690,11 @@ class SessionPruner {
       const transcriptFile = path.join(this.transcriptsDir, sessionId, 'session.md');
       if (fs.existsSync(transcriptDir)) {
         fs.rmSync(transcriptDir, { recursive: true, force: true });
-        console.log(`     📄 Also removed: data/agents/${sessionId}/`);
+        console.log(`     📄 Also removed: agents/data/sessions/${sessionId}/`);
       }
       if (fs.existsSync(transcriptFile)) {
         fs.rmSync(transcriptFile, { force: true });
-        console.log(`     📄 Also removed: data/agents/${sessionId}/session.md`);
+        console.log(`     📄 Also removed: agents/data/sessions/${sessionId}/session.md`);
       }
     }
 
@@ -737,7 +737,7 @@ if (require.main === module) {
   const agents = agentFlag ? parseAgentsFromArg(agentFlag.split('=')[1]) : ['agy'];
 
   // Parse output directory option
-  let outputBase = path.join(__dirname, '../../data/agents');
+  let outputBase = path.join(__dirname, '../data/sessions');
   const outputFlag = args.find(a => a.startsWith('--output='));
   if (outputFlag) {
     outputBase = outputFlag.split('=')[1];
