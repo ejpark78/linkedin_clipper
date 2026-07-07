@@ -1,0 +1,5 @@
+[Profile]
+# Trigger Hotkey
+TriggerHotkey=CTRL_SPACE
+# Default IME List
+EnabledIMList=fcitx-keyboard-kr:True,hangul:True,default:True
