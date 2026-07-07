@@ -1,11 +1,5 @@
 version: '3'
 
-includes:
-  git:
-    taskfile: ./docker/gitea/Taskfile.yml
-  traefik:
-    taskfile: ./docker/traefik/Taskfile.yml
-
 tasks:
   session:dump:
     desc: "Dump agent sessions."
