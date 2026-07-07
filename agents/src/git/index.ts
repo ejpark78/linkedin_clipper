@@ -40,7 +40,12 @@ class GitController {
           process.exit(1);
         }
         const skipLabel = args.includes('--no-label');
-        await gitea.createIssue(readFileOrExit(titleFile), readFileOrExit(bodyFile), skipLabel);
+        const issueNumber = await gitea.createIssue(readFileOrExit(titleFile), readFileOrExit(bodyFile), skipLabel);
+        const commitHash = git.runCmd('git rev-parse HEAD', true);
+        if (commitHash) {
+          const refBody = `## 🔗 References\n- [Commit Diff: ${commitHash.substring(0, 8)}](/commit/${commitHash})`;
+          await gitea.createComment(String(issueNumber), refBody);
+        }
         break;
       }
 
@@ -68,6 +73,11 @@ class GitController {
         }
         if (bodyFile) {
           await gitea.updateIssue(issueId, titleFile ? readFileOrExit(titleFile) : '', readFileOrExit(bodyFile));
+          const commitHash = git.runCmd('git rev-parse HEAD', true);
+          if (commitHash) {
+            const refBody = `## 🔗 References\n- [Commit Diff: ${commitHash.substring(0, 8)}](/commit/${commitHash})`;
+            await gitea.createComment(issueId, refBody);
+          }
         } else {
           console.error('--body-file is required for update-issue');
           process.exit(1);
