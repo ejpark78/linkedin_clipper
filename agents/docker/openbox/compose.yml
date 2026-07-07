@@ -1,0 +1,49 @@
+# ==============================================================================
+# 🤖 Agent Development Openbox (GUI) Service Block
+# ==============================================================================
+# - 주소: https://desktop.localhost/
+# - 용도: OpenCode Desktop, 웹 브라우저 기반 GUI 연동 격리 개발 공간 (noVNC / Openbox)
+# ==============================================================================
+
+services:
+  openbox:
+    image: agents/openbox:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    profiles:
+      - tools
+    depends_on:
+      traefik:
+        condition: service_healthy
+    environment:
+      - PUID=${USER_UID:-1000}
+      - PGID=${USER_GID:-1000}
+      - TZ=${TZ:-Asia/Seoul}
+      - PROJECT_PATH=${PROJECT_PATH:-.}
+    volumes:
+      # DooD 구성을 위한 Docker Socket 마운트
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
+      - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
+      # sandbox와 자격증명/설정 정보 영구 공유
+      - ${PROJECT_PATH:-.}/data/.services/sandbox/local:/config/.local
+      - ${PROJECT_PATH:-.}/data/.services/sandbox/config:/config/.config
+      - ${PROJECT_PATH:-.}/data/.services/sandbox/gemini:/config/.gemini
+      - ${PROJECT_PATH:-.}/data/.services/sandbox/opencode:/config/.opencode
+      - ${PROJECT_PATH:-.}/data/.services/sandbox/codex:/config/.codex
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openbox.rule=Host(`openbox.localhost`)"
+      - "traefik.http.routers.openbox.entrypoints=websecure"
+      - "traefik.http.routers.openbox.tls=true"
+      - "traefik.http.services.openbox.loadbalancer.server.port=3000"

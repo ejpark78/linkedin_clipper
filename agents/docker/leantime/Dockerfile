@@ -1,0 +1,1 @@
+FROM leantime/leantime:latest

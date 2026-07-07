@@ -11,7 +11,7 @@ trigger: code, python, typescript, vue, script, class, interface, type, py, ts, 
 ## 1. 🐍 Python Rules
 
 Python 코드를 작성하고 리팩터링할 때 지켜야 할 규칙입니다.
-* **버전 및 코딩 표준**: Python 3.11+ 문법의 새로운 기능을 적극 활용하고, PEP 8 스타일 가이드를 준수합니다.
+* **버전 및 코딩 표준**: Python 3.13+ 문법의 새로운 기능을 적극 활용하고, PEP 8 스타일 가이드를 준수합니다.
 * **엄격한 타입 힌팅 (Strict Typing)**: 모든 함수 및 메서드 정의부에는 매개변수와 반환값의 Type Hinting을 필수적으로 적용합니다. `Any` 타입 사용은 강력히 지양하고 구체적인 타입을 선언합니다.
 * **의존성 관리 (`uv`)**:
   - 패키지 의존성 관리에 최신 고속 도구인 `uv`를 사용합니다.

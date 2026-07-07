@@ -156,3 +156,43 @@ tasks:
         - task agents:sandbox:shell
     cmds:
       - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} exec -it sandbox bash'
+
+  openbox:up:
+    desc: "코딩 에이전트 개발 GUI 데스크톱(openbox) 실행"
+    summary: |
+      Webtop 기반 에이전트 GUI 데스크톱 컨테이너를 백그라운드로 실행하고 Traefik 라우팅을 활성화합니다.
+
+      [Usage Examples]
+        - task agents:openbox:up
+    cmds:
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} --profile tools up -d openbox'
+
+  openbox:down:
+    desc: "코딩 에이전트 개발 GUI 데스크톱 중지"
+    summary: |
+      에이전트 GUI 데스크톱 컨테이너를 중지합니다.
+
+      [Usage Examples]
+        - task agents:openbox:down
+    cmds:
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} stop openbox'
+
+  openbox:build:
+    desc: "코딩 에이전트 개발 GUI 데스크톱 이미지 빌드"
+    summary: |
+      GUI 데스크톱 이미지 및 의존성 환경을 캐시 없이 강제 재빌드합니다.
+
+      [Usage Examples]
+        - task agents:openbox:build
+    cmds:
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} --profile tools build --no-cache openbox'
+
+  openbox:shell:
+    desc: "코딩 에이전트 개발 GUI 데스크톱 내 터미널 셸(zsh) 접속"
+    summary: |
+      에이전트 GUI 데스크톱 컨테이너 내부 터미널 셸에 인터랙티브하게 접속합니다.
+
+      [Usage Examples]
+        - task agents:openbox:shell
+    cmds:
+      - '{{default "docker compose -p project -f compose.yml" .COMPOSE}} exec -it openbox zsh'

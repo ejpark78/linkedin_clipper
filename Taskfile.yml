@@ -47,6 +47,9 @@ includes:
   traefik:
     taskfile: ./agents/docker/traefik/Taskfile.yml
     dir: .
+  leantime:
+    taskfile: ./agents/docker/leantime/Taskfile.yml
+    dir: .
 
 
 tasks:
