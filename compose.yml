@@ -16,11 +16,11 @@ include:
   - apps/crawler/docker/worker/compose.yml
   - apps/ebook/docker/compose.yml
   - apps/viewer/docker/compose.yml
-  - agents/docker/gitea/compose.yml
+  - agents/docker/gitea/docker/compose.yml
   - infra/mongodb/docker/compose.yml
   - infra/meilisearch/docker/compose.yml
   - infra/redis/docker/compose.yml
-  - agents/docker/traefik/compose.yml
+  - agents/docker/traefik/docker/compose.yml
   - apps/wiki/docker/obsidian/compose.yml
   - agents/docker/compose.yml
   - apps/wiki/docker/web/compose.yml
