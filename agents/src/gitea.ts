@@ -341,6 +341,18 @@ class GiteaClient {
     console.log(`==========================================`);
   }
 
+  public async printIssueJson(issueId: string): Promise<void> {
+    const issue = await this.request<Record<string, unknown>>(`/repos/${this.config.repo}/issues/${issueId}`, 'GET');
+    console.log(JSON.stringify(issue, null, 2));
+  }
+
+  public async printIssuesJson(state: string, limit: number): Promise<void> {
+    const issues = await this.getIssues();
+    const filtered = state === 'all' ? issues : issues.filter(i => i.state === state);
+    const sliced = filtered.slice(0, limit);
+    console.log(JSON.stringify(sliced, null, 2));
+  }
+
   public async generateTokenWithTea(): Promise<void> {
     console.log('🍵 tea CLI 로그인 설정을 추가하고 토큰을 확인합니다...');
     try {
@@ -970,7 +982,11 @@ class GiteaController {
       case 'show-issue': {
         const issueId = parseFlag(args, '--issue', '-i');
         if (!issueId) { console.error('Usage: npm run gitea show-issue --issue=<id>'); process.exit(1); }
-        await client.printIssueBody(issueId);
+        if (args.includes('--json')) {
+          await client.printIssueJson(issueId);
+        } else {
+          await client.printIssueBody(issueId);
+        }
         break;
       }
 
@@ -1043,6 +1059,11 @@ class GiteaController {
         if (stateStr) state = stateStr;
         const limitStr = parseFlag(args, '--limit', '-l');
         if (limitStr) { const l = parseInt(limitStr, 10); if (!isNaN(l)) limit = l; }
+
+        if (args.includes('--json')) {
+          await client.printIssuesJson(state, limit);
+          break;
+        }
 
         const filtered = state === 'all' ? allIssues : allIssues.filter(i => i.state === state);
         const sliced = filtered.slice(0, limit);
