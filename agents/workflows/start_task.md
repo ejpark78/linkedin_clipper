@@ -7,7 +7,7 @@ Ensure every coding session starts with a Gitea issue and user approval before a
 
 ### 1. Check / Create Gitea Issue
 - Extract current branch name with `git rev-parse --abbrev-ref HEAD`
-- If branch contains an issue number (e.g. `issue/123-xxx`), reuse that issue
+- If branch contains an issue number (e.g. `feature/123-xxx`), reuse that issue
 - If no issue exists, create one via:
   `npm run git create-issue --title-file=<path> --body-file=<path>`
 - Issue body must include: 목적, 변경 계획, 예상 파일 목록
