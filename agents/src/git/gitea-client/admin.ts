@@ -190,7 +190,7 @@ export class AdminClient extends BaseGiteaClient {
       console.warn('AdminClient: no existing gitea remote to remove');
     }
     execSync(`git remote add gitea https://gitea:${token}@${this.gitHost}/${this.config.repo}.git`, { stdio: 'inherit' });
-    execSync('git push gitea main', { stdio: 'inherit' });
+    execSync('git push gitea develop', { stdio: 'inherit' });
     await this.seedDefaultLabels();
     console.log('Gitea initialization complete!');
   }

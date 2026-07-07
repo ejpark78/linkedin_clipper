@@ -27,4 +27,5 @@ Ensure every coding session starts with a Gitea issue and user approval before a
 
 ## Exceptions
 - Read-only exploration / information gathering: skip Steps 1-2
+- Emergency hotfix (user explicitly says "urgent" / "hotfix"): skip Step 2
 - User explicitly says "no issue needed": respect their request
