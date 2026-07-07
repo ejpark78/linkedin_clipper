@@ -279,6 +279,48 @@ class GitService {
     const url = new URL(apiUrl);
     return `${url.protocol}//${pushUser}:${token}@${url.host}/${repo}.git`;
   }
+
+  currentBranch(): string {
+    return this.runCmd('git rev-parse --abbrev-ref HEAD', true);
+  }
+
+  shortStatus(): string {
+    return this.runCmd('git status --short', true);
+  }
+
+  hasUncommitted(): boolean {
+    return !!this.shortStatus();
+  }
+
+  stash(): void {
+    this.runCmdInherit('git stash');
+  }
+
+  stashPop(): void {
+    this.runCmdInherit('git stash pop');
+  }
+
+  checkout(branch: string): void {
+    this.runCmd(`git checkout ${branch}`);
+  }
+
+  checkoutNew(branch: string): void {
+    this.runCmd(`git checkout -b ${branch}`);
+  }
+
+  pull(branch = 'develop'): void {
+    const remotes = this.runCmd('git remote', true).split('\n').filter(Boolean);
+    const remote = remotes[0] || 'origin';
+    this.runCmd(`git pull ${remote} ${branch}`);
+  }
+
+  merge(branch: string): void {
+    this.runCmd(`git merge ${branch}`);
+  }
+
+  log(count = 5): string {
+    return this.runCmd(`git log --oneline -${count}`, true);
+  }
 }
 
 // ================================================================
@@ -1713,6 +1755,58 @@ class GitController {
         break;
       }
 
+      // ---- Git Flow Operations ----
+      case 'start': {
+        const issue = parseFlag(args, '--issue', '-i');
+        const desc = parseFlag(args, '--desc', '-d');
+        if (!issue || !desc) {
+          console.error('Usage: npm run git start --issue=<number> --desc=<kebab-description>');
+          process.exit(1);
+        }
+        const branchName = `feature/${issue}-${desc}`;
+        const stashed = git.hasUncommitted();
+        if (stashed) {
+          git.stash();
+        }
+        git.checkout('develop');
+        git.pull();
+        git.checkoutNew(branchName);
+        if (stashed) {
+          git.stashPop();
+        }
+        console.log(`Switched to new branch: ${branchName}`);
+        break;
+      }
+
+      case 'branch': {
+        console.log(`Current branch: ${git.currentBranch()}`);
+        const status = git.shortStatus();
+        if (status) {
+          console.log('Uncommitted changes:');
+          console.log(status);
+        } else {
+          console.log('Working tree clean.');
+        }
+        break;
+      }
+
+      case 'log': {
+        const countStr = parseFlag(args, '--count', '-c');
+        const count = countStr ? parseInt(countStr, 10) || 10 : 10;
+        console.log(git.log(count));
+        break;
+      }
+
+      case 'status': {
+        const status = git.shortStatus();
+        if (status) {
+          console.log(status);
+        } else {
+          console.log('Working tree clean.');
+        }
+        break;
+      }
+
       default:
         console.error(`Unknown command: '${action}'`);
         console.error('Available commands:');
@@ -1723,6 +1817,7 @@ class GitController {
         console.error('  Repo:     repo:dump, repo:restore, issue:dump, issue:restore');
         console.error('  Wiki:     wiki:init, wiki:dump, wiki:restore');
         console.error('  Pipeline: commit, review, push');
+        console.error('  Git:      start, branch, log, status');
         process.exit(1);
     }
   }
