@@ -462,8 +462,8 @@ Diff stats:\n${stat || 'none'}`,
       return;
     }
     const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
-    const gitHost = new URL(this.config.apiUrl).host;
-    const pushUrl = `https://${pushUser}:${this.config.accessToken}@${gitHost}/${this.config.repo}.git`;
+    const apiUrl = new URL(this.config.apiUrl);
+    const pushUrl = `${apiUrl.protocol}//${pushUser}:${this.config.accessToken}@${apiUrl.host}/${this.config.repo}.git`;
     this.git.runCmd(`git push "${pushUrl}" develop --no-verify`);
     console.log('✅ 원격 저장소 동기화가 정상 완료되었습니다.');
   }
@@ -475,8 +475,8 @@ Diff stats:\n${stat || 'none'}`,
       return;
     }
     const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
-    const gitHost = new URL(this.config.apiUrl).host;
-    const pushUrl = `https://${pushUser}:${this.config.accessToken}@${gitHost}/${this.config.repo}.git`;
+    const apiUrl = new URL(this.config.apiUrl);
+    const pushUrl = `${apiUrl.protocol}//${pushUser}:${this.config.accessToken}@${apiUrl.host}/${this.config.repo}.git`;
     this.git.runCmd(`git push "${pushUrl}" "${branchName}" --no-verify`);
     console.log('✅ 원격 저장소 동기화가 정상 완료되었습니다.');
   }

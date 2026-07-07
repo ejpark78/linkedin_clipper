@@ -126,8 +126,8 @@ class ReleaseHelper {
     }
 
     const pushUser = process.env.GITEA_ADMIN_USER || 'gitea-admin';
-    const gitHost = new URL(process.env.GITEA_API_URL || 'https://git.localhost/api/v1').host;
-    const pushUrl = `https://${pushUser}:${this.config.accessToken}@${gitHost}/${this.config.repo}.git`;
+    const apiUrl = new URL(process.env.GITEA_API_URL || 'https://git.localhost/api/v1');
+    const pushUrl = `${apiUrl.protocol}//${pushUser}:${this.config.accessToken}@${apiUrl.host}/${this.config.repo}.git`;
 
     console.log("🚀 로컬 'develop' 브랜치를 origin에 push 중...");
     this.git.runCmd(`git push "${pushUrl}" develop`);
