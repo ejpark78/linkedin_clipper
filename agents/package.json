@@ -4,10 +4,7 @@
   "private": true,
   "description": "Agent Development Kit — Self-contained agent helper scripts, rules, skills, and workflows",
   "scripts": {
-    "review": "ts-node src/review-changes.ts",
-    "gitea": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/gitea.ts",
-    "commit": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/commit-changes.ts",
-    "push": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/push-changes.ts",
+    "git": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/git.ts",
     "sessions": "ts-node --project tsconfig.json src/sessions.ts",
     "rules": "ts-node --project tsconfig.json src/rules.ts",
     "usage": "ts-node --project tsconfig.json src/usage.ts"

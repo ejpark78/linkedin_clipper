@@ -40,7 +40,7 @@ trigger: always_on
 1. **작업 시작 전**:
    - 로컬 환경의 `develop` 및 `main` 브랜치를 원격지 최신 상태로 갱신해야 합니다 (`git pull`).
 2. **브랜치 전환 전**:
-   - 현재 브랜치에서 작업 중이던 코드가 유실되거나 꼬이지 않도록 `npm run commit -w agents` (또는 `task git:commit`) 명령어를 먼저 실행하여 완전히 로컬 커밋을 완료하거나, `git stash`로 임시 보관해야 합니다.
+   - 현재 브랜치에서 작업 중이던 코드가 유실되거나 꼬이지 않도록 `npm run git commit -w agents` (또는 `task git:commit`) 명령어를 먼저 실행하여 완전히 로컬 커밋을 완료하거나, `git stash`로 임시 보관해야 합니다.
 3. **머지 충돌(Merge Conflict) 처리**:
    - 충돌이 발생하면 임의로 `--force` 옵션을 붙여 강제 푸시하는 행위는 절대 엄금합니다. 충돌 내역을 정밀 진단하고 스스로 해결하기 어려울 경우 사용자에게 즉시 알려 페어로 해결합니다.
 4. **환경 검증**:
@@ -63,6 +63,11 @@ trigger: always_on
      - 원격 저장소의 사라진 브랜치 참조(ref) 정리
    - `release/*` 브랜치는 릴리즈 이력 보존을 위해 자동 정리 대상에서 제외됩니다.
 9. **세션 컨텍스트 저장**:
-   - 세션 종료 시 `task git:issue:save`로 에이전트 컨텍스트 메모리를 Gitea 이슈로 저장합니다.
+   - 세션 종료 시 `npm run git issue:save` (또는 `task git:issue:save`)로 에이전트 컨텍스트 메모리를 Gitea 이슈로 저장합니다.
    - 저장 정보: 커밋 내역, 변경 파일, Decisions (Ollama 자동 추론), 관련 이슈
    - 템플릿: `.agents/templates/memory.md`
+
+## 4. Git 헬퍼 스크립트
+모든 Git/Gitea 작업은 통합 `agents/src/git.ts` 스크립트를 통해 실행합니다.
+- `npm run git <command>` — 모든 서브커맨드 (create-issue, commit, review, push 등)
+- 상세 커맨드 목록: `npm run git` (도움말 출력)

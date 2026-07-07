@@ -82,7 +82,9 @@
 
 ## 🔓 사전 승인 명령어
 - `git ls-files`
-- `npm run commit`
-- `npm run gitea`
-- `npx ts-node agents/src/gitea.ts`
+- `npm run git`
+- `npm run git commit`
+- `npm run git review`
+- `npm run git push`
+- `npx ts-node agents/src/git.ts`
 - `task`
