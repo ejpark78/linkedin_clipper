@@ -15,7 +15,7 @@ import { Config } from './config';
 import { GitService } from './git-service';
 import { GiteaClient } from './gitea-client/client';
 import { ValidationService } from './validation-service';
-import { ReleaseCoordinator, ReleaseHelper } from './release-coordinator';
+import { ReleaseCoordinator } from './release-coordinator';
 import { LabelService } from './label-service';
 import { parseFlag, readFileOrExit } from './util';
 
@@ -212,7 +212,7 @@ class GitController {
 
       // ---- Commit (from commit-changes.ts) ----
       case 'commit': {
-        const coordinator = new ReleaseCoordinator(config, git, validator, gitea);
+        const coordinator = new ReleaseCoordinator(config, git, validator);
         await coordinator.execute();
         break;
       }
@@ -223,32 +223,35 @@ class GitController {
         break;
       }
 
-      // ---- Push (from push-changes.ts) ----
+      // ---- Push current branch to remote ----
       case 'push': {
-        const helper = new ReleaseHelper(git, config);
-        helper.execute();
+        const branchName = git.currentBranch();
+        if (!config.accessToken) {
+          console.error('ERROR: GITEA_ACCESS_TOKEN not set. Cannot push.');
+          process.exit(1);
+        }
+        const pushUrl = git.buildPushUrl(config.apiUrl, config.repo, config.accessToken);
+        git.runCmd(`git push "${pushUrl}" "${branchName}" --no-verify`);
+        console.log(`Pushed '${branchName}' to remote.`);
         break;
       }
 
-      // ---- Git Flow Operations ----
+      // ---- Start new feature branch ----
       case 'start': {
-        const issue = parseFlag(args, '--issue', '-i');
         const desc = parseFlag(args, '--desc', '-d');
-        if (!issue || !desc) {
-          console.error('Usage: npm run git start --issue=<number> --desc=<kebab-description>');
+        if (!desc) {
+          console.error('Usage: npm run git start --desc=<kebab-description>');
+          console.error('  Optionally: --issue=<number> to include issue number in branch name');
           process.exit(1);
         }
-        const branchName = `feature/${issue}-${desc}`;
+        const issue = parseFlag(args, '--issue', '-i');
+        const branchName = issue ? `feature/${issue}-${desc}` : `feature/${desc}`;
         const stashed = git.hasUncommitted();
-        if (stashed) {
-          git.stash();
-        }
-        git.checkout('develop');
-        git.pull();
+        if (stashed) git.stash();
+        git.checkout('main');
+        git.pull('main');
         git.checkoutNew(branchName);
-        if (stashed) {
-          git.stashPop();
-        }
+        if (stashed) git.stashPop();
         console.log(`Switched to new branch: ${branchName}`);
         break;
       }
@@ -285,14 +288,12 @@ class GitController {
       default:
         console.error(`Unknown command: '${action}'`);
         console.error('Available commands:');
-        console.error('  Issue:    create-issue, comment, update-issue, update-comment, close-issue, reopen-issue, show-issue, list-issues');
-        console.error('  Token:    generate-token, generate-token-tea');
+        console.error('  Issue:    create-issue, comment, update-issue, close-issue, show-issue, list-issues');
+        console.error('  Token:    generate-token');
         console.error('  Init:     init');
-        console.error('  Session:  issue:save');
-        console.error('  Repo:     repo:dump, repo:restore, issue:dump, issue:restore');
+        console.error('  Repo:     repo:dump, repo:restore');
         console.error('  Wiki:     wiki:init, wiki:dump, wiki:restore');
-        console.error('  Pipeline: commit, review, push');
-        console.error('  Git:      start, branch, log, status');
+        console.error('  Git:      commit, review, push, start, branch, log, status');
         process.exit(1);
     }
   }
