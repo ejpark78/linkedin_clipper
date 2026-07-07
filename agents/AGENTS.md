@@ -86,5 +86,5 @@
 - `npm run git commit`
 - `npm run git review`
 - `npm run git push`
-- `npx ts-node agents/src/git.ts`
+- `npx ts-node agents/src/git/index.ts`
 - `task`

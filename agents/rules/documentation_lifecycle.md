@@ -17,7 +17,7 @@ graph LR
 
 1. **계획 제안 (Plan)**:
    - 에이전트는 새로운 개발 작업을 시작할 때 `task git:issue:new`를 우선 사용해 새로운 이슈를 생성합니다.
-   - `task git:*` 래퍼는 내부적으로 통합 TypeScript 헬퍼(`agents/src/git.ts`)를 호출하며, Gitea MCP나 대화형 CLI를 통한 직접 제어보다 우선합니다.
+   - `task git:*` 래퍼는 내부적으로 통합 TypeScript 헬퍼(`agents/src/git/index.ts`)를 호출하며, Gitea MCP나 대화형 CLI를 통한 직접 제어보다 우선합니다.
    - 이슈 제목 규칙: `[SCR-###] 기능/버그 요약`
    - 이슈 본문(Description)에 계획서(Plan) 내용 및 구현에 필요한 세부 작업 목록(Task Checkbox `- [ ]`)을 작성합니다.
    - 생성된 이슈의 웹 주소를 채팅창에 고지하여 사용자의 승인을 기다립니다.

@@ -68,6 +68,6 @@ trigger: always_on
    - 템플릿: `.agents/templates/memory.md`
 
 ## 4. Git 헬퍼 스크립트
-모든 Git/Gitea 작업은 통합 `agents/src/git.ts` 스크립트를 통해 실행합니다.
+모든 Git/Gitea 작업은 통합 `agents/src/git/index.ts` 스크립트를 통해 실행합니다.
 - `npm run git <command>` — 모든 서브커맨드 (create-issue, commit, review, push 등)
 - 상세 커맨드 목록: `npm run git` (도움말 출력)

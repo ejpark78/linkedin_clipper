@@ -4,7 +4,7 @@
   "private": true,
   "description": "Agent Development Kit — Self-contained agent helper scripts, rules, skills, and workflows",
   "scripts": {
-    "git": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/git.ts",
+    "git": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/git/index.ts",
     "sessions": "ts-node --project tsconfig.json src/sessions.ts",
     "rules": "ts-node --project tsconfig.json src/rules.ts",
     "usage": "ts-node --project tsconfig.json src/usage.ts"

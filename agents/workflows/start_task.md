@@ -22,7 +22,7 @@ Ensure every coding session starts with a Gitea issue and user approval before a
 - Run verification (test/lint/type-check)
 
 ### 4. Close Issue (on completion)
-- Use `npm run git commit` which auto-closes via git.ts
+- Use `npm run git commit` which auto-closes via git/index.ts
 - Or manually: comment completion details + `npm run git close-issue --issue=<number>`
 
 ## Exceptions
