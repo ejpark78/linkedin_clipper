@@ -8,7 +8,10 @@
 
 services:
   gitea:
-    image: gitea/gitea:1.26-rootless
+    image: agents/gitea:1.26-rootless
+    build:
+      context: .
+      dockerfile: Dockerfile
     profiles:
       - tools
     depends_on:

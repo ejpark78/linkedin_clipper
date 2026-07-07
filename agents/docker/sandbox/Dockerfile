@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y \
     docker.io \
     docker-compose-v2 \
     jq \
+    fontconfig \
+    xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # ubuntu 디폴트 유저의 UID를 호스트에 맞게 변경 (GID는 컨테이너 그룹과 충돌 방지)
@@ -72,6 +74,25 @@ RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/ar
 # oh-my-zsh 설치 스크립트 실행
 USER ubuntu
 RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# JetBrainsMono Nerd Font 설치 및 code-server 폰트 설정
+USER root
+RUN mkdir -p /usr/local/share/fonts/jetbrains-mono && \
+    curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz | \
+    tar -xJ -C /usr/local/share/fonts/jetbrains-mono && \
+    fc-cache -f && \
+    mkdir -p /home/ubuntu/.code-server-data/User && \
+    chown -R ubuntu:ubuntu /home/ubuntu/.code-server-data
+USER ubuntu
+RUN cat > /home/ubuntu/.code-server-data/User/settings.json << 'EOF'
+{
+    "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font'",
+    "editor.fontFamily": "'JetBrainsMono Nerd Font'",
+    "editor.fontLigatures": true,
+    "editor.fontSize": 14,
+    "terminal.integrated.fontSize": 14
+}
+EOF
 
 # Google Antigravity CLI (agy) 설치 (사용자 coder 환경의 로컬 경로에 설치)
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
