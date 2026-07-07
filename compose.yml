@@ -23,6 +23,8 @@ include:
   - agents/docker/traefik/compose.yml
   - apps/wiki/docker/obsidian/compose.yml
   - agents/docker/sandbox/compose.yml
+  - agents/docker/openbox/compose.yml
+  - agents/docker/leantime/compose.yml
   - apps/wiki/docker/web/compose.yml
   - apps/wiki/docker/worker/compose.yml
   - apps/wiki/docker/joplin/compose.yml
