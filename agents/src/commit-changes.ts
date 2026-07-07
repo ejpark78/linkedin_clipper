@@ -228,10 +228,10 @@ class GiteaClient {
  */
 class ValidationService {
   public runCodeReview(): void {
-    if (fs.existsSync('apps/agents/src/review-changes.ts')) {
+    if (fs.existsSync('agents/src/review-changes.ts')) {
       console.log('🤖 Running Code Review Check...');
       try {
-        execSync('npx ts-node apps/agents/src/review-changes.ts', { stdio: 'inherit' });
+        execSync('npx ts-node agents/src/review-changes.ts', { stdio: 'inherit' });
       } catch (e) {
         console.log('⚠️ Review check script failed to run. Proceeding with commit...');
       }
@@ -306,7 +306,7 @@ class ReleaseCoordinator {
     }
 
     const allStaged = this.git.runCmd('git diff --cached --name-only');
-    if (allStaged.includes('AGENTS.md') || allStaged.includes('apps/agents/rules/')) {
+    if (allStaged.includes('AGENTS.md') || allStaged.includes('agents/AGENTS.md') || allStaged.includes('agents/rules/')) {
       return 'docs: update agent rules';
     } else if (allStaged.includes('src/crawler/workers/ConverterWorker.ts')) {
       return 'feat(crawler): retain original image URLs and append collected metadata';

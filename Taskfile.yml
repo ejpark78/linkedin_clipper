@@ -27,13 +27,13 @@ includes:
     taskfile: ./apps/wiki/Taskfile.yml
     dir: .
   agents:
-    taskfile: ./apps/agents/Taskfile.yml
+    taskfile: ./agents/Taskfile.yml
     dir: .
   joplin:
     taskfile: ./apps/wiki/docker/joplin/Taskfile.yml
     dir: .
   git:
-    taskfile: ./infra/gitea/Taskfile.yml
+    taskfile: ./agents/docker/gitea/Taskfile.yml
     dir: .
   meili:
     taskfile: ./infra/meilisearch/Taskfile.yml
@@ -45,7 +45,7 @@ includes:
     taskfile: ./infra/redis/Taskfile.yml
     dir: .
   traefik:
-    taskfile: ./infra/traefik/Taskfile.yml
+    taskfile: ./agents/docker/traefik/Taskfile.yml
     dir: .
 
 

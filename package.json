@@ -4,7 +4,7 @@
   "description": "Development Root Workspace for LinkedIn Clipper Project",
   "private": true,
   "workspaces": [
-    "apps/agents",
+    "agents",
     "apps/crawler",
     "apps/viewer",
     "apps/wiki"

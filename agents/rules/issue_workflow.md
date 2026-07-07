@@ -6,15 +6,15 @@ trigger: always_on
 
 ## 1. 이슈 템플릿
 
-모든 이슈는 `.agents/templates/`의 템플릿을 따라야 합니다.
+모든 이슈는 `agents/templates/`의 템플릿을 따라야 합니다.
 
 ### 1.1 새 이슈 생성 (`git:issue:new TEMPLATE="issue"` 또는 `git:issue:new -- --template issue`)
-- 템플릿: `.agents/templates/issue.md`
+- 템플릿: `agents/templates/issue.md`
 - 단일 이슈의 목표, 배경(Context Memory), 해결방안, 참조를 구조화
 - Ollama 사용 가능 시 Context Memory와 Solution을 자동 생성
 
 ### 1.2 에이전트 컨텍스트 저장 (`git:issue:save`)
-- 템플릿: `.agents/templates/memory.md`
+- 템플릿: `agents/templates/memory.md`
 - 현재 세션의 전체 컨텍스트(커밋, 결정사항, 변경파일)를 Gitea 이슈로 저장
 - Ollama가 Decisions 자동 추론 (없으면 빈칸)
 

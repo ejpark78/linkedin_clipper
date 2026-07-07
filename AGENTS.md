@@ -1,4 +1,4 @@
-# 🤖 Agent Project Rules (AGENTS.md)
+# 🤖 Agent Project Rules (Monorepo Root)
 
 ## 🎯 Project Vision
 
@@ -6,116 +6,47 @@
 
 ---
 
-## ⚠️ 주요 제약 사항 (Critical Constraints)
+## 📖 Primary Rules
 
-### 0. 규칙 우선순위와 적용 범위
-* 이 저장소의 운영 규칙은 다음 우선순위로 해석합니다.
-  1. `AGENTS.md`
-  2. `apps/agents/rules/*.md`
-  3. `apps/agents/skills/*.md`
-  4. `apps/agents/workflows/*.md`
-* 상위 문서와 하위 문서가 충돌하면 상위 문서를 우선합니다.
-* `Pre-Approved Commands`는 이 문서에 명시된 명령만 예외로 인정합니다. 그 외의 셸 명령은 읽기 전용이더라도 사용자 승인 대상입니다.
-* Gitea 이슈 생성, 댓글, Close/ Reopen, Commit Diff 링크 갱신 같은 상태 변경 작업은 작업 흐름의 일부이며, 별도 예외 명령으로 해석하지 않습니다.
+에이전트 운영 규칙은 `agents/AGENTS.md`를 최우선으로 따릅니다:
 
-### 1. 운영 및 승인 프로세스 (Process & Approvals)
-* **임의 Bash 명령어 금지**: Pre-Approved 명령어를 제외한 모든 셸 명령어(읽기 전용 진단, git, docker, ls, env 등 포함)는 사용자의 명시적 승인이 필요합니다. 정확한 명령어를 채팅에 먼저 제시하고 승인을 받으세요. 여러 진단/상태 확인 및 `docker compose exec / run` 등을 통한 컨테이너 내부 셸 호출은 `&&`, `;` 또는 `cat << 'EOF' | bash`로 연결하여 단일 실행으로 압축하세요.
-* **Gitea 이슈 기반 단일 계획 수립 및 자율 일괄 실행**:
-  * **Plan(계획서)이 구체화되는 시점**에 Gitea 이슈를 생성해 작업 범위와 목표를 고정합니다. 단순 탐색/진단만으로는 이슈를 생성하지 않으며, 구체적인 수정 계획(대상 파일, 단계, 예상 결과)이 수립된 후에 생성합니다.
-  * 작업 범위가 바뀌면 기존 이슈를 종료하고, 변경된 범위로 새 이슈를 생성합니다.
-  * 작업이 완료되면 해당 이슈를 종료합니다.
-  * 이미 종료된 이슈에서 오류, 보완, 추가 조율이 생기면 새 이슈를 만들지 말고 기존 이슈를 재오픈합니다.
-  * **Plan 계획서 및 분석 결과를 이슈 본문에 포함**: Gitea 이슈 생성 시 분석 결과(문제점 진단, 근거), 목표, 단계별 실행 계획, 대상 파일 목록을 본문에 상세 기술합니다. 작업 범위와 근거가 명확히 전달되어야 승인 프로세스가 의미를 가집니다. (로컬 `plan.md` 및 `action_items.md` 작성 절차는 폐지하고 Gitea 이슈로 단일화합니다.)
-  * **진단 중 개발 작업 전환 시 이슈 생성 강제**: 진단/탐색 중이라도 **구체적인 Plan(수정 대상 파일, 단계별 실행 계획, 예상 결과)이 수립되는 즉시** Gitea 이슈를 생성하고 계획서와 분석 결과를 본문에 포함합니다. 이후 해당 Plan 범위 내의 모든 편집은 추가 이슈 없이 진행 가능합니다. 범위를 벗어나는 새 작업이 발생하면 새 Plan 수립 → 새 이슈를 생성합니다.
-  * **Plan 승인 후 이슈 우선 생성**: 사용자가 Plan을 승인한 후에도 **소스 코드 수정 전에 반드시 먼저 Gitea 이슈를 생성**해야 합니다. "Plan 승인 → 이슈 생성 → 구현" 순서를 강제하며, 구현이 먼저 이루어지고 이슈가 나중에 생성되는 것을 금지합니다. 이슈 번호가 발급된 후에만 코드 수정 및 커밋을 진행할 수 있습니다.
-  * **하위 규칙 파일의 사전 스캔 의무**: 세션 시작 시 최상위 `AGENTS.md` 외에 `apps/agents/rules/*.md` 내의 규칙 변경 사항을 반드시 사전 스캔하여 최신 지침을 누락 없이 적용해야 합니다.
-  * **Gitea API 및 헬퍼 스크립트 활용**: 이슈 발행, 댓글 등록, 이슈 마감 등의 상태 제어 시 `task git:*` 래퍼를 우선 사용합니다. 래퍼는 프로젝트에 마련된 TypeScript 헬퍼 스크립트(`npx ts-node apps/agents/src/gitea.ts`, `npm run gitea`)를 호출하는 표준 진입점입니다. 기존 Gitea MCP 및 대화형 CLI 명령어(tea, curl 등)를 사용해 직접 수동으로 Gitea API를 제어하는 셸 호출은 지양합니다.
-  * **Gitea 이슈 title/body 작성 규칙**: `task git:issue:*` 명령어 사용 시 title과 body는 **반드시 파일로 전달**해야 합니다. positional `TITLE="..." BODY="..."` 및 inline `--title="..." --body="..."` 방식은 shell escaping 문제로 **사용이 금지**됩니다. 개행 변환(`[br]`, `<br>`)은 파일 입력 시 실제 개행문자를 포함하므로 불필요하며 사용하지 않습니다.
-    - `--title-file=<path>`: title 파일 (UTF-8)
-    - `--body-file=<path>`: body 파일 (UTF-8)
-    - `--issue=<id>`: 이슈 번호
-    - `--comment-id=<id>`: 댓글 ID
-    - `--ids=1,2,3`: 복수 이슈 ID (fix-legacy-issues)
-    사용 예시:
-    ```
-    task git:issue:new -- --title-file=/tmp/title.md --body-file=/tmp/body.md
-    task git:issue:update -- --issue=104 --title-file=/tmp/title.md --body-file=/tmp/body.md
-    task git:issue:comment:new -- --issue=104 --body-file=/tmp/body.md
-    task git:issue:close -- --issue=104
-    task git:issue:show -- --issue=104
-    ```
-  * **CLI 셸 이스케이프 금지**: 셸 명령어 인자로 Gitea 이슈 관련 메시지를 전달할 때, 쌍따옴표 내부에 백틱, 큰따옴표, `$` 기호 등이 노출되면 zsh/bash가 명령 실행/프로세스 치환으로 해석합니다. 반드시 `--title-file=<path>` / `--body-file=<path>` 로 파일을 통해 전달하며, inline 문자열 사용을 금지합니다.
-* **이슈 템플릿 및 워크플로우 규칙**: `apps/agents/rules/issue_workflow.md`에 정의된 템플릿 및 이슈 생성/저장 규칙을 준수합니다. 에이전트 컨텍스트 메모리는 `task git:issue:save`로, 새 이슈는 `task git:issue:new`로 생성합니다.
-* **일관된 릴리즈 및 이슈 자동 종결**: 작업이 완료된 후에는 `npm run commit` 명령을 활용하여 로컬 커밋, 원격 저장소 동기화(Push), 그리고 해당 Gitea 이슈에 대한 Commit Diff 링크가 포함된 완료 댓글 등록 및 이슈 마감(Close)까지 올인원으로 일괄 처리합니다. 이슈 번호는 브랜치명에서 자동 추출되며, 브랜치명이 없거나 추출이 불가능한 경우 `GITEA_ISSUE_ID` 환경변수 또는 `--issue` / `--issue-id` 인자로 명시해야 합니다.
-  * **항상 `npm run commit`으로 마감**: `git status`가 clean이어도 `npm run commit`을 실행하여 이슈 코멘트+마감을 처리합니다. `npm run gitea close-issue`나 `npm run gitea create-issue`를 수동으로 호출하지 않고, `GITEA_ISSUE_ID=X npm run commit` 한 번으로 모든 후속 처리를 완료합니다.
-  * **완료 보고의 구체성**: 이슈 완료 댓글에는 단순 완료 사실만 쓰지 말고, 실제 해결책, 수정한 파일, 동작 방식, 검증 결과를 항목별로 명시합니다. 작업이 커밋과 연결되는 경우 `🔗 Gitea Commit Diff 링크`를 별도 섹션으로 반드시 포함하며, 링크는 작업 완료 후 생성된 최신 HEAD 커밋만 참조합니다. 커밋 전 추정 링크는 사용하지 않습니다.
-  * **승인 전 편집 금지**: 계획 제안 단계 또는 사용자 피드백을 받아 계획을 갱신하는 단계에서는, 사용자의 명시적인 승인(Proceed 버튼 클릭, Gitea 승인 댓글, 또는 채팅 승인)이 떨어지기 전에는 실제 소스 코드나 설정 쓰기/수정 도구(replace_file_content 등)를 호출하지 마세요.
-  * **자율 일괄 실행**: 최종 승인된 이후에는 계획에 명시된 후속 작업(체크리스트 업데이트, 소스 코드 수정, Gitea 댓글 결과 보고 및 이슈 종결)을 추가 승인 요청 없이 단일 턴에 자율적으로 일괄 처리합니다.
-  * **이슈 완료 후 보완 및 재오픈 프로세스**: 작업이 완료되어 마감(Close)된 이슈에 보완 또는 추가 조율 사항이 발생하는 경우, 신규 이슈를 발행하지 않고 기존 이슈를 **재오픈(Reopen)**합니다. 이후 해당 이슈의 **댓글(Comment)**로 추가 수정 계획, 코드 리뷰 내용, 구현 흐름(Walkthrough), 구체적인 작업(Tasks) 목록을 상세히 상술하고 재승인을 받아 일괄 처리합니다.
-* **동시 백그라운드 작업 금지**: 경쟁 상태 방지를 위해 사용자의 명시적 승인 없이 여러 백그라운드 명령어를 병렬 실행하지 마세요.
-* **투명한 이슈 처리 및 보고**: 오류는 즉시 보고하며 무음 복구는 금지됩니다. 자가 트러블슈팅은 최대 2회로 제한합니다.
-* **명령어 실행 에러 공개**: 대화 중 실행된 모든 셸 명령어의 비정상 종료(exit code != 0), 경고, 예상치 못한 출력은 사용자에게 반드시 공개합니다. 에러를 무시하거나 숨기고 다음 단계로 진행하는 것을 금지합니다.
-* **승인 시 이슈 자동 생성**: 사용자가 "승인", "진행", "개발" 등 작업 허가를 명시하면, 해당 작업에 대한 Gitea 이슈가 없는 경우 즉시 `task git:issue:new`로 이슈를 자동 생성합니다. 이슈 본문에는 현재까지 논의된 plan(문제점 진단, 목표, 단계별 실행 계획, 대상 파일)을 포함합니다. 승인 시 항상 이슈가 존재하도록 보장하여 "Plan 승인 → 이슈 생성 → 구현" 순서를 강제합니다.
-* **AI 처리 및 응답 한국어**: 모든 AI 처리 로그, 상태 메시지, 채팅 응답은 한국어로 작성합니다.
+1. **[Primary Agent Rules](agents/AGENTS.md)**
+2. [Agent Rules](agents/rules/) (Git Flow, Issue Workflow, Engineering, Tech Stack 등)
+3. [Agent Skills](agents/skills/)
+4. [Agent Workflows](agents/workflows/)
 
-### 2. 코드 검증 및 런타임 제약 (Code & Runtime Constraints)
-* **Docker 중심 테스트 및 실행**: 로컬 스크립트는 `docker compose` 내부망에서 실행 및 진단해야 합니다. 호스트에 DB 포트를 직접 노출하지 말고 Traefik 프록시 도메인을 경유하여 통신합니다. 정적 스타일 및 타입 검증(`npm run lint`, `npm run type-check`), 정적 코드 리뷰(`npm run review`) 또한 컨테이너 내부로 위임(Proxying)하여 격리 실행되도록 구성해야 합니다.
-* **Python 및 uv 가상환경 실행**: Python 스크립트 실행 및 패키지 관리 시, 호스트의 전역 Python 대신 반드시 `uv run` 또는 `docker compose` 가상환경 컨텍스트 내에서 실행해야 합니다.
-* **데이터 변경 및 인프라 제어 사용자 위임**:
-  * 데이터 손상 방지를 위해 주요 영구 데이터 변경, DB 시딩, 인덱스 리셋/재인덱싱은 에이전트가 직접 실행하지 않고 사용자에게 수동 실행을 요청합니다.
-  * 컨테이너 재빌드, 서비스 재시작, 이미지 정리 등 복잡한 런타임 배포 시 명령어를 직접 실행하지 말고 사용자에게 수동 실행을 요청(협업 페어 프로그래밍)하십시오.
-* **최소 파일 범위 및 커버리지**: 루트 레벨 grep이나 재귀 list_dir을 피하고, 구조 파악 시 `git ls-files`를 1회 실행한 후 대상 파일을 직접 `Read`하십시오. 코드 심볼 검색 시 `Grep`으로 일치하는 라인만 찾아 탐색을 종결합니다.
-* **범위 외 및 추측 수정 금지**: 명시적 요청 외의 파일 수정과 원인을 모르는 상태에서의 추측성 코드 수정을 엄격히 금지합니다.
-* **사전 환경 진단 철저**: 환경 변조 전 `docker inspect` 등으로 컨테이너 베이스 및 경로 구조를 분석한 후 작업을 진행합니다. ad-hoc식(임시방편) 해결이나 헬스체크 임의 삭제를 금지합니다.
-
-### 3. Git 및 협업 방식 (Git & Collaboration)
-* **Git Flow 브랜치 전략 준수**: `main` 직접 수정 절대 금지, 브랜치 전환 전 커밋 완료 필수, 충돌 시 강제 푸시 금지 등 [Git Flow Guide](apps/agents/rules/git_flow.md)를 따릅니다. 작업 시작 시 브랜치를 확인하고 `main` 또는 `develop`일 경우 브랜치 전환을 제안합니다. 작업 완료 후에는 `git:commit` → `git:merge` → (필요시 `git:push`) 순서로 진행합니다.
-* **자동 Git 커밋**: 유효한 편집 직후 또는 특정 단위 작업 완료 시 `npm run commit`을 실행하여 로컬 저장소에 저장합니다.
-* **상대경로 링크 사용**: 문서 내에서는 상대경로를 사용하고(예: `[Worker](src/Worker.ts)`), `file://` scheme 사용을 금지합니다.
-* **사용자 중요 정보 고지 의무**: 인프라 변경, 계정 정보(ID, 임시 비번), 웹 접속 주소 등 핵심 설정 변경이 발생한 경우, 아티팩트뿐만 아니라 채팅창에도 요약 고지해야 합니다.
+> 💡 `agents/` 디렉토리는 self-contained 모듈로, 신규 프로젝트에 복사하여 바로 사용할 수 있습니다.
 
 ---
 
-## ⚠️ 보안 규칙 (Security Rules)
-- **ENV 접근 금지**: `.env` 또는 `.env.*` 파일에 직접 접근하거나 쓰기를 수행하지 말고, `.env.example`을 참조하세요.
-- **자격 증명 노출 금지**: API 키 및 패스워드를 명령어 출력에 노출하지 마세요.
-- **MCP 설정 제약**: 프로젝트 내 `.mcp.json` 파일에 쓰기를 수행하거나 API 토큰 등의 민감 정보를 직접 하드코딩해 주입하지 않습니다. Gitea/PMS 연동을 위한 자격 증명 갱신 시에는 발급된 토큰 값을 채팅창에 고지하여 사용자가 수동으로 `.env` 파일에 기입하도록 안내합니다.
+## 🏗️ Monorepo Context
 
----
+### 앱 구조
+| 앱 | 설명 |
+|:---|:---|
+| `apps/crawler/` | LinkedIn 등 기술 컨텐츠 크롤링 파이프라인 |
+| `apps/viewer/` | 수집된 컨텐츠 웹 뷰어 |
+| `apps/wiki/` | 지식베이스 위키 (Obsidian + Joplin) |
+| `apps/ebook/` | 전자책 생성 파이프라인 |
 
-## ⚙️ 엔지니어링 및 아키텍처 규칙 (Engineering & Architecture Rules)
-* **공통 규칙 및 DRY 원칙 준수**: 모든 개발 시 strict typing, OOP 설계, 에러 처리를 상시 준수하고, 자세한 가이드는 [Engineering & Architecture Guide](apps/agents/rules/engineering_architecture.md)를 참고합니다.
+### 인프라
+- `infra/mongodb/`, `infra/redis/`, `infra/meilisearch/` — 데이터 계층
+- Docker Compose 기반 실행 (`compose.yml`)
+- Traefik + mkcert 역방향 프록시 (agents/docker/traefik)
+- Gitea 로컬 Git 호스팅 (agents/docker/gitea)
 
----
+### Docker 실행 정책
+- **Docker 중심 테스트 및 실행**: `docker compose` 내부망에서 실행 및 진단
+- **Python 및 uv 가상환경**: `uv run` 또는 `docker compose` 컨텍스트 내 실행
+- **데이터 변경 및 인프라 제어**: 주요 변경은 사용자에게 수동 실행 요청
 
-## 🛠️ 기술 스택별 작업 규칙 (Tech Stack Rules)
-* **코딩 규칙 준수**: strict typing(`any` 금지), class OOP 설계, `uv` 의존성 관리 등을 따르고, 상세 가이드는 [Tech Stack Guide](apps/agents/rules/tech_stack.md)를 참고합니다.
-
----
-
-## 🧭 Agent Skill Directory Map
-
-작업 시 컨텍스트에 따라 해당 Skill 파일을 활성화/참조하세요:
-
-| 컨텍스트 | Skill 파일 | 설명 |
-|:---|:---|:---|
-| 사이트 크롤러/파이프라인 | [develop_sites_skills.md](apps/agents/skills/develop_sites_skills.md) | Bronze→Silver 파이프라인, Base 클래스 |
-| DB/인덱스 | [database_skills.md](apps/agents/skills/database_skills.md) | MongoDB/Redis 스키마, 인덱스 |
-| HTML/스크래핑 디버깅 | [html_debugging_skills.md](apps/agents/skills/html_debugging_skills.md) | HtmlDebugger 유틸, HTML 덤프 |
-| Firecrawl 웹 검색 | `~/.claude/skills/firecrawl-*/` | Firecrawl CLI 스킬들 |
+### 보안 규칙
+- **ENV 접근 금지**: `.env` 파일 직접 접근 금지, `.env.example` 참조
+- **자격 증명 노출 금지**: API 키/패스워드 출력 노출 금지
+- **MCP 설정 제약**: `.mcp.json` 파일 쓰기/민감 정보 하드코딩 금지
 
 ---
 
 ## 💡 Token Efficiency Rules
-1. **아티팩트 사전 스캔 금지**: `docs/artifacts/` 문서는 자동으로 읽지 않음. 필요 시 INDEX.md에서 번호 확인 후 직접 Read.
-2. **AGENTS.md 유지보수**: 불필요한 예제/중복 발견 시 능동적으로 정리.
-
----
-
-## 🔓 사전 승인 명령어 (Pre-Approved Commands)
-다음 명령어/스크립트는 사전 승인되었으며, 승인 절차에서 제외됩니다:
-- `git ls-files` (프로젝트 코드베이스 매핑용)
-- `npm run commit` (편집 후 자동 저장용, 내부적으로 `apps/agents/src/commit-changes.ts` 실행)
-- `npm run gitea` (Gitea 이슈 생성, 댓글 등록, 마감 등 상태 제어용)
-- `npx ts-node apps/agents/src/gitea.ts` (이슈 관리 헬퍼 스크립트 실행용)
-- `task` (Docker 런타임 및 앱/인프라/도구 태스크 실행용)
+1. **아티팩트 사전 스캔 금지**: `docs/artifacts/` 문서 자동 읽지 않음
+2. **AGENTS.md 유지보수**: 불필요한 예제/중복 발견 시 능동적으로 정리

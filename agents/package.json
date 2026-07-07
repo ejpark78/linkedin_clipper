@@ -2,7 +2,7 @@
   "name": "@scraper/agents",
   "version": "1.0.0",
   "private": true,
-  "description": "Scraper Agent Helper Scripts and Configurations",
+  "description": "Agent Development Kit — Self-contained agent helper scripts, rules, skills, and workflows",
   "scripts": {
     "review": "ts-node src/review-changes.ts",
     "gitea": "NODE_OPTIONS=\"--use-system-ca\" ts-node src/gitea.ts",
@@ -11,5 +11,11 @@
     "sessions": "ts-node --project tsconfig.json src/sessions.ts",
     "rules": "ts-node --project tsconfig.json src/rules.ts",
     "usage": "ts-node --project tsconfig.json src/usage.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^6.0.3"
   }
 }

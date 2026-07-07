@@ -1018,7 +1018,7 @@ Body: ${truncated}
       else if (/\bfeat/i.test(title)) result.type = 'feature';
       else result.type = 'chore';
     }
-    if (/apps\/agents(?:\/|$)/.test(combo)) result.area = 'agent';
+    if (/agents(?:\/|$)/.test(combo)) result.area = 'agent';
     else if (/apps\/wiki(?:\/|$)/.test(combo)) result.area = 'wiki';
     else if (/apps\/crawler(?:\/|$)/.test(combo)) result.area = 'crawler';
     else if (/apps\/ebook(?:\/|$)/.test(combo)) result.area = 'ebook';

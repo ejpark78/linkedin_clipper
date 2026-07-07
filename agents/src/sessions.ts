@@ -327,7 +327,7 @@ class TranscriptDumper {
       });
 
       if (category === 'General' && touchedFiles.length > 0) {
-        if (touchedFiles.some(f => f.includes('apps/agents/') || f.includes('AGENTS.md'))) {
+        if (touchedFiles.some(f => f.includes('agents/') || f.includes('AGENTS.md'))) {
           category = 'Doc/Rules';
           tags = '#doc #rules';
         } else if (touchedFiles.some(f => f.includes('src/crawler/sites/'))) {
@@ -737,7 +737,7 @@ if (require.main === module) {
   const agents = agentFlag ? parseAgentsFromArg(agentFlag.split('=')[1]) : ['agy'];
 
   // Parse output directory option
-  let outputBase = path.join(__dirname, '../../../data/agents');
+  let outputBase = path.join(__dirname, '../../data/agents');
   const outputFlag = args.find(a => a.startsWith('--output='));
   if (outputFlag) {
     outputBase = outputFlag.split('=')[1];

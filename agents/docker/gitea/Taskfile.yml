@@ -88,7 +88,7 @@ tasks:
     internal: true
     desc: Gitea repo 생성 + 토큰 발급 + git remote + push
     cmds:
-      - npm run gitea -w apps/agents init {{.CLI_ARGS}}
+      - npm run gitea -w agents init {{.CLI_ARGS}}
 
   init:
     desc: Gitea 초기 설정 (인증서 → 컨테이너 실행 → 계정 생성 → repo 생성 → push)
@@ -141,7 +141,7 @@ tasks:
         - task git:repo:dump
         - task git:repo:dump -- --dir=data/backup/gitea
     cmds:
-      - npm run gitea -w apps/agents -- repo:dump {{.CLI_ARGS}}
+      - npm run gitea -w agents -- repo:dump {{.CLI_ARGS}}
 
   repo:restore:
     desc: "Gitea repo 전체 복원 (이슈 + 위키)"
@@ -154,7 +154,7 @@ tasks:
       [Usage Examples]
         - task git:repo:restore -- --dir=data/dumps/gitea/20260703
     cmds:
-      - npm run gitea -w apps/agents -- repo:restore {{.CLI_ARGS}}
+      - npm run gitea -w agents -- repo:restore {{.CLI_ARGS}}
 
   issue:dump:
     desc: "Gitea 이슈를 JSON 파일로 내보내기"
@@ -170,7 +170,7 @@ tasks:
         - task git:issue:dump -- --issue=104
         - task git:issue:dump -- --dir=data/backup --issue=104
     cmds:
-      - npm run gitea -w apps/agents -- issue:dump {{.CLI_ARGS}}
+      - npm run gitea -w agents -- issue:dump {{.CLI_ARGS}}
 
   issue:restore:
     desc: "JSON 덤프 파일에서 Gitea 이슈 복원"
@@ -183,7 +183,7 @@ tasks:
       [Usage Examples]
         - task git:issue:restore -- --file=data/dumps/gitea/issues.json
     cmds:
-      - npm run gitea -w apps/agents -- issue:restore {{.CLI_ARGS}}
+      - npm run gitea -w agents -- issue:restore {{.CLI_ARGS}}
 
   wiki:init:
     desc: "Gitea wiki 저장소 초기화 (로컬 마크다운 → Gitea wiki push)"
@@ -197,7 +197,7 @@ tasks:
         - task git:wiki:init
         - task git:wiki:init -- --dir=data/docs/wiki
     cmds:
-      - npm run gitea -w apps/agents -- wiki:init {{.CLI_ARGS}}
+      - npm run gitea -w agents -- wiki:init {{.CLI_ARGS}}
 
   wiki:dump:
     desc: "Gitea wiki 페이지 로컬로 내려받기"
@@ -210,7 +210,7 @@ tasks:
       [Usage Examples]
         - task git:wiki:dump
     cmds:
-      - npm run gitea -w apps/agents -- wiki:dump {{.CLI_ARGS}}
+      - npm run gitea -w agents -- wiki:dump {{.CLI_ARGS}}
 
   wiki:restore:
     desc: "로컬 wiki를 Gitea에 복원"
@@ -223,7 +223,7 @@ tasks:
       [Usage Examples]
         - task git:wiki:restore -- --dir=data/dumps/gitea/wiki
     cmds:
-      - npm run gitea -w apps/agents -- wiki:restore {{.CLI_ARGS}}
+      - npm run gitea -w agents -- wiki:restore {{.CLI_ARGS}}
 
   commit:
     desc: Commit changes through the project commit helper.
@@ -233,7 +233,7 @@ tasks:
       [Usage Examples]
         - task git:commit
     cmds:
-      - npm run commit -w apps/agents -- {{.CLI_ARGS}}
+      - npm run commit -w agents -- {{.CLI_ARGS}}
 
   push:
     desc: Push changes through the project push helper.
@@ -243,7 +243,7 @@ tasks:
       [Usage Examples]
         - task git:push
     cmds:
-      - npm run push -w apps/agents -- {{.CLI_ARGS}}
+      - npm run push -w agents -- {{.CLI_ARGS}}
 
   merge:
     desc: "현재 브랜치를 develop → main 순으로 병합"
@@ -292,7 +292,7 @@ tasks:
       [Usage Examples]
         - task git:issue:save
     cmds:
-      - npm run gitea -w apps/agents issue:save
+      - npm run gitea -w agents issue:save
 
   token:
     desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)
@@ -302,7 +302,7 @@ tasks:
       [Usage Examples]
         - task git:token
     cmds:
-      - npm run gitea -w apps/agents generate-token
+      - npm run gitea -w agents generate-token
 
   token:tea:
     desc: Generate a Gitea API token through tea.
@@ -312,7 +312,7 @@ tasks:
       [Usage Examples]
         - task git:token:tea
     cmds:
-      - npm run gitea -w apps/agents generate-token-tea
+      - npm run gitea -w agents generate-token-tea
 
   issue:new:
     desc: "새 Gitea 이슈 생성"
@@ -328,7 +328,7 @@ tasks:
       [Usage Examples]
         - task git:issue:new -- --title-file=/tmp/title.md --body-file=/tmp/body.md
     cmds:
-      - npm run gitea -w apps/agents -- create-issue {{.CLI_ARGS}}
+      - npm run gitea -w agents -- create-issue {{.CLI_ARGS}}
 
   issue:update:
     desc: "Gitea 이슈 제목/본문 수정"
@@ -345,7 +345,7 @@ tasks:
         - task git:issue:update -- --issue=104 --title-file=/tmp/title.md --body-file=/tmp/body.md
         - task git:issue:update -- --issue=104 --body-file=/tmp/body.md
     cmds:
-      - npm run gitea -w apps/agents -- update-issue {{.CLI_ARGS}}
+      - npm run gitea -w agents -- update-issue {{.CLI_ARGS}}
 
   issue:comment:new:
     desc: "Gitea 이슈에 댓글 등록"
@@ -373,7 +373,7 @@ tasks:
       [Usage Examples]
         - task git:issue:comment:update -- --comment-id=2642 --body-file=/tmp/body.md
     cmds:
-      - npm run gitea -w apps/agents -- update-comment {{.CLI_ARGS}}
+      - npm run gitea -w agents -- update-comment {{.CLI_ARGS}}
 
   issue:close:
     desc: "Gitea 이슈 마감"
@@ -386,7 +386,7 @@ tasks:
       [Usage Examples]
         - task git:issue:close -- --issue=142
     cmds:
-      - npm run gitea -w apps/agents -- close-issue {{.CLI_ARGS}}
+      - npm run gitea -w agents -- close-issue {{.CLI_ARGS}}
 
   issue:reopen:
     desc: "Gitea 이슈 재오픈"
@@ -399,7 +399,7 @@ tasks:
       [Usage Examples]
         - task git:issue:reopen -- --issue=142
     cmds:
-      - npm run gitea -w apps/agents -- reopen-issue {{.CLI_ARGS}}
+      - npm run gitea -w agents -- reopen-issue {{.CLI_ARGS}}
 
   issue:label:
     desc: "기존 전체 이슈에 rule-based 라벨 소급 적용"
@@ -410,7 +410,7 @@ tasks:
       [Usage Examples]
         - task git:issue:label
     cmds:
-      - npm run gitea -w apps/agents retroactive-labels
+      - npm run gitea -w agents retroactive-labels
 
   issue:list:
     desc: "Gitea 이슈 목록 조회"
@@ -428,7 +428,7 @@ tasks:
         - task git:issue:list -- --state=all
         - task git:issue:list -- --state=closed --limit=5
     cmds:
-      - npm run gitea -w apps/agents -- list-issues {{.CLI_ARGS}}
+      - npm run gitea -w agents -- list-issues {{.CLI_ARGS}}
 
   issue:show:
     desc: "Gitea 이슈 본문 조회"
@@ -441,4 +441,4 @@ tasks:
       [Usage Examples]
         - task git:issue:show -- --issue=104
     cmds:
-      - npm run gitea -w apps/agents -- show-issue {{.CLI_ARGS}}
+      - npm run gitea -w agents -- show-issue {{.CLI_ARGS}}
