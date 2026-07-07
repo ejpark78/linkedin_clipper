@@ -36,7 +36,7 @@ export class WikiClient extends BaseGiteaClient {
       });
     }
 
-    const tmpDir = path.resolve(fromDir || 'data/dumps/gitea/wiki-init');
+    const tmpDir = path.resolve(fromDir || 'agents/data/dumps/gitea/wiki-init');
     fs.mkdirSync(tmpDir, { recursive: true });
 
     if (!fromDir) {

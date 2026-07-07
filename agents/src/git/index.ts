@@ -187,7 +187,7 @@ class GitController {
 
       // ---- Repo Dump/Restore ----
       case 'repo:dump': {
-        await gitea.repoDump(parseFlag(args, '--dir') || 'data/dumps/gitea');
+        await gitea.repoDump(parseFlag(args, '--dir') || 'agents/data/dumps/gitea');
         break;
       }
 
@@ -199,7 +199,7 @@ class GitController {
       }
 
       case 'issue:dump': {
-        await gitea.dumpIssue(parseFlag(args, '--dir') || 'data/dumps/gitea', parseFlag(args, '--issue', '-i') || '');
+        await gitea.dumpIssue(parseFlag(args, '--dir') || 'agents/data/dumps/gitea', parseFlag(args, '--issue', '-i') || '');
         break;
       }
 
@@ -219,7 +219,7 @@ class GitController {
       }
 
       case 'wiki:dump': {
-        await gitea.dumpWiki(parseFlag(args, '--dir') || 'data/dumps/gitea');
+        await gitea.dumpWiki(parseFlag(args, '--dir') || 'agents/data/dumps/gitea');
         break;
       }
 
