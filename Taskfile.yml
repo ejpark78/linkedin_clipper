@@ -50,7 +50,6 @@ includes:
   leantime:
     taskfile: ./agents/docker/leantime/Taskfile.yml
     dir: .
-
   usd:
     taskfile: ./projects/LearnOpenUSD/Taskfile.yml
     dir: .
@@ -65,6 +64,7 @@ tasks:
         - task config
     cmds:
       - '{{.COMPOSE}} config'
-
-
+  ps:
+    cmds:
+      - '{{.COMPOSE}} ps --format "table {{`{{.Name}}`}}\t{{`{{.Service}}`}}\t{{`{{.Image}}`}}"'
 

@@ -1,12 +1,18 @@
 {
   "recommendations": [
+    "bierner.markdown-mermaid",
+    "eamodio.gitlens",
+    "esbenp.prettier-vscode",
     "mhutchie.git-graph",
     "ms-azuretools.vscode-containers",
     "ms-azuretools.vscode-docker",
-    "pkief.material-icon-theme",
     "ms-python.python",
-    "esbenp.prettier-vscode",
-    "yzhang.markdown-all-in-one",
-    "eamodio.gitlens"
+    "pkief.material-icon-theme",
+    "rxliuli.joplin-vscode-plugin",
+    "shd101wyy.markdown-preview-enhanced",
+    "sst-dev.opencode",
+    "tomoki1207.pdf",
+    "Vue.volar",
+    "yzhang.markdown-all-in-one"
   ]
 }
