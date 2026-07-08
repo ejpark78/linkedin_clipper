@@ -108,7 +108,7 @@ tasks:
       - npm run sessions -w agents -- --prune {{.CLI_ARGS}}
 
   session:sync:
-    desc: "양방향 세션 DB 동기화 (호스트 ↔ 샌드박스)"
+    desc: "양방향 세션 DB 동기화 (호스트 ↔ 컨테이너 / 컨테이너 ↔ 컨테이너)"
     summary: |
       기본값은 opencode. --codex / --agy 플래그로 각각 동기화 가능.
 
@@ -119,19 +119,24 @@ tasks:
         --agy                        Antigravity CLI 동기화
         --opencode --codex --agy     셋 다 실행
 
+      [엔드포인트 지정]
+        --left <name>[,<name>]       왼쪽 엔드포인트 (기본값: host)
+        --right <name>[,<name>]      오른쪽 엔드포인트 (기본값: sandbox)
+        name = host 또는 Docker Compose 서비스명
+
       [옵션]
-        --direction (host-to-sandbox|sandbox-to-host|both) (기본값: both)
         --dry-run    변경 예정 목록만 출력
         --force      경고 무시 (스키마 불일치, opencode 실행 중 등)
         --no-snapshot    opencode snapshot/ 제외
         --no-tool-output opencode tool-output/ 제외
 
       [Usage Examples]
-        - task agents:session:sync
-        - task agents:session:sync -- --codex
-        - task agents:session:sync -- --agy
-        - task agents:session:sync -- --opencode --codex --agy --dry-run
-        - task agents:session:sync -- --direction host-to-sandbox
+        - task agents:session:sync                                     # host ↔ sandbox
+        - task agents:session:sync -- --left host --right usd-code     # host ↔ usd-code
+        - task agents:session:sync -- --left host --right sandbox,usd-code  # host ↔ 둘 다
+        - task agents:session:sync -- --left sandbox --right usd-code  # 컨테이너끼리
+        - task agents:session:sync -- --codex                          # Codex CLI
+        - task agents:session:sync -- --left host --right usd-code --agy --codex
     cmds:
       - npm run sessions -w agents -- --sync {{.CLI_ARGS}}
 

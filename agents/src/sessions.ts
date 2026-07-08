@@ -649,7 +649,7 @@ class BrainDumper {
 }
 
 // ==============================================================================
-// 5. SessionSyncer (양방향 동기화 호스트 ↔ 샌드박스)
+// 5. SessionSyncer (양방향 동기화 — 엔드포인트 페어)
 // ==============================================================================
 
 interface SyncDirStats {
@@ -660,31 +660,59 @@ interface SyncDirStats {
   errors: number;
 }
 
+function getContainerVolumeBase(serviceName: string): string {
+  const projectRoot = path.resolve(__dirname, '../..');
+  try {
+    const containerId = execSync(
+      `docker compose -p scraper ps -q "${serviceName}" 2>/dev/null`,
+      { encoding: 'utf-8' }
+    ).trim();
+    if (containerId) {
+      const mountSrc = execSync(
+        `docker inspect "${containerId}" --format '{{range .Mounts}}{{if eq .Destination "/home/ubuntu/.local"}}{{.Source}}{{end}}{{end}}'`,
+        { encoding: 'utf-8' }
+      ).trim();
+      if (mountSrc && mountSrc.endsWith('/local')) {
+        return path.dirname(mountSrc);
+      }
+    }
+  } catch { /* fallback */ }
+  return path.join(projectRoot, 'agents/.volumes', serviceName);
+}
+
+interface SyncEndpointInfo {
+  name: string;
+  dbPath: string;
+  snapshotDir: string;
+  toolOutputDir: string;
+}
+
 class SessionSyncer {
   private readonly PROJECT_ROOT: string;
   private readonly HOST_DB: string;
-  private readonly SANDBOX_VOLUME_BASE: string;
-  private readonly SANDBOX_DB: string;
+  private readonly HOST_SNAPSHOT: string;
+  private readonly HOST_TOOL_OUTPUT: string;
 
   private dryRun = false;
   private force = false;
-  private direction: 'host-to-sandbox' | 'sandbox-to-host' | 'both' = 'both';
   private noSnapshot = false;
   private noToolOutput = false;
+
+  private leftNames: string[] = [];
+  private rightNames: string[] = [];
 
   private stats: SyncDirStats = { label: '', sessionsAdded: 0, sessionsUpdated: 0, filesCopied: 0, errors: 0 };
 
   constructor() {
     this.PROJECT_ROOT = path.resolve(__dirname, '../..');
     this.HOST_DB = path.join(os.homedir(), '.local/share/opencode/opencode.db');
-    this.SANDBOX_VOLUME_BASE = path.join(this.PROJECT_ROOT, 'agents/.volumes/sandbox/local');
-    this.SANDBOX_DB = path.join(this.SANDBOX_VOLUME_BASE, 'share/opencode/opencode.db');
+    this.HOST_SNAPSHOT = path.join(os.homedir(), '.local/share/opencode/snapshot');
+    this.HOST_TOOL_OUTPUT = path.join(os.homedir(), '.local/share/opencode/tool-output');
   }
 
   public run(): void {
     const args = process.argv.slice(2);
-    const dirArg = args.find(a => a.startsWith('--direction='));
-    if (dirArg) this.direction = dirArg.split('=')[1] as typeof this.direction;
+    this.parseEndpoints(args);
     this.dryRun = args.includes('--dry-run');
     this.force = args.includes('--force');
     this.noSnapshot = args.includes('--no-snapshot');
@@ -693,27 +721,71 @@ class SessionSyncer {
     console.log('🔄 OpenCode 세션 동기화\n');
 
     this.checkSqlite3();
-    this.checkDbFiles();
-    this.checkSandboxContainer();
-    this.checkOpencodeRunning();
-    if (!this.force) this.checkSchemaVersion();
 
-    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
-      this.syncDB(this.HOST_DB, this.SANDBOX_DB, 'Host → Sandbox');
-    }
-    if (this.direction === 'sandbox-to-host' || this.direction === 'both') {
-      this.syncDB(this.SANDBOX_DB, this.HOST_DB, 'Sandbox → Host');
+    const allNames = new Set([...this.leftNames, ...this.rightNames]);
+    const allEndpoints = new Map<string, SyncEndpointInfo>();
+    for (const name of allNames) {
+      allEndpoints.set(name, this.resolveEndpoint(name));
     }
 
-    if (!this.noSnapshot) this.syncDir('snapshot',
-      path.join(os.homedir(), '.local/share/opencode/snapshot'),
-      path.join(this.SANDBOX_VOLUME_BASE, 'share/opencode/snapshot'));
-    if (!this.noToolOutput) this.syncDir('tool-output',
-      path.join(os.homedir(), '.local/share/opencode/tool-output'),
-      path.join(this.SANDBOX_VOLUME_BASE, 'share/opencode/tool-output'));
+    this.checkDbFiles(allEndpoints);
+    this.checkContainersRunning(allNames);
+    this.checkAgentRunning(allNames, 'opencode');
+    if (!this.force) this.checkSchemaVersion(allEndpoints);
 
-    this.postSyncChecks();
+    for (const left of this.leftNames) {
+      for (const right of this.rightNames) {
+        if (left === right) continue;
+        this.syncPair(allEndpoints.get(left)!, allEndpoints.get(right)!);
+      }
+    }
+
+    this.postSyncChecks(allEndpoints);
     this.printSummary();
+  }
+
+  private parseEndpoints(args: string[]): void {
+    const parseListArg = (prefix: string, def: string[]): string[] => {
+      const eq = args.find(a => a.startsWith(`${prefix}=`));
+      if (eq) return eq.split('=')[1].split(',').map(s => s.trim()).filter(Boolean);
+      const idx = args.indexOf(prefix);
+      if (idx !== -1 && idx + 1 < args.length) return args[idx + 1].split(',').map(s => s.trim()).filter(Boolean);
+      return def;
+    };
+    this.leftNames = parseListArg('--left', ['host']);
+    this.rightNames = parseListArg('--right', ['sandbox']);
+  }
+
+  private resolveEndpoint(name: string): SyncEndpointInfo {
+    if (name === 'host') {
+      return {
+        name: 'host',
+        dbPath: this.HOST_DB,
+        snapshotDir: this.HOST_SNAPSHOT,
+        toolOutputDir: this.HOST_TOOL_OUTPUT,
+      };
+    }
+    const volumeBase = getContainerVolumeBase(name);
+    return {
+      name,
+      dbPath: path.join(volumeBase, 'local/share/opencode/opencode.db'),
+      snapshotDir: path.join(volumeBase, 'local/share/opencode/snapshot'),
+      toolOutputDir: path.join(volumeBase, 'local/share/opencode/tool-output'),
+    };
+  }
+
+  private syncPair(left: SyncEndpointInfo, right: SyncEndpointInfo): void {
+    console.log(`\n--- 페어: ${left.name} ↔ ${right.name} ---`);
+    this.syncDB(left.dbPath, right.dbPath, `${left.name} → ${right.name}`);
+    this.syncDB(right.dbPath, left.dbPath, `${right.name} → ${left.name}`);
+    if (!this.noSnapshot) {
+      this.syncDir('snapshot', left.snapshotDir, right.snapshotDir);
+      this.syncDir('snapshot', right.snapshotDir, left.snapshotDir);
+    }
+    if (!this.noToolOutput) {
+      this.syncDir('tool-output', left.toolOutputDir, right.toolOutputDir);
+      this.syncDir('tool-output', right.toolOutputDir, left.toolOutputDir);
+    }
   }
 
   // ── Prereq checks ──
@@ -727,73 +799,76 @@ class SessionSyncer {
     }
   }
 
-  private checkDbFiles(): void {
-    for (const [p, label] of [[this.HOST_DB, 'Host DB'], [this.SANDBOX_DB, 'Sandbox DB']] as const) {
-      if (!fs.existsSync(p)) {
-        if (label === 'Sandbox DB') {
-          console.warn(`  ⚠️ Sandbox DB 없음: ${p}`);
+  private checkDbFiles(endpoints: Map<string, SyncEndpointInfo>): void {
+    for (const [name, ep] of endpoints) {
+      if (!fs.existsSync(ep.dbPath)) {
+        if (name === 'host') {
+          console.error(`❌ Host DB 없음: ${ep.dbPath}`);
+          process.exit(1);
+        } else {
+          console.warn(`  ⚠️ "${name}" DB 없음: ${ep.dbPath}`);
           console.warn('     샌드박스를 한 번 이상 실행해야 DB가 생성됩니다.');
           if (!this.force) process.exit(1);
-        } else {
-          console.error(`❌ ${label} 없음: ${p}`);
-          process.exit(1);
         }
       } else {
-        console.log(`  ✅ ${label}: ${p}`);
+        console.log(`  ✅ ${name === 'host' ? 'Host' : `"${name}"`} DB: ${ep.dbPath}`);
       }
     }
   }
 
-  private checkSandboxContainer(): void {
-    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
+  private checkContainersRunning(allNames: Set<string>): void {
+    for (const name of allNames) {
+      if (name === 'host') continue;
       try {
-        execSync('docker compose -p scraper ps -q sandbox 2>/dev/null', { stdio: 'pipe' });
+        execSync(`docker compose -p scraper ps -q "${name}" 2>/dev/null`, { stdio: 'pipe' });
       } catch {
-        console.warn('  ⚠️ 샌드박스 컨테이너가 실행 중이지 않습니다.');
+        console.warn(`  ⚠️ "${name}" 컨테이너가 실행 중이지 않습니다.`);
         console.warn('     DB 파일이 없거나 오래된 상태일 수 있습니다.');
         if (!this.force) {
-          console.error('     (task agents:sandbox:up 실행 후 다시 시도하거나 --force로 무시)');
+          console.error(`     컨테이너 실행 후 다시 시도하거나 --force로 무시`);
           process.exit(1);
         }
       }
     }
   }
 
-  private checkOpencodeRunning(): void {
-    const check = (cmd: string, label: string): boolean => {
+  private checkAgentRunning(allNames: Set<string>, agentProcess: string): void {
+    const check = (cmd: string): boolean => {
       try {
         const out = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
         return out.length > 0;
       } catch { return false; }
     };
 
-    const hostRunning = check('pgrep -x opencode 2>/dev/null || true', 'Host');
-    let sandboxRunning = false;
-    try {
-      const out = execSync(
-        'docker compose -p scraper exec -T sandbox bash -c "pgrep -x opencode 2>/dev/null || true" 2>/dev/null || true',
-        { encoding: 'utf-8' }
-      ).trim();
-      sandboxRunning = out.length > 0;
-    } catch { /* sandbox not running */ }
-
+    const hostRunning = check(`pgrep -x ${agentProcess} 2>/dev/null || true`);
     if (hostRunning) {
-      console.warn('  ⚠️ 호스트에서 opencode가 실행 중입니다. DB가 잠겨 동기화에 실패할 수 있습니다.');
+      console.warn(`  ⚠️ 호스트에서 ${agentProcess}가 실행 중입니다. DB가 잠겨 동기화에 실패할 수 있습니다.`);
       if (!this.force) {
-        console.error('  ❌ opencode를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        console.error(`  ❌ ${agentProcess}를 종료한 후 다시 실행하세요. (--force로 무시 가능)`);
         process.exit(1);
       }
     }
-    if (sandboxRunning) {
-      console.warn('  ⚠️ 샌드박스에서 opencode가 실행 중입니다. DB가 잠겨 동기화에 실패할 수 있습니다.');
-      if (!this.force) {
-        console.error('  ❌ 샌드박스에서 opencode를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
-        process.exit(1);
+
+    for (const name of allNames) {
+      if (name === 'host') continue;
+      let containerRunning = false;
+      try {
+        const out = execSync(
+          `docker compose -p scraper exec -T "${name}" bash -c "pgrep -x ${agentProcess} 2>/dev/null || true" 2>/dev/null || true`,
+          { encoding: 'utf-8' }
+        ).trim();
+        containerRunning = out.length > 0;
+      } catch { /* container not running */ }
+      if (containerRunning) {
+        console.warn(`  ⚠️ "${name}"에서 ${agentProcess}가 실행 중입니다. DB가 잠겨 동기화에 실패할 수 있습니다.`);
+        if (!this.force) {
+          console.error(`  ❌ "${name}"에서 ${agentProcess}를 종료한 후 다시 실행하세요. (--force로 무시 가능)`);
+          process.exit(1);
+        }
       }
     }
-    if (!hostRunning && !sandboxRunning) {
-      console.log('  ✅ opencode 미실행 확인');
-    }
+
+    if (!hostRunning) console.log('  ✅ 호스트 미실행 확인');
   }
 
   private queryJson(db: string, sql: string): any[] {
@@ -802,22 +877,25 @@ class SessionSyncer {
     return JSON.parse(out);
   }
 
-  private checkSchemaVersion(): void {
-    const host = this.queryJson(this.HOST_DB, 'SELECT name FROM data_migration ORDER BY name');
-    const sandbox = this.queryJson(this.SANDBOX_DB, 'SELECT name FROM data_migration ORDER BY name');
-    const hNames = host.map((r: any) => r.name);
-    const sNames = sandbox.map((r: any) => r.name);
-    if (JSON.stringify(hNames) !== JSON.stringify(sNames)) {
-      console.error('  ❌ DB 스키마 버전 불일치');
-      console.error(`     Host:     ${hNames.join(', ')}`);
-      console.error(`     Sandbox:  ${sNames.join(', ')}`);
-      console.error('     opencode 버전이 다른 경우 발생합니다.');
-      if (!this.force) {
-        console.error('     버전을 일치시키거나 --force로 무시하세요.');
-        process.exit(1);
+  private checkSchemaVersion(endpoints: Map<string, SyncEndpointInfo>): void {
+    const eps = [...endpoints.values()];
+    for (let i = 0; i < eps.length; i++) {
+      for (let j = i + 1; j < eps.length; j++) {
+        const a = eps[i], b = eps[j];
+        const aNames = this.queryJson(a.dbPath, 'SELECT name FROM data_migration ORDER BY name').map((r: any) => r.name);
+        const bNames = this.queryJson(b.dbPath, 'SELECT name FROM data_migration ORDER BY name').map((r: any) => r.name);
+        if (JSON.stringify(aNames) !== JSON.stringify(bNames)) {
+          console.error(`  ❌ DB 스키마 버전 불일치 (${a.name} vs ${b.name})`);
+          console.error(`     ${a.name}: ${aNames.join(', ')}`);
+          console.error(`     ${b.name}: ${bNames.join(', ')}`);
+          if (!this.force) {
+            console.error('     버전을 일치시키거나 --force로 무시하세요.');
+            process.exit(1);
+          }
+        } else {
+          console.log(`  ✅ DB 스키마 버전 일치 (${a.name} vs ${b.name})`);
+        }
       }
-    } else {
-      console.log('  ✅ DB 스키마 버전 일치');
     }
   }
 
@@ -829,13 +907,6 @@ class SessionSyncer {
         execSync(`sqlite3 "${path}" "PRAGMA wal_checkpoint;"`, { encoding: 'utf-8' });
       } catch { /* ignore */ }
     }
-  }
-
-  private walCheckpointAll(): void {
-    console.log('\n📋 WAL 체크포인트...');
-    this.walCheckpointOne(this.HOST_DB, 'Host');
-    this.walCheckpointOne(this.SANDBOX_DB, 'Sandbox');
-    console.log('  ✅ WAL flush 완료');
   }
 
   // ── DB sync ──
@@ -1000,29 +1071,29 @@ DETACH src;
 
   // ── Post-sync checks ──
 
-  private postSyncChecks(): void {
+  private postSyncChecks(endpoints: Map<string, SyncEndpointInfo>): void {
     console.log('\n🔍 사후 검증...');
-    this.walCheckpointOne(this.HOST_DB, 'Host');
-    this.walCheckpointOne(this.SANDBOX_DB, 'Sandbox');
-
-    for (const [p, label] of [[this.HOST_DB, 'Host'], [this.SANDBOX_DB, 'Sandbox']] as const) {
+    for (const [name, ep] of endpoints) {
+      this.walCheckpointOne(ep.dbPath, name);
+    }
+    for (const [name, ep] of endpoints) {
       try {
-        const out = execSync(`sqlite3 "${p}" "PRAGMA integrity_check;" 2>&1`, { encoding: 'utf-8' }).trim();
+        const out = execSync(`sqlite3 "${ep.dbPath}" "PRAGMA integrity_check;" 2>&1`, { encoding: 'utf-8' }).trim();
         if (out === 'ok') {
-          console.log(`  ✅ DB 무결성 검증: ${label}`);
+          console.log(`  ✅ DB 무결성 검증: ${name}`);
         } else {
-          console.error(`  ❌ DB 무결성 오류 (${label}): ${out.slice(0, 200)}`);
+          console.error(`  ❌ DB 무결성 오류 (${name}): ${out.slice(0, 200)}`);
           this.stats.errors++;
         }
       } catch (err: any) {
-        console.error(`  ❌ DB 검증 실패 (${label}): ${err.message}`);
+        console.error(`  ❌ DB 검증 실패 (${name}): ${err.message}`);
         this.stats.errors++;
       }
     }
   }
 
   private printSummary(): void {
-    console.log('\n' + '='.repeat('='.length + 24));
+    console.log('\n' + '='.repeat(36));
     console.log('📊 동기화 결과 요약');
     console.log('='.repeat(36));
     console.log(`  추가된 세션:    ${this.stats.sessionsAdded}`);
@@ -1037,11 +1108,10 @@ DETACH src;
 }
 
 // ==============================================================================
-// 6. CodexSyncer (양방향 동기화 호스트 ↔ 샌드박스 - Codex CLI)
+// 6. CodexSyncer (양방향 동기화 — 엔드포인트 페어)
 // ==============================================================================
 
 interface CodexSyncStats {
-  direction: string;
   dbs: number;
   files: number;
   errors: number;
@@ -1049,84 +1119,133 @@ interface CodexSyncStats {
 
 class CodexSyncer {
   private readonly HOST_DIR: string;
-  private readonly SANDBOX_DIR: string;
   private readonly PROJECT_ROOT: string;
 
   private dryRun = false;
   private force = false;
-  private direction: 'host-to-sandbox' | 'sandbox-to-host' | 'both' = 'both';
 
-  private stats: CodexSyncStats = { direction: '', dbs: 0, files: 0, errors: 0 };
+  private leftNames: string[] = [];
+  private rightNames: string[] = [];
+
+  private stats: CodexSyncStats = { dbs: 0, files: 0, errors: 0 };
 
   constructor() {
     this.PROJECT_ROOT = path.resolve(__dirname, '../..');
     this.HOST_DIR = path.join(os.homedir(), '.codex');
-    this.SANDBOX_DIR = path.join(this.PROJECT_ROOT, 'agents/.volumes/sandbox/codex');
   }
 
   public run(): void {
     const args = process.argv.slice(2);
-    const dirArg = args.find(a => a.startsWith('--direction='));
-    if (dirArg) this.direction = dirArg.split('=')[1] as typeof this.direction;
+    this.parseEndpoints(args);
     this.dryRun = args.includes('--dry-run');
     this.force = args.includes('--force');
 
     console.log('🔄 Codex CLI 세션 동기화\n');
 
-    this.checkDirs();
-    this.checkOpencodeRunning();
-
-    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
-      this.syncAll('host-to-sandbox');
+    const allNames = new Set([...this.leftNames, ...this.rightNames]);
+    const allDirs = new Map<string, string>();
+    allDirs.set('host', this.HOST_DIR);
+    for (const name of allNames) {
+      if (name === 'host') continue;
+      if (!allDirs.has(name)) {
+        const volumeBase = getContainerVolumeBase(name);
+        allDirs.set(name, path.join(volumeBase, 'codex'));
+      }
     }
-    if (this.direction === 'sandbox-to-host' || this.direction === 'both') {
-      this.syncAll('sandbox-to-host');
+
+    this.checkDirs(allDirs);
+    this.checkAgentRunning(allNames, 'codex');
+
+    for (const left of this.leftNames) {
+      for (const right of this.rightNames) {
+        if (left === right) continue;
+        const leftDir = allDirs.get(left)!;
+        const rightDir = allDirs.get(right)!;
+        if (!fs.existsSync(leftDir) || !fs.existsSync(rightDir)) {
+          console.log(`\n⏭️  Codex 페어 건너뜀 (${left} ↔ ${right}): 디렉토리 없음`);
+          continue;
+        }
+        this.syncPair(left, right, leftDir, rightDir);
+      }
     }
 
     this.printSummary();
   }
 
-  private checkDirs(): void {
-    for (const [d, label] of [[this.HOST_DIR, 'Host codex'], [this.SANDBOX_DIR, 'Sandbox codex']] as const) {
-      if (fs.existsSync(d)) {
-        console.log(`  ✅ ${label}: ${d}`);
-      } else {
-        console.warn(`  ⚠️ ${label} 없음: ${d}`);
-      }
-    }
+  private parseEndpoints(args: string[]): void {
+    const parseListArg = (prefix: string, def: string[]): string[] => {
+      const eq = args.find(a => a.startsWith(`${prefix}=`));
+      if (eq) return eq.split('=')[1].split(',').map(s => s.trim()).filter(Boolean);
+      const idx = args.indexOf(prefix);
+      if (idx !== -1 && idx + 1 < args.length) return args[idx + 1].split(',').map(s => s.trim()).filter(Boolean);
+      return def;
+    };
+    this.leftNames = parseListArg('--left', ['host']);
+    this.rightNames = parseListArg('--right', ['sandbox']);
   }
 
-  private checkOpencodeRunning(): void {
-    const check = (cmd: string, label: string): boolean => {
+  private checkAgentRunning(allNames: Set<string>, agentProcess: string): void {
+    const check = (cmd: string): boolean => {
       try {
         const out = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
         return out.length > 0;
       } catch { return false; }
     };
-    const hostRunning = check('pgrep -x codex 2>/dev/null || true', 'Host');
-    let sandboxRunning = false;
-    try {
-      const out = execSync(
-        'docker compose -p scraper exec -T sandbox bash -c "pgrep -x codex 2>/dev/null || true" 2>/dev/null || true',
-        { encoding: 'utf-8' }
-      ).trim();
-      sandboxRunning = out.length > 0;
-    } catch { /* ignore */ }
+
+    const hostRunning = check(`pgrep -x ${agentProcess} 2>/dev/null || true`);
     if (hostRunning) {
-      console.warn('  ⚠️ 호스트에서 codex가 실행 중입니다.');
+      console.warn(`  ⚠️ 호스트에서 ${agentProcess}가 실행 중입니다.`);
       if (!this.force) {
-        console.error('  ❌ codex를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        console.error(`  ❌ ${agentProcess}를 종료한 후 다시 실행하세요. (--force로 무시 가능)`);
         process.exit(1);
       }
     }
-    if (sandboxRunning) {
-      console.warn('  ⚠️ 샌드박스에서 codex가 실행 중입니다.');
-      if (!this.force) {
-        console.error('  ❌ 샌드박스에서 codex를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
-        process.exit(1);
+
+    for (const name of allNames) {
+      if (name === 'host') continue;
+      let containerRunning = false;
+      try {
+        const out = execSync(
+          `docker compose -p scraper exec -T "${name}" bash -c "pgrep -x ${agentProcess} 2>/dev/null || true" 2>/dev/null || true`,
+          { encoding: 'utf-8' }
+        ).trim();
+        containerRunning = out.length > 0;
+      } catch { /* container not running */ }
+      if (containerRunning) {
+        console.warn(`  ⚠️ "${name}"에서 ${agentProcess}가 실행 중입니다.`);
+        if (!this.force) {
+          console.error(`  ❌ "${name}"에서 ${agentProcess}를 종료한 후 다시 실행하세요. (--force로 무시 가능)`);
+          process.exit(1);
+        }
       }
     }
-    if (!hostRunning && !sandboxRunning) console.log('  ✅ codex 미실행 확인');
+
+    if (!hostRunning) console.log('  ✅ 호스트 미실행 확인');
+  }
+
+  private syncPair(leftName: string, rightName: string, leftDir: string, rightDir: string): void {
+    console.log(`\n📦 Codex 동기화: ${leftName} ↔ ${rightName}`);
+
+    const dbFiles = ['logs_2.sqlite', 'state_5.sqlite', 'goals_1.sqlite', 'memories_1.sqlite'];
+    for (const db of dbFiles) {
+      this.syncSqliteDb(path.join(leftDir, db), path.join(rightDir, db));
+      this.syncSqliteDb(path.join(rightDir, db), path.join(leftDir, db));
+    }
+
+    for (const rel of ['sessions', 'history.jsonl', '.codex-global-state.json', 'models_cache.json']) {
+      this.syncFile(path.join(leftDir, rel), path.join(rightDir, rel));
+      this.syncFile(path.join(rightDir, rel), path.join(leftDir, rel));
+    }
+  }
+
+  private checkDirs(allDirs: Map<string, string>): void {
+    for (const [name, d] of allDirs) {
+      if (fs.existsSync(d)) {
+        console.log(`  ✅ ${name === 'host' ? 'Host' : `"${name}"`} codex: ${d}`);
+      } else {
+        console.warn(`  ⚠️ ${name === 'host' ? 'Host' : `"${name}"`} codex 없음: ${d}`);
+      }
+    }
   }
 
   private queryJson(db: string, sql: string): any[] {
@@ -1134,30 +1253,6 @@ class CodexSyncer {
       const out = execSync(`sqlite3 -json "${db}" "${sql}" 2>&1`, { encoding: 'utf-8', maxBuffer: 20 * 1024 * 1024 }).trim();
       return out ? JSON.parse(out) : [];
     } catch { return []; }
-  }
-
-  private syncAll(label: string): void {
-    const isH2S = label === 'host-to-sandbox';
-    const srcDir = isH2S ? this.HOST_DIR : this.SANDBOX_DIR;
-    const tgtDir = isH2S ? this.SANDBOX_DIR : this.HOST_DIR;
-
-    if (!fs.existsSync(srcDir) || !fs.existsSync(tgtDir)) {
-      console.log(`\n📦 Codex 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}: 디렉토리 없음, 건너뜁니다.`);
-      return;
-    }
-
-    console.log(`\n📦 Codex 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}`);
-
-    // 1. SQLite DBs
-    const dbFiles = ['logs_2.sqlite', 'state_5.sqlite', 'goals_1.sqlite', 'memories_1.sqlite'];
-    for (const db of dbFiles) {
-      this.syncSqliteDb(path.join(srcDir, db), path.join(tgtDir, db));
-    }
-
-    // 2. Rollout sessions + history + cache
-    for (const rel of ['sessions', 'history.jsonl', '.codex-global-state.json', 'models_cache.json']) {
-      this.syncFile(path.join(srcDir, rel), path.join(tgtDir, rel));
-    }
   }
 
   private syncSqliteDb(src: string, tgt: string): void {
@@ -1184,7 +1279,6 @@ class CodexSyncer {
       return;
     }
 
-    // ATTACH-based merge
     const safeSrc = src.replace(/'/g, "''");
     const tables = this.queryJson(src, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx_%'");
     if (tables.length === 0) { console.log(`  ⏭️  ${name}: sync 대상 테이블 없음`); return; }
@@ -1236,7 +1330,7 @@ class CodexSyncer {
         this.stats.errors++;
       }
     } else {
-      if (fs.existsSync(tgt)) return; // skip existing files
+      if (fs.existsSync(tgt)) return;
       try {
         fs.copyFileSync(src, tgt);
         console.log(`  ✅ ${name}: 복사됨`);
@@ -1263,7 +1357,7 @@ class CodexSyncer {
 }
 
 // ==============================================================================
-// 7. AgySyncer (양방향 동기화 호스트 ↔ 샌드박스 - Antigravity CLI)
+// 7. AgySyncer (양방향 동기화 — 엔드포인트 페어)
 // ==============================================================================
 
 interface AgySyncStats {
@@ -1275,109 +1369,131 @@ interface AgySyncStats {
 
 class AgySyncer {
   private readonly HOST_DIR: string;
-  private readonly SANDBOX_DIR: string;
   private readonly PROJECT_ROOT: string;
 
   private dryRun = false;
   private force = false;
-  private direction: 'host-to-sandbox' | 'sandbox-to-host' | 'both' = 'both';
+
+  private leftNames: string[] = [];
+  private rightNames: string[] = [];
 
   private stats: AgySyncStats = { dbs: 0, sessions: 0, files: 0, errors: 0 };
 
   constructor() {
     this.PROJECT_ROOT = path.resolve(__dirname, '../..');
     this.HOST_DIR = path.join(os.homedir(), '.gemini/antigravity-cli');
-    this.SANDBOX_DIR = path.join(this.PROJECT_ROOT, 'agents/.volumes/sandbox/gemini/antigravity-cli');
   }
 
   public run(): void {
     const args = process.argv.slice(2);
-    const dirArg = args.find(a => a.startsWith('--direction='));
-    if (dirArg) this.direction = dirArg.split('=')[1] as typeof this.direction;
+    this.parseEndpoints(args);
     this.dryRun = args.includes('--dry-run');
     this.force = args.includes('--force');
 
     console.log('🔄 Antigravity CLI 세션 동기화\n');
 
-    this.checkDirs();
-    this.checkAgyRunning();
-
-    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
-      this.syncAll('host-to-sandbox');
+    const allNames = new Set([...this.leftNames, ...this.rightNames]);
+    const allDirs = new Map<string, string>();
+    allDirs.set('host', this.HOST_DIR);
+    for (const name of allNames) {
+      if (name === 'host') continue;
+      if (!allDirs.has(name)) {
+        const volumeBase = getContainerVolumeBase(name);
+        allDirs.set(name, path.join(volumeBase, 'gemini/antigravity-cli'));
+      }
     }
-    if (this.direction === 'sandbox-to-host' || this.direction === 'both') {
-      this.syncAll('sandbox-to-host');
+
+    this.checkDirs(allDirs);
+    this.checkAgentRunning(allNames, 'agy');
+
+    for (const left of this.leftNames) {
+      for (const right of this.rightNames) {
+        if (left === right) continue;
+        const leftDir = allDirs.get(left)!;
+        const rightDir = allDirs.get(right)!;
+        if (!fs.existsSync(leftDir) || !fs.existsSync(rightDir)) {
+          console.log(`\n⏭️  Agy 페어 건너뜀 (${left} ↔ ${right}): 디렉토리 없음`);
+          continue;
+        }
+        this.syncPair(left, right, leftDir, rightDir);
+      }
     }
 
     this.printSummary();
   }
 
-  private checkDirs(): void {
-    for (const [d, label] of [[this.HOST_DIR, 'Host agy'], [this.SANDBOX_DIR, 'Sandbox agy']] as const) {
-      if (fs.existsSync(d)) {
-        console.log(`  ✅ ${label}: ${d}`);
-      } else {
-        console.warn(`  ⚠️ ${label} 없음: ${d}`);
-      }
-    }
+  private parseEndpoints(args: string[]): void {
+    const parseListArg = (prefix: string, def: string[]): string[] => {
+      const eq = args.find(a => a.startsWith(`${prefix}=`));
+      if (eq) return eq.split('=')[1].split(',').map(s => s.trim()).filter(Boolean);
+      const idx = args.indexOf(prefix);
+      if (idx !== -1 && idx + 1 < args.length) return args[idx + 1].split(',').map(s => s.trim()).filter(Boolean);
+      return def;
+    };
+    this.leftNames = parseListArg('--left', ['host']);
+    this.rightNames = parseListArg('--right', ['sandbox']);
   }
 
-  private checkAgyRunning(): void {
-    const check = (cmd: string, label: string): boolean => {
+  private checkAgentRunning(allNames: Set<string>, agentProcess: string): void {
+    const check = (cmd: string): boolean => {
       try {
         const out = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
         return out.length > 0;
       } catch { return false; }
     };
-    const hostRunning = check('pgrep -x agy 2>/dev/null || true', 'Host');
-    let sandboxRunning = false;
-    try {
-      const out = execSync(
-        'docker compose -p scraper exec -T sandbox bash -c "pgrep -x agy 2>/dev/null || true" 2>/dev/null || true',
-        { encoding: 'utf-8' }
-      ).trim();
-      sandboxRunning = out.length > 0;
-    } catch { /* ignore */ }
+
+    const hostRunning = check(`pgrep -x ${agentProcess} 2>/dev/null || true`);
     if (hostRunning) {
-      console.warn('  ⚠️ 호스트에서 agy가 실행 중입니다.');
+      console.warn(`  ⚠️ 호스트에서 ${agentProcess}가 실행 중입니다.`);
       if (!this.force) {
-        console.error('  ❌ agy를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        console.error(`  ❌ ${agentProcess}를 종료한 후 다시 실행하세요. (--force로 무시 가능)`);
         process.exit(1);
       }
     }
-    if (sandboxRunning) {
-      console.warn('  ⚠️ 샌드박스에서 agy가 실행 중입니다.');
-      if (!this.force) {
-        console.error('  ❌ 샌드박스에서 agy를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
-        process.exit(1);
+
+    for (const name of allNames) {
+      if (name === 'host') continue;
+      let containerRunning = false;
+      try {
+        const out = execSync(
+          `docker compose -p scraper exec -T "${name}" bash -c "pgrep -x ${agentProcess} 2>/dev/null || true" 2>/dev/null || true`,
+          { encoding: 'utf-8' }
+        ).trim();
+        containerRunning = out.length > 0;
+      } catch { /* container not running */ }
+      if (containerRunning) {
+        console.warn(`  ⚠️ "${name}"에서 ${agentProcess}가 실행 중입니다.`);
+        if (!this.force) {
+          console.error(`  ❌ "${name}"에서 ${agentProcess}를 종료한 후 다시 실행하세요. (--force로 무시 가능)`);
+          process.exit(1);
+        }
       }
     }
-    if (!hostRunning && !sandboxRunning) console.log('  ✅ agy 미실행 확인');
+
+    if (!hostRunning) console.log('  ✅ 호스트 미실행 확인');
   }
 
-  private syncAll(label: string): void {
-    const isH2S = label === 'host-to-sandbox';
-    const srcDir = isH2S ? this.HOST_DIR : this.SANDBOX_DIR;
-    const tgtDir = isH2S ? this.SANDBOX_DIR : this.HOST_DIR;
+  private syncPair(leftName: string, rightName: string, leftDir: string, rightDir: string): void {
+    console.log(`\n📦 Agy 동기화: ${leftName} ↔ ${rightName}`);
 
-    if (!fs.existsSync(srcDir) || !fs.existsSync(tgtDir)) {
-      console.log(`\n📦 Agy 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}: 디렉토리 없음, 건너뜁니다.`);
-      return;
+    this.syncDir('conversations', path.join(leftDir, 'conversations'), path.join(rightDir, 'conversations'));
+    this.syncDir('conversations', path.join(rightDir, 'conversations'), path.join(leftDir, 'conversations'));
+    this.syncDir('brain', path.join(leftDir, 'brain'), path.join(rightDir, 'brain'));
+    this.syncDir('brain', path.join(rightDir, 'brain'), path.join(leftDir, 'brain'));
+    this.syncSummariesDb(path.join(leftDir, 'conversation_summaries.db'), path.join(rightDir, 'conversation_summaries.db'));
+    this.syncSummariesDb(path.join(rightDir, 'conversation_summaries.db'), path.join(leftDir, 'conversation_summaries.db'));
+    this.syncFile(path.join(leftDir, 'history.jsonl'), path.join(rightDir, 'history.jsonl'));
+    this.syncFile(path.join(rightDir, 'history.jsonl'), path.join(leftDir, 'history.jsonl'));
+  }
+
+  private checkDirs(allDirs: Map<string, string>): void {
+    for (const [name, d] of allDirs) {
+      if (fs.existsSync(d)) {
+        console.log(`  ✅ ${name === 'host' ? 'Host' : `"${name}"`} agy: ${d}`);
+      } else {
+        console.warn(`  ⚠️ ${name === 'host' ? 'Host' : `"${name}"`} agy 없음: ${d}`);
+      }
     }
-
-    console.log(`\n📦 Agy 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}`);
-
-    // 1. per-session conversation DBs (rsync --update)
-    this.syncDir('conversations', path.join(srcDir, 'conversations'), path.join(tgtDir, 'conversations'));
-
-    // 2. brain/ session files (rsync --update)
-    this.syncDir('brain', path.join(srcDir, 'brain'), path.join(tgtDir, 'brain'));
-
-    // 3. conversation_summaries.db (ATTACH merge)
-    this.syncSummariesDb(path.join(srcDir, 'conversation_summaries.db'), path.join(tgtDir, 'conversation_summaries.db'));
-
-    // 4. history.jsonl
-    this.syncFile(path.join(srcDir, 'history.jsonl'), path.join(tgtDir, 'history.jsonl'));
   }
 
   private syncDir(name: string, src: string, tgt: string): void {
@@ -1398,7 +1514,6 @@ class AgySyncer {
       console.log(`  ✅ ${name}/: ${count}개 동기화 완료`);
       this.stats.files += count;
       if (name === 'conversations') {
-        // Count session DBs (one .db file per session)
         const sessionCount = fs.readdirSync(tgt).filter(f => f.endsWith('.db')).length;
         this.stats.sessions = Math.max(this.stats.sessions, sessionCount);
       }
@@ -1465,7 +1580,7 @@ DETACH src;`;
     }
 
     fs.mkdirSync(path.dirname(tgt), { recursive: true });
-    if (fs.existsSync(tgt)) return; // skip existing
+    if (fs.existsSync(tgt)) return;
     try {
       fs.copyFileSync(src, tgt);
       console.log(`  ✅ ${name}: 복사됨`);
@@ -1574,22 +1689,9 @@ if (require.main === module) {
     const runOpenCode = !args.includes('--codex') && !args.includes('--agy') || args.includes('--opencode');
     const runCodex = args.includes('--codex');
     const runAgy = args.includes('--agy');
-    const dryRun = args.includes('--dry-run') || args.includes('--noop');
-    if (runOpenCode) {
-      const syncer = new SessionSyncer();
-      if (dryRun) process.argv.push('--dry-run');
-      syncer.run();
-    }
-    if (runCodex) {
-      const syncer = new CodexSyncer();
-      if (dryRun) process.argv.push('--dry-run');
-      syncer.run();
-    }
-    if (runAgy) {
-      const syncer = new AgySyncer();
-      if (dryRun) process.argv.push('--dry-run');
-      syncer.run();
-    }
+    if (runOpenCode) new SessionSyncer().run();
+    if (runCodex) new CodexSyncer().run();
+    if (runAgy) new AgySyncer().run();
     process.exit(0);
   }
   
