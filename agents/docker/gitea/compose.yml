@@ -14,7 +14,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       traefik:
-        condition: service_healthy      
+        condition: service_healthy
     environment:
       - GITEA__database__DB_TYPE=${GITEA_DATABASE_DB_TYPE:-sqlite3}
       - GITEA__database__PATH=${GITEA_DATABASE_PATH:-/data/gitea/gitea.db}

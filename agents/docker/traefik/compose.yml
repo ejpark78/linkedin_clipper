@@ -27,7 +27,7 @@ services:
       - "--entrypoints.websecure.http.tls=true"
       - "--serverstransport.insecureskipverify=true"
       - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"      
+      - "--providers.file.watch=true"
     ports:
       - "80:80"
       - "443:443"

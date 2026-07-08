@@ -52,7 +52,11 @@ services:
       - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "[ $$(find /tmp/scraper-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "[ $$(find /tmp/scraper-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -81,7 +85,11 @@ services:
       - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "[ $$(find /tmp/converter-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "[ $$(find /tmp/converter-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3

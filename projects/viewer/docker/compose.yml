@@ -17,7 +17,13 @@ services:
       viewer-api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5173', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:5173', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -36,7 +42,8 @@ services:
         - BUILD_DATE
         - VCS_REF
     image: crawler/viewer/be:latest
-    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "api/server.ts"]
+    command:
+      ["npx", "ts-node", "--project", "/app/tsconfig.json", "api/server.ts"]
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
@@ -58,7 +65,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/collections', (r) => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/api/collections', (r) => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -68,7 +81,7 @@ services:
       - "traefik.http.routers.viewer-api.entrypoints=websecure"
       - "traefik.http.routers.viewer-api.tls=true"
       - "traefik.http.services.viewer-api.loadbalancer.server.port=3000"
- 
+
   viewer-mcp:
     build:
       context: ..
@@ -77,7 +90,8 @@ services:
         - BUILD_DATE
         - VCS_REF
     image: crawler/viewer/be:latest
-    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "mcp/mcp-entry.ts"]
+    command:
+      ["npx", "ts-node", "--project", "/app/tsconfig.json", "mcp/mcp-entry.ts"]
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
@@ -92,7 +106,13 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/sse', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/sse', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3

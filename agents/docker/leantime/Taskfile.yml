@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   init:
@@ -11,7 +11,7 @@ tasks:
         - task leantime:init
     cmds:
       - task traefik:mkcert
-      - '{{.COMPOSE}} up -d leantime leantime_db'
+      - "{{.COMPOSE}} up -d leantime leantime_db"
       - sleep 10
 
   install:

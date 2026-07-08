@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   session:dump:
@@ -76,13 +76,25 @@ tasks:
         - task agents:session:dump:all
     cmds:
       - task: session:dump:sysinfo
-        vars: { CLI_ARGS: '{{.CLI_ARGS}}' }
+        vars: { CLI_ARGS: "{{.CLI_ARGS}}" }
       - task: session:dump:transcripts
-        vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}', CLI_ARGS: '{{.CLI_ARGS}}' }
+        vars:
+          {
+            AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}',
+            CLI_ARGS: "{{.CLI_ARGS}}",
+          }
       - task: session:dump:context
-        vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}', CLI_ARGS: '{{.CLI_ARGS}}' }
+        vars:
+          {
+            AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}',
+            CLI_ARGS: "{{.CLI_ARGS}}",
+          }
       - task: session:dump:brain
-        vars: { AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}', CLI_ARGS: '{{.CLI_ARGS}}' }
+        vars:
+          {
+            AGENTS: '{{.AGENTS | default "agy,opencode,codex"}}',
+            CLI_ARGS: "{{.CLI_ARGS}}",
+          }
       - npm run sessions -w agents -- --context --all --agent={{.AGENTS | default "agy,opencode,codex"}} {{.CLI_ARGS}}
       - npm run rules -w agents -- --compress {{.CLI_ARGS}}
       - npm run rules -w agents -- --lint {{.CLI_ARGS}}
@@ -144,5 +156,3 @@ tasks:
         - task agents:review
     cmds:
       - agy --skill code_review "Run semantic code review on my latest modifications." {{.CLI_ARGS}}
-
-

@@ -20,6 +20,8 @@ services:
     depends_on:
       traefik:
         condition: service_healthy
+      gitea:
+        condition: service_healthy
     environment:
       - PUID=${USER_UID:-1000}
       - PGID=${USER_GID:-1000}
@@ -51,5 +53,3 @@ services:
       - "traefik.http.routers.sandbox.entrypoints=websecure"
       - "traefik.http.routers.sandbox.tls=true"
       - "traefik.http.services.sandbox.loadbalancer.server.port=8080"
-
-

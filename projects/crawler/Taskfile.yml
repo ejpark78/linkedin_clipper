@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   login:
@@ -48,7 +48,7 @@ tasks:
       [Usage Examples]
         - task crawler:queue:clear
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:clear -- {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:clear -- {{.CLI_ARGS}}"
 
   queue:status:
     desc: Show crawler queue statistics.
@@ -58,7 +58,7 @@ tasks:
       [Usage Examples]
         - task crawler:queue:status
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status -- {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status -- {{.CLI_ARGS}}"
 
   queue:dump:
     desc: Dump crawler queue to JSON.
@@ -68,7 +68,7 @@ tasks:
       [Usage Examples]
         - task crawler:queue:dump
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data:/app/data worker npm run queue:dump -- {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data:/app/data worker npm run queue:dump -- {{.CLI_ARGS}}"
 
   queue:fix-urls:
     desc: Fix malformed URLs in the crawler queue.
@@ -78,9 +78,9 @@ tasks:
       [Usage Examples]
         - task crawler:queue:fix-urls
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:fix-urls -- {{.CLI_ARGS}}'
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status'
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status"
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:fix-urls -- {{.CLI_ARGS}}"
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} worker npm run queue:status"
 
   grep-errors:
     desc: Search crawler logs for errors.
@@ -90,7 +90,7 @@ tasks:
       [Usage Examples]
         - task crawler:grep-errors
     cmds:
-      - '{{.COMPOSE}} logs --no-color scraper converter | {{.COMPOSE}} run --rm -T {{.RUN_USER}} worker npm run log:grep-errors -- {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} logs --no-color scraper converter | {{.COMPOSE}} run --rm -T {{.RUN_USER}} worker npm run log:grep-errors -- {{.CLI_ARGS}}"
 
   gmail:sync:
     desc: Sync Gmail messages via Gmail tool.
@@ -100,7 +100,7 @@ tasks:
       [Usage Examples]
         - task crawler:gmail:sync
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data/gmail:/data gmail npm run gmail:sync -- {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data/gmail:/data gmail npm run gmail:sync -- {{.CLI_ARGS}}"
 
   site:
     desc: "Run a crawler site command. Variables: SITE, CMD, PAGE, LIST_SLACK."

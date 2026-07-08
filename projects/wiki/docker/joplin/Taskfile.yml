@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   pull:
@@ -43,4 +43,4 @@ tasks:
       [Usage Examples]
         - task joplin:auth
     cmds:
-      - '{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool npx ts-node wiki.ts joplin:auth {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} run -i --rm {{.RUN_USER}} wiki-tool npx ts-node wiki.ts joplin:auth {{.CLI_ARGS}}"

@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   ps:
@@ -9,4 +9,4 @@ tasks:
       [Usage Examples]
         - task obsidian:ps
     cmds:
-      - '{{.COMPOSE}} ps obsidian'
+      - "{{.COMPOSE}} ps obsidian"

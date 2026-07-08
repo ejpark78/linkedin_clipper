@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   summary:
@@ -72,5 +72,3 @@ tasks:
         - task ebook:2md OUT_PATH=data/output
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe to-md --path "{{.OUT_PATH | default "data/output"}}" {{.CLI_ARGS}}'
-
-

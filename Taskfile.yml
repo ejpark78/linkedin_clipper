@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 vars:
   PROJECT: scraper
@@ -48,38 +48,37 @@ tasks:
   build:
     desc: "Build Docker images. Usage: task build [-- <service_names>]"
     cmds:
-      - '{{.COMPOSE}} build --no-cache {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} build --no-cache {{.CLI_ARGS}}"
 
   up:
     desc: "Start containers. Usage: task up [-- <service_names>]"
     cmds:
-      - '{{.COMPOSE}} up -d {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} up -d {{.CLI_ARGS}}"
 
   down:
     desc: "Stop containers. Usage: task down [-- <service_names>]"
     cmds:
-      - '{{.COMPOSE}} stop {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} stop {{.CLI_ARGS}}"
 
   logs:
     desc: "View container logs. Usage: task logs [-- <service_names>]"
     cmds:
-      - '{{.COMPOSE}} logs -f {{.CLI_ARGS}}'
+      - "{{.COMPOSE}} logs -f {{.CLI_ARGS}}"
 
   svc:
     desc: "List all available services. Usage: task svc"
     cmds:
-      - '{{.COMPOSE}} config --services'
+      - "{{.COMPOSE}} config --services"
 
   config:
     desc: Validate the full Docker Compose graph.
     summary: |
       Validate the full Docker Compose graph and print resolved service structure.
-      
+
       [Usage Examples]
         - task config
     cmds:
-      - '{{.COMPOSE}} config'
+      - "{{.COMPOSE}} config"
   ps:
     cmds:
       - '{{.COMPOSE}} ps --format "table {{`{{.Name}}`}}\t{{`{{.Service}}`}}\t{{`{{.Image}}`}}"'
-

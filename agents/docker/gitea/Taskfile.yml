@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 env:
   NODE_OPTIONS: "--use-system-ca"
@@ -92,7 +92,7 @@ tasks:
         - task git:init
     cmds:
       - task traefik:mkcert
-      - '{{.COMPOSE}} up -d gitea'
+      - "{{.COMPOSE}} up -d gitea"
       - sleep 5
       - echo "Gitea 컨테이너가 시작되었습니다. 계정을 생성합니다..."
       - task: user:create
