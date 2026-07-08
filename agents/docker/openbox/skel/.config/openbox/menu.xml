@@ -9,6 +9,9 @@
   <item label="Terminal emulator">
     <action name="Execute"><execute>x-terminal-emulator</execute></action>
   </item>
+  <item label="Brave Browser">
+    <action name="Execute"><execute>brave-browser-stable --no-sandbox</execute></action>
+  </item>
   <item label="Web browser">
     <action name="Execute"><execute>x-www-browser</execute></action>
   </item>

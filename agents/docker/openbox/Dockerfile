@@ -67,6 +67,13 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null && \
     apt-get update && apt-get install -y gh google-cloud-cli mongodb-mongosh
 
+# Brave Browser 설치 (공식 apt 저장소)
+RUN curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | \
+    gpg --dearmor -o /etc/apt/keyrings/brave-browser.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/brave-browser.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | \
+    tee /etc/apt/sources.list.d/brave-browser.list > /dev/null && \
+    apt-get update && apt-get install -y brave-browser
+
 # Gitea CLI (tea) 설치 (아키텍처 맞춤 다운로드)
 RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
     curl -fsSL -o /usr/local/bin/tea "https://dl.gitea.com/tea/0.9.2/tea-0.9.2-linux-$ARCH" && \
