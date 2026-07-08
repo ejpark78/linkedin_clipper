@@ -5,9 +5,9 @@
   "private": true,
   "workspaces": [
     "agents",
-    "apps/crawler",
-    "apps/viewer",
-    "apps/wiki"
+    "projects/crawler",
+    "projects/viewer",
+    "projects/wiki"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

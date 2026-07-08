@@ -24,10 +24,10 @@
 ### 앱 구조
 | 앱 | 설명 |
 |:---|:---|
-| `apps/crawler/` | LinkedIn 등 기술 컨텐츠 크롤링 파이프라인 |
-| `apps/viewer/` | 수집된 컨텐츠 웹 뷰어 |
-| `apps/wiki/` | 지식베이스 위키 (Obsidian + Joplin) |
-| `apps/ebook/` | 전자책 생성 파이프라인 |
+| `projects/crawler/` | LinkedIn 등 기술 컨텐츠 크롤링 파이프라인 |
+| `projects/viewer/` | 수집된 컨텐츠 웹 뷰어 |
+| `projects/wiki/` | 지식베이스 위키 (Obsidian + Joplin) |
+| `projects/ebook/` | 전자책 생성 파이프라인 |
 
 ### 인프라
 - `infra/mongodb/`, `infra/redis/`, `infra/meilisearch/` — 데이터 계층

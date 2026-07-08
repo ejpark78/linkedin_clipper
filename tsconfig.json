@@ -21,6 +21,6 @@
       "@wiki/config": ["packages/config/index.ts"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "packages/**/*", "agents/**/*", "apps/**/*"],
-  "exclude": ["node_modules", "dist", "src/viewer/frontend", "apps/viewer/frontend", "apps/ebook"]
+  "include": ["src/**/*", "tests/**/*", "packages/**/*", "agents/**/*", "projects/**/*"],
+  "exclude": ["node_modules", "dist", "src/viewer/frontend", "projects/viewer/frontend", "projects/ebook"]
 }

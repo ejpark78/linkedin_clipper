@@ -1,0 +1,104 @@
+# ==============================================================================
+# 🛸 Document Explorer & MCP Hybrid Server Service Block
+# ==============================================================================
+
+services:
+  viewer-fe:
+    build:
+      context: ..
+      dockerfile: docker/fe/Dockerfile
+    image: crawler/viewer/fe:latest
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+    restart: unless-stopped
+    depends_on:
+      traefik:
+        condition: service_healthy
+      viewer-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5173', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.viewer-fe.rule=Host(`viewer.localhost`)"
+      - "traefik.http.routers.viewer-fe.entrypoints=websecure"
+      - "traefik.http.routers.viewer-fe.tls=true"
+      - "traefik.http.services.viewer-fe.loadbalancer.server.port=5173"
+
+  viewer-api:
+    build:
+      context: ..
+      dockerfile: docker/api/Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: crawler/viewer/be:latest
+    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "api/server.ts"]
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - PORT=${VIEWER_API_PORT:-3000}
+      - IS_VIEWER=${IS_VIEWER:-true}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_PATH:-.}/data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      traefik:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/api/collections', (r) => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.viewer-api.rule=Host(`viewer.localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.viewer-api.entrypoints=websecure"
+      - "traefik.http.routers.viewer-api.tls=true"
+      - "traefik.http.services.viewer-api.loadbalancer.server.port=3000"
+ 
+  viewer-mcp:
+    build:
+      context: ..
+      dockerfile: docker/mcp/Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: crawler/viewer/be:latest
+    command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "mcp/mcp-entry.ts"]
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - PORT=${VIEWER_MCP_PORT:-3001}
+    restart: unless-stopped
+    depends_on:
+      traefik:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3001/sse', (r) => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.viewer-mcp.rule=Host(`mcp.localhost`)"
+      - "traefik.http.routers.viewer-mcp.entrypoints=websecure"
+      - "traefik.http.routers.viewer-mcp.tls=true"
+      - "traefik.http.services.viewer-mcp.loadbalancer.server.port=3001"

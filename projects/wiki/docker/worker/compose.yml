@@ -1,0 +1,22 @@
+services:
+  wiki-worker:
+    build:
+      context: ${PROJECT_PATH:-.}/projects/wiki
+      dockerfile: docker/worker/Dockerfile
+    image: wiki/worker:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - WIKI_QUEUE=${WIKI_QUEUE:-wiki:queue}
+      - OLLAMA_API_BASE=${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-http://host.docker.internal:11434/v1}
+      - LLM_ENGINE=${LLM_ENGINE:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3.5:9b-mlx}
+      - UV_CACHE_DIR=${UV_CACHE_DIR:-/tmp/uv_cache}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${PROJECT_PATH:-.}/data:/data

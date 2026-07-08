@@ -7,11 +7,11 @@
 ## 🧭 서비스별 상세 변경 이력 (Sub-module Changelogs)
 
 상세 컴포넌트별 릴리즈 및 변경 로그는 각 서비스 폴더 내부의 개별 Changelog를 참고하세요.
+* 🕷️ **Crawler 서비스**: [projects/crawler/CHANGELOG.md](file:///home/ejpark/workspace/scraper/projects/crawler/CHANGELOG.md)
 
-* 🕷️ **Crawler 서비스**: [apps/crawler/CHANGELOG.md](file:///home/ejpark/workspace/scraper/apps/crawler/CHANGELOG.md)
-* 🖥️ **Viewer & Dashboard**: [apps/viewer/CHANGELOG.md](file:///home/ejpark/workspace/scraper/apps/viewer/CHANGELOG.md)
-* 📚 **Ebook 파이프라인**: [apps/ebook/CHANGELOG.md](file:///home/ejpark/workspace/scraper/apps/ebook/CHANGELOG.md)
+* 🖥️ **Viewer & Dashboard**: [projects/viewer/CHANGELOG.md](file:///home/ejpark/workspace/scraper/projects/viewer/CHANGELOG.md)
 
+* 📚 **Ebook 파이프라인**: [projects/ebook/CHANGELOG.md](file:///home/ejpark/workspace/scraper/projects/ebook/CHANGELOG.md)
 ---
 
 ## 🎯 통합 버전 이력 요약 (Global Milestones)
@@ -39,7 +39,7 @@
 * **Scraper 데드락 해결 (Bugfix)**: Redis blpop용 전용 커넥션 도입(이원화) 및 120초 글로벌 타임아웃 래퍼 적용을 통해 크롤러 워커 블로킹 현상 완벽 방지.
 
 ### [1.7.0] - 2026-06-23
-* **격리 아키텍처 수립**: `AGENTS.md` 규칙 및 `CHANGELOG.md` 변경 로그를 각 모노레포 패키지(`apps/crawler`, `apps/viewer`, `apps/ebook`) 하위로 정밀하게 격리 및 분리 분할하여 결합도 최소화.
+* **격리 아키텍처 수립**: `AGENTS.md` 규칙 및 `CHANGELOG.md` 변경 로그를 각 모노레포 패키지(`projects/crawler`, `projects/viewer`, `projects/ebook`) 하위로 정밀하게 격리 및 분리 분할하여 결합도 최소화.
 * **계획 승인 후 일괄 실행 규칙 완화**: 계획서(.plan.md) 승인 획득 이후에는 추가적인 파일 생성 및 소스 코드 수정 관련 개별 차단 승인 없이 한 번에 자율적으로 단일 턴에 처리할 수 있도록 AGENTS.md 2번 제약 사항 개정.
 
 ### [1.6.0] - 2026-06-22

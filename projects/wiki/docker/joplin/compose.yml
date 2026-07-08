@@ -1,0 +1,30 @@
+# ==============================================================================
+# 🐳 Module: compose.yml (joplin-tool)
+# Description: Docker Compose service definition for Joplin CLI tool
+# Last Updated: 2026-07-02
+# ==============================================================================
+
+services:
+  wiki-tool:
+    build:
+      context: ${PROJECT_PATH:-.}/projects/wiki
+      dockerfile: docker/joplin/Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: wiki/tool:latest
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - JOPLIN_SERVER_URL=${JOPLIN_SERVER_URL:-}
+      - JOPLIN_USERNAME=${JOPLIN_USERNAME:-}
+      - JOPLIN_PASSWORD=${JOPLIN_PASSWORD:-}
+      - JOPLIN_DEC_PASSWORD=${JOPLIN_DEC_PASSWORD:-}
+      - JOPLIN_API_URL=${JOPLIN_API_URL:-http://host.docker.internal:41184}
+      - JOPLIN_TOKEN=${JOPLIN_TOKEN:-}
+      - OBSIDIAN_API_URL=${OBSIDIAN_API_URL:-http://host.docker.internal:27123}
+    volumes:
+      - ${PROJECT_PATH:-.}/data:/app/data
+      - ${PROJECT_PATH:-.}/.env:/app/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: "no"

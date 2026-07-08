@@ -92,11 +92,11 @@ export class ValidationService {
   }
 
   runLintCheck(targetFile: string): string {
-    const isCrawler = targetFile.startsWith('apps/crawler/');
-    const isViewer = targetFile.startsWith('apps/viewer/');
+    const isCrawler = targetFile.startsWith('projects/crawler/');
+    const isViewer = targetFile.startsWith('projects/viewer/');
     if (!isCrawler && !isViewer) return '';
 
-    const prefix = isCrawler ? 'apps/crawler' : 'apps/viewer';
+    const prefix = isCrawler ? 'projects/crawler' : 'projects/viewer';
 
     if (!this.config.isContainer && this.config.runningWorkerId) {
       try {
@@ -120,8 +120,8 @@ export class ValidationService {
     if (!this.config.isContainer && this.config.runningWorkerId) {
       return this.git.runCmd('docker compose exec -T worker npm run type-check', true);
     } else {
-      if (fs.existsSync('apps/crawler/node_modules')) {
-        return this.git.runCmd('npm run type-check --prefix apps/crawler', true);
+      if (fs.existsSync('projects/crawler/node_modules')) {
+        return this.git.runCmd('npm run type-check --prefix projects/crawler', true);
       }
     }
     return '';
@@ -133,24 +133,24 @@ export class ValidationService {
     let runEbook = false;
 
     for (const file of stagedFiles) {
-      if (file.startsWith('apps/crawler/')) runCrawler = true;
-      else if (file.startsWith('apps/viewer/')) runViewer = true;
-      else if (file.startsWith('apps/ebook/')) runEbook = true;
+      if (file.startsWith('projects/crawler/')) runCrawler = true;
+      else if (file.startsWith('projects/viewer/')) runViewer = true;
+      else if (file.startsWith('projects/ebook/')) runEbook = true;
     }
 
-    if (runCrawler && fs.existsSync('apps/crawler/scripts/lint.sh')) {
-      console.log('Executing apps/crawler/scripts/lint.sh...');
-      this.runScript('./apps/crawler/scripts/lint.sh', 'Crawler');
+    if (runCrawler && fs.existsSync('projects/crawler/scripts/lint.sh')) {
+      console.log('Executing projects/crawler/scripts/lint.sh...');
+      this.runScript('./projects/crawler/scripts/lint.sh', 'Crawler');
     }
 
-    if (runViewer && fs.existsSync('apps/viewer/scripts/lint.sh')) {
-      console.log('Executing apps/viewer/scripts/lint.sh...');
-      this.runScript('./apps/viewer/scripts/lint.sh', 'Viewer');
+    if (runViewer && fs.existsSync('projects/viewer/scripts/lint.sh')) {
+      console.log('Executing projects/viewer/scripts/lint.sh...');
+      this.runScript('./projects/viewer/scripts/lint.sh', 'Viewer');
     }
 
-    if (runEbook && fs.existsSync('apps/ebook/scripts/lint.sh')) {
-      console.log('Executing apps/ebook/scripts/lint.sh...');
-      this.runScript('./apps/ebook/scripts/lint.sh', 'Ebook');
+    if (runEbook && fs.existsSync('projects/ebook/scripts/lint.sh')) {
+      console.log('Executing projects/ebook/scripts/lint.sh...');
+      this.runScript('./projects/ebook/scripts/lint.sh', 'Ebook');
     }
   }
 

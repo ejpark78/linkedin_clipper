@@ -1,0 +1,116 @@
+# ==============================================================================
+# 🏃 LinkedIn Crawler CLI & Distributed Workers (profile: runtime)
+# ==============================================================================
+
+services:
+  worker:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: crawler/worker:latest
+    working_dir: /app
+    environment:
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - AUTH=${AUTH:-}
+      - LIST_SLACK=${LIST_SLACK:-}
+      - CHUNK_SIZE=${CHUNK_SIZE:-}
+      - SESSION_DIR=${SESSION_DIR:-/app/data/sessions}
+      - LISTS=${LISTS:-}
+      - URLS=${URLS:-}
+      - HTML=${HTML:-}
+      - MD=${MD:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - TZ=${TZ:-Asia/Seoul}
+    volumes:
+      - ${PROJECT_PATH:-.}/data/sessions:/app/data/sessions
+      - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
+
+  scraper:
+    build:
+      context: ../../
+      dockerfile: docker/worker/scraper/Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: crawler/scraper:latest
+    working_dir: /app
+    labels:
+      autoheal: "true"
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - JSON_LOG=${JSON_LOG:-true}
+      - LIST_SLACK=${LIST_SLACK:-0}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - SESSION_DIR=${SESSION_DIR:-/app/data/sessions}
+    volumes:
+      - ${PROJECT_PATH:-.}/data/sessions:/app/data/sessions
+      - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(find /tmp/scraper-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      replicas: ${SCALE:-2}
+
+  converter:
+    build:
+      context: ../../
+      dockerfile: docker/worker/converter/Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: crawler/converter:latest
+    working_dir: /app
+    labels:
+      autoheal: "true"
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - AUTH=${AUTH:-}
+      - JSON_LOG=${JSON_LOG:-true}
+      - LIST_SLACK=${LIST_SLACK:-0}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+    volumes:
+      - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(find /tmp/converter-heartbeat -mmin -3 | wc -l) -gt 0 ] || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      replicas: 1
+
+  indexer:
+    build:
+      context: ../../
+      dockerfile: docker/worker/indexer/Dockerfile
+      args:
+        - BUILD_DATE
+        - VCS_REF
+    image: crawler/indexer:latest
+    working_dir: /app
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - AUTH=${AUTH:-}
+      - JSON_LOG=${JSON_LOG:-true}
+      - LIST_SLACK=${LIST_SLACK:-0}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - MEILI_URL=${MEILI_URL:-http://meilisearch:7700}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "IndexerWorker.ts"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      replicas: 1

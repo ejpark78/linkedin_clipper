@@ -1,0 +1,21 @@
+# ==============================================================================
+# 📧 Gmail Bulk Export Tool
+# ==============================================================================
+# - gmail
+#   - 용도: IMAP으로 Gmail의 메일함(inbox, sent, spam 등)을 읽어 Markdown으로 내보내기
+#   - 의존성: MongoDB/Redis 불필요 (직접 IMAP 연결)
+# ==============================================================================
+
+services:
+  gmail:
+    build:
+      context: ../../
+      dockerfile: docker/gmail/Dockerfile
+    image: gmail:latest
+    environment:
+      - TZ=${TZ:-Asia/Seoul}
+      - EMAIL_USER=${EMAIL_USER:-}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      - IMAP_HOST=${IMAP_HOST:-}
+    volumes:
+      - ${PROJECT_PATH:-.}/data/gmail:/app/data/gmail

@@ -11,23 +11,23 @@ vars:
 
 includes:
   ebook:
-    taskfile: ./apps/ebook/Taskfile.yml
+    taskfile: ./projects/ebook/Taskfile.yml
     dir: .
   obsidian:
-    taskfile: ./apps/wiki/docker/obsidian/Taskfile.yml
+    taskfile: ./projects/wiki/docker/obsidian/Taskfile.yml
     dir: .
   crawler:
-    taskfile: ./apps/crawler/Taskfile.yml
+    taskfile: ./projects/crawler/Taskfile.yml
     dir: .
 
   wiki:
-    taskfile: ./apps/wiki/Taskfile.yml
+    taskfile: ./projects/wiki/Taskfile.yml
     dir: .
   agents:
     taskfile: ./agents/Taskfile.yml
     dir: .
   joplin:
-    taskfile: ./apps/wiki/docker/joplin/Taskfile.yml
+    taskfile: ./projects/wiki/docker/joplin/Taskfile.yml
     dir: .
   git:
     taskfile: ./agents/docker/gitea/Taskfile.yml
