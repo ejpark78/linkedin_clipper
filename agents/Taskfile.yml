@@ -110,13 +110,14 @@ tasks:
   session:sync:
     desc: "양방향 세션 DB 동기화 (호스트 ↔ 샌드박스)"
     summary: |
-      기본값은 opencode. --codex 플래그로 Codex CLI도 동기화 가능.
+      기본값은 opencode. --codex / --agy 플래그로 각각 동기화 가능.
 
       [에이전트 선택]
-        (기본값)           opencode 동기화
-        --opencode         opencode 동기화 (명시적)
-        --codex            Codex CLI 동기화
-        --opencode --codex 둘 다 실행
+        (기본값)                     opencode 동기화
+        --opencode                   opencode 동기화 (명시적)
+        --codex                      Codex CLI 동기화
+        --agy                        Antigravity CLI 동기화
+        --opencode --codex --agy     셋 다 실행
 
       [옵션]
         --direction (host-to-sandbox|sandbox-to-host|both) (기본값: both)
@@ -128,7 +129,8 @@ tasks:
       [Usage Examples]
         - task agents:session:sync
         - task agents:session:sync -- --codex
-        - task agents:session:sync -- --opencode --codex --dry-run
+        - task agents:session:sync -- --agy
+        - task agents:session:sync -- --opencode --codex --agy --dry-run
         - task agents:session:sync -- --direction host-to-sandbox
     cmds:
       - npm run sessions -w agents -- --sync {{.CLI_ARGS}}

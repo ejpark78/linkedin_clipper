@@ -1263,7 +1263,236 @@ class CodexSyncer {
 }
 
 // ==============================================================================
-// 7. Session Pruner
+// 7. AgySyncer (양방향 동기화 호스트 ↔ 샌드박스 - Antigravity CLI)
+// ==============================================================================
+
+interface AgySyncStats {
+  dbs: number;
+  sessions: number;
+  files: number;
+  errors: number;
+}
+
+class AgySyncer {
+  private readonly HOST_DIR: string;
+  private readonly SANDBOX_DIR: string;
+  private readonly PROJECT_ROOT: string;
+
+  private dryRun = false;
+  private force = false;
+  private direction: 'host-to-sandbox' | 'sandbox-to-host' | 'both' = 'both';
+
+  private stats: AgySyncStats = { dbs: 0, sessions: 0, files: 0, errors: 0 };
+
+  constructor() {
+    this.PROJECT_ROOT = path.resolve(__dirname, '../..');
+    this.HOST_DIR = path.join(os.homedir(), '.gemini/antigravity-cli');
+    this.SANDBOX_DIR = path.join(this.PROJECT_ROOT, 'agents/.volumes/sandbox/gemini/antigravity-cli');
+  }
+
+  public run(): void {
+    const args = process.argv.slice(2);
+    const dirArg = args.find(a => a.startsWith('--direction='));
+    if (dirArg) this.direction = dirArg.split('=')[1] as typeof this.direction;
+    this.dryRun = args.includes('--dry-run');
+    this.force = args.includes('--force');
+
+    console.log('🔄 Antigravity CLI 세션 동기화\n');
+
+    this.checkDirs();
+    this.checkAgyRunning();
+
+    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
+      this.syncAll('host-to-sandbox');
+    }
+    if (this.direction === 'sandbox-to-host' || this.direction === 'both') {
+      this.syncAll('sandbox-to-host');
+    }
+
+    this.printSummary();
+  }
+
+  private checkDirs(): void {
+    for (const [d, label] of [[this.HOST_DIR, 'Host agy'], [this.SANDBOX_DIR, 'Sandbox agy']] as const) {
+      if (fs.existsSync(d)) {
+        console.log(`  ✅ ${label}: ${d}`);
+      } else {
+        console.warn(`  ⚠️ ${label} 없음: ${d}`);
+      }
+    }
+  }
+
+  private checkAgyRunning(): void {
+    const check = (cmd: string, label: string): boolean => {
+      try {
+        const out = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+        return out.length > 0;
+      } catch { return false; }
+    };
+    const hostRunning = check('pgrep -x agy 2>/dev/null || true', 'Host');
+    let sandboxRunning = false;
+    try {
+      const out = execSync(
+        'docker compose -p scraper exec -T sandbox bash -c "pgrep -x agy 2>/dev/null || true" 2>/dev/null || true',
+        { encoding: 'utf-8' }
+      ).trim();
+      sandboxRunning = out.length > 0;
+    } catch { /* ignore */ }
+    if (hostRunning) {
+      console.warn('  ⚠️ 호스트에서 agy가 실행 중입니다.');
+      if (!this.force) {
+        console.error('  ❌ agy를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        process.exit(1);
+      }
+    }
+    if (sandboxRunning) {
+      console.warn('  ⚠️ 샌드박스에서 agy가 실행 중입니다.');
+      if (!this.force) {
+        console.error('  ❌ 샌드박스에서 agy를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        process.exit(1);
+      }
+    }
+    if (!hostRunning && !sandboxRunning) console.log('  ✅ agy 미실행 확인');
+  }
+
+  private syncAll(label: string): void {
+    const isH2S = label === 'host-to-sandbox';
+    const srcDir = isH2S ? this.HOST_DIR : this.SANDBOX_DIR;
+    const tgtDir = isH2S ? this.SANDBOX_DIR : this.HOST_DIR;
+
+    if (!fs.existsSync(srcDir) || !fs.existsSync(tgtDir)) {
+      console.log(`\n📦 Agy 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}: 디렉토리 없음, 건너뜁니다.`);
+      return;
+    }
+
+    console.log(`\n📦 Agy 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}`);
+
+    // 1. per-session conversation DBs (rsync --update)
+    this.syncDir('conversations', path.join(srcDir, 'conversations'), path.join(tgtDir, 'conversations'));
+
+    // 2. brain/ session files (rsync --update)
+    this.syncDir('brain', path.join(srcDir, 'brain'), path.join(tgtDir, 'brain'));
+
+    // 3. conversation_summaries.db (ATTACH merge)
+    this.syncSummariesDb(path.join(srcDir, 'conversation_summaries.db'), path.join(tgtDir, 'conversation_summaries.db'));
+
+    // 4. history.jsonl
+    this.syncFile(path.join(srcDir, 'history.jsonl'), path.join(tgtDir, 'history.jsonl'));
+  }
+
+  private syncDir(name: string, src: string, tgt: string): void {
+    if (!fs.existsSync(src)) {
+      console.log(`  ⏭️  ${name}/: source 없음`);
+      return;
+    }
+
+    if (this.dryRun) {
+      console.log(`  [Dry-run] ${name}/: rsync 예정`);
+      return;
+    }
+
+    fs.mkdirSync(tgt, { recursive: true });
+    try {
+      const out = execSync(`rsync -a --update --exclude="*.lock" --exclude=".system_generated" "${src}/" "${tgt}/" 2>&1`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+      const count = out.split('\n').filter(l => l && !l.endsWith('/') && l !== '.').length;
+      console.log(`  ✅ ${name}/: ${count}개 동기화 완료`);
+      this.stats.files += count;
+      if (name === 'conversations') {
+        // Count session DBs (one .db file per session)
+        const sessionCount = fs.readdirSync(tgt).filter(f => f.endsWith('.db')).length;
+        this.stats.sessions = Math.max(this.stats.sessions, sessionCount);
+      }
+    } catch (err: any) {
+      console.error(`  ❌ ${name}/: ${err.message}`);
+      this.stats.errors++;
+    }
+  }
+
+  private syncSummariesDb(src: string, tgt: string): void {
+    const name = 'conversation_summaries.db';
+    if (!fs.existsSync(src)) {
+      console.log(`  ⏭️  ${name}: source 없음`);
+      return;
+    }
+    if (!fs.existsSync(tgt)) {
+      if (this.dryRun) {
+        console.log(`  [Dry-run] ${name}: 새로 복사`);
+        return;
+      }
+      fs.mkdirSync(path.dirname(tgt), { recursive: true });
+      fs.copyFileSync(src, tgt);
+      console.log(`  ✅ ${name}: 새로 복사됨`);
+      this.stats.dbs++;
+      return;
+    }
+
+    if (this.dryRun) {
+      console.log(`  [Dry-run] ${name}: merge 예정`);
+      return;
+    }
+
+    const safeSrc = src.replace(/'/g, "''");
+    const sql = `
+ATTACH DATABASE '${safeSrc}' AS src;
+BEGIN IMMEDIATE;
+INSERT OR IGNORE INTO conversation_summaries SELECT * FROM src.conversation_summaries;
+COMMIT;
+DETACH src;`;
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-agy-'));
+    const sqlFile = path.join(tmpDir, 'sync.sql');
+    fs.writeFileSync(sqlFile, sql);
+    try {
+      execSync(`sqlite3 "${tgt}" < "${sqlFile}" 2>&1`, { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 });
+      console.log(`  ✅ ${name}: merge 완료`);
+      this.stats.dbs++;
+    } catch (err: any) {
+      const msg = err?.stdout || err?.stderr || err.message || 'unknown error';
+      console.error(`  ❌ ${name}: ${msg.split('\n')[0]}`);
+      this.stats.errors++;
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  private syncFile(src: string, tgt: string): void {
+    const name = path.basename(src);
+    if (!fs.existsSync(src)) return;
+
+    if (this.dryRun) {
+      console.log(`  [Dry-run] ${name}: 복사 예정`);
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(tgt), { recursive: true });
+    if (fs.existsSync(tgt)) return; // skip existing
+    try {
+      fs.copyFileSync(src, tgt);
+      console.log(`  ✅ ${name}: 복사됨`);
+      this.stats.files++;
+    } catch (err: any) {
+      console.error(`  ❌ ${name}: ${err.message}`);
+      this.stats.errors++;
+    }
+  }
+
+  private printSummary(): void {
+    console.log('\n' + '='.repeat(36));
+    console.log('📊 Agy 동기화 결과');
+    console.log('='.repeat(36));
+    console.log(`  merge된 DB:   ${this.stats.dbs}`);
+    console.log(`  세션 폴더:    ${this.stats.sessions}`);
+    console.log(`  복사된 파일:  ${this.stats.files}`);
+    console.log(`  오류:         ${this.stats.errors}`);
+    console.log('='.repeat(36));
+    if (this.dryRun) console.log('\n💡 --dry-run 모드입니다.');
+    if (this.stats.errors > 0) process.exit(1);
+    console.log('✅ Agy 동기화 완료');
+  }
+}
+
+// ==============================================================================
+// 8. Session Pruner
 // ==============================================================================
 class SessionPruner {
   private readonly baseBrainDir: string;
@@ -1342,8 +1571,9 @@ if (require.main === module) {
   
   // Sync mode is exclusive
   if (hasSync) {
-    const runOpenCode = !args.includes('--codex') || args.includes('--opencode');
+    const runOpenCode = !args.includes('--codex') && !args.includes('--agy') || args.includes('--opencode');
     const runCodex = args.includes('--codex');
+    const runAgy = args.includes('--agy');
     const dryRun = args.includes('--dry-run') || args.includes('--noop');
     if (runOpenCode) {
       const syncer = new SessionSyncer();
@@ -1352,6 +1582,11 @@ if (require.main === module) {
     }
     if (runCodex) {
       const syncer = new CodexSyncer();
+      if (dryRun) process.argv.push('--dry-run');
+      syncer.run();
+    }
+    if (runAgy) {
+      const syncer = new AgySyncer();
       if (dryRun) process.argv.push('--dry-run');
       syncer.run();
     }
