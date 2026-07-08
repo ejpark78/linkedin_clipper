@@ -65,6 +65,11 @@ tasks:
     cmds:
       - '{{.COMPOSE}} logs -f {{.CLI_ARGS}}'
 
+  svc:
+    desc: "List all available services. Usage: task svc"
+    cmds:
+      - '{{.COMPOSE}} config --services'
+
   config:
     desc: Validate the full Docker Compose graph.
     summary: |
