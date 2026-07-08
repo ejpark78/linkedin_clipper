@@ -90,14 +90,15 @@ RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/ar
     curl -fsSL -o /usr/local/bin/mkcert "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-$ARCH" && \
     chmod +x /usr/local/bin/mkcert
 
-# 뼈대(skel) 설정 파일 복사 및 ubuntu 사용자 홈에 반영
+# oh-my-zsh 설치 스크립트 실행 (설치 과정에서 기본 .zshrc 템플릿 생성됨)
+USER ubuntu
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# 뼈대(skel) 설정 파일 복사 및 ubuntu 사용자 홈에 반영 (oh-my-zsh 기본 .zshrc를 skel 설정으로 덮어씀)
+USER root
 COPY skel/ /etc/skel/
 RUN cp -rT /etc/skel/ /home/ubuntu/ && \
     chown -R ubuntu:ubuntu /home/ubuntu
-
-# oh-my-zsh 설치 스크립트 실행 (홈 디렉토리 구성 이후 zsh 초기 설정용)
-USER ubuntu
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
 # JetBrainsMono Nerd Font 설치 및 캐시 갱신
 USER root

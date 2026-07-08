@@ -649,7 +649,621 @@ class BrainDumper {
 }
 
 // ==============================================================================
-// 5. Session Pruner
+// 5. SessionSyncer (양방향 동기화 호스트 ↔ 샌드박스)
+// ==============================================================================
+
+interface SyncDirStats {
+  label: string;
+  sessionsAdded: number;
+  sessionsUpdated: number;
+  filesCopied: number;
+  errors: number;
+}
+
+class SessionSyncer {
+  private readonly PROJECT_ROOT: string;
+  private readonly HOST_DB: string;
+  private readonly SANDBOX_VOLUME_BASE: string;
+  private readonly SANDBOX_DB: string;
+
+  private dryRun = false;
+  private force = false;
+  private direction: 'host-to-sandbox' | 'sandbox-to-host' | 'both' = 'both';
+  private noSnapshot = false;
+  private noToolOutput = false;
+
+  private stats: SyncDirStats = { label: '', sessionsAdded: 0, sessionsUpdated: 0, filesCopied: 0, errors: 0 };
+
+  constructor() {
+    this.PROJECT_ROOT = path.resolve(__dirname, '../..');
+    this.HOST_DB = path.join(os.homedir(), '.local/share/opencode/opencode.db');
+    this.SANDBOX_VOLUME_BASE = path.join(this.PROJECT_ROOT, 'agents/.volumes/sandbox/local');
+    this.SANDBOX_DB = path.join(this.SANDBOX_VOLUME_BASE, 'share/opencode/opencode.db');
+  }
+
+  public run(): void {
+    const args = process.argv.slice(2);
+    const dirArg = args.find(a => a.startsWith('--direction='));
+    if (dirArg) this.direction = dirArg.split('=')[1] as typeof this.direction;
+    this.dryRun = args.includes('--dry-run');
+    this.force = args.includes('--force');
+    this.noSnapshot = args.includes('--no-snapshot');
+    this.noToolOutput = args.includes('--no-tool-output');
+
+    console.log('🔄 OpenCode 세션 동기화\n');
+
+    this.checkSqlite3();
+    this.checkDbFiles();
+    this.checkSandboxContainer();
+    this.checkOpencodeRunning();
+    if (!this.force) this.checkSchemaVersion();
+
+    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
+      this.syncDB(this.HOST_DB, this.SANDBOX_DB, 'Host → Sandbox');
+    }
+    if (this.direction === 'sandbox-to-host' || this.direction === 'both') {
+      this.syncDB(this.SANDBOX_DB, this.HOST_DB, 'Sandbox → Host');
+    }
+
+    if (!this.noSnapshot) this.syncDir('snapshot',
+      path.join(os.homedir(), '.local/share/opencode/snapshot'),
+      path.join(this.SANDBOX_VOLUME_BASE, 'share/opencode/snapshot'));
+    if (!this.noToolOutput) this.syncDir('tool-output',
+      path.join(os.homedir(), '.local/share/opencode/tool-output'),
+      path.join(this.SANDBOX_VOLUME_BASE, 'share/opencode/tool-output'));
+
+    this.postSyncChecks();
+    this.printSummary();
+  }
+
+  // ── Prereq checks ──
+
+  private checkSqlite3(): void {
+    try {
+      execSync('sqlite3 --version', { stdio: 'pipe' });
+    } catch {
+      console.error('❌ sqlite3 CLI를 찾을 수 없습니다. 설치 후 다시 실행하세요.');
+      process.exit(1);
+    }
+  }
+
+  private checkDbFiles(): void {
+    for (const [p, label] of [[this.HOST_DB, 'Host DB'], [this.SANDBOX_DB, 'Sandbox DB']] as const) {
+      if (!fs.existsSync(p)) {
+        if (label === 'Sandbox DB') {
+          console.warn(`  ⚠️ Sandbox DB 없음: ${p}`);
+          console.warn('     샌드박스를 한 번 이상 실행해야 DB가 생성됩니다.');
+          if (!this.force) process.exit(1);
+        } else {
+          console.error(`❌ ${label} 없음: ${p}`);
+          process.exit(1);
+        }
+      } else {
+        console.log(`  ✅ ${label}: ${p}`);
+      }
+    }
+  }
+
+  private checkSandboxContainer(): void {
+    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
+      try {
+        execSync('docker compose -p scraper ps -q sandbox 2>/dev/null', { stdio: 'pipe' });
+      } catch {
+        console.warn('  ⚠️ 샌드박스 컨테이너가 실행 중이지 않습니다.');
+        console.warn('     DB 파일이 없거나 오래된 상태일 수 있습니다.');
+        if (!this.force) {
+          console.error('     (task agents:sandbox:up 실행 후 다시 시도하거나 --force로 무시)');
+          process.exit(1);
+        }
+      }
+    }
+  }
+
+  private checkOpencodeRunning(): void {
+    const check = (cmd: string, label: string): boolean => {
+      try {
+        const out = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+        return out.length > 0;
+      } catch { return false; }
+    };
+
+    const hostRunning = check('pgrep -x opencode 2>/dev/null || true', 'Host');
+    let sandboxRunning = false;
+    try {
+      const out = execSync(
+        'docker compose -p scraper exec -T sandbox bash -c "pgrep -x opencode 2>/dev/null || true" 2>/dev/null || true',
+        { encoding: 'utf-8' }
+      ).trim();
+      sandboxRunning = out.length > 0;
+    } catch { /* sandbox not running */ }
+
+    if (hostRunning) {
+      console.warn('  ⚠️ 호스트에서 opencode가 실행 중입니다. DB가 잠겨 동기화에 실패할 수 있습니다.');
+      if (!this.force) {
+        console.error('  ❌ opencode를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        process.exit(1);
+      }
+    }
+    if (sandboxRunning) {
+      console.warn('  ⚠️ 샌드박스에서 opencode가 실행 중입니다. DB가 잠겨 동기화에 실패할 수 있습니다.');
+      if (!this.force) {
+        console.error('  ❌ 샌드박스에서 opencode를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        process.exit(1);
+      }
+    }
+    if (!hostRunning && !sandboxRunning) {
+      console.log('  ✅ opencode 미실행 확인');
+    }
+  }
+
+  private queryJson(db: string, sql: string): any[] {
+    const out = execSync(`sqlite3 -json "${db}" "${sql}" 2>&1`, { encoding: 'utf-8', maxBuffer: 20 * 1024 * 1024 }).trim();
+    if (!out) return [];
+    return JSON.parse(out);
+  }
+
+  private checkSchemaVersion(): void {
+    const host = this.queryJson(this.HOST_DB, 'SELECT name FROM data_migration ORDER BY name');
+    const sandbox = this.queryJson(this.SANDBOX_DB, 'SELECT name FROM data_migration ORDER BY name');
+    const hNames = host.map((r: any) => r.name);
+    const sNames = sandbox.map((r: any) => r.name);
+    if (JSON.stringify(hNames) !== JSON.stringify(sNames)) {
+      console.error('  ❌ DB 스키마 버전 불일치');
+      console.error(`     Host:     ${hNames.join(', ')}`);
+      console.error(`     Sandbox:  ${sNames.join(', ')}`);
+      console.error('     opencode 버전이 다른 경우 발생합니다.');
+      if (!this.force) {
+        console.error('     버전을 일치시키거나 --force로 무시하세요.');
+        process.exit(1);
+      }
+    } else {
+      console.log('  ✅ DB 스키마 버전 일치');
+    }
+  }
+
+  private walCheckpointOne(path: string, label: string): void {
+    try {
+      execSync(`sqlite3 "${path}" "PRAGMA wal_checkpoint(TRUNCATE);"`, { encoding: 'utf-8' });
+    } catch {
+      try {
+        execSync(`sqlite3 "${path}" "PRAGMA wal_checkpoint;"`, { encoding: 'utf-8' });
+      } catch { /* ignore */ }
+    }
+  }
+
+  private walCheckpointAll(): void {
+    console.log('\n📋 WAL 체크포인트...');
+    this.walCheckpointOne(this.HOST_DB, 'Host');
+    this.walCheckpointOne(this.SANDBOX_DB, 'Sandbox');
+    console.log('  ✅ WAL flush 완료');
+  }
+
+  // ── DB sync ──
+
+  private syncDB(sourcePath: string, targetPath: string, label: string): void {
+    console.log(`\n📦 DB 동기화: ${label}`);
+
+    const srcCount = this.queryJson(sourcePath, 'SELECT COUNT(*) as c FROM session')[0]?.c ?? 0;
+    const tgtCount = this.queryJson(targetPath, 'SELECT COUNT(*) as c FROM session')[0]?.c ?? 0;
+    console.log(`  Source: ${srcCount} 세션, Target: ${tgtCount} 세션`);
+
+    if (this.dryRun) {
+      // Compare sessions
+      const srcSessions = this.queryJson(sourcePath, 'SELECT id, title, time_updated FROM session ORDER BY time_updated DESC');
+      const tgtSessions = new Set(this.queryJson(targetPath, 'SELECT id FROM session').map((r: any) => r.id));
+      const newSessions = srcSessions.filter((s: any) => !tgtSessions.has(s.id));
+      const updateCandidates = srcSessions.filter((s: any) => {
+        if (!tgtSessions.has(s.id)) return false;
+        const tgt = this.queryJson(targetPath, `SELECT time_updated FROM session WHERE id = '${s.id}'`);
+        return tgt.length > 0 && s.time_updated > tgt[0].time_updated;
+      });
+      console.log(`  [Dry-run] 추가될 세션: ${newSessions.length}개`);
+      console.log(`  [Dry-run] 갱신될 세션: ${updateCandidates.length}개`);
+      return;
+    }
+
+    const safeSrc = sourcePath.replace(/'/g, "''");
+    const sql = `
+ATTACH DATABASE '${safeSrc}' AS src;
+BEGIN IMMEDIATE;
+
+INSERT OR IGNORE INTO project(id, worktree, vcs, name, icon_url, icon_url_override, icon_color, time_created, time_updated, time_initialized, sandboxes, commands)
+SELECT id, worktree, vcs, name, icon_url, icon_url_override, icon_color, time_created, time_updated, time_initialized, sandboxes, commands FROM src.project;
+
+INSERT OR IGNORE INTO project_directory(project_id, directory, type, strategy, time_created)
+SELECT project_id, directory, type, strategy, time_created FROM src.project_directory WHERE project_id IN (SELECT id FROM project);
+
+INSERT OR IGNORE INTO workspace(id, type, name, branch, directory, extra, project_id, time_used)
+SELECT w.id, w.type, w.name, w.branch, w.directory, w.extra,
+  COALESCE((SELECT tp.id FROM project tp WHERE tp.worktree = (SELECT sp.worktree FROM src.project sp WHERE sp.id = w.project_id)), w.project_id),
+  w.time_used
+FROM src.workspace w;
+
+CREATE TEMP TABLE _stats (k TEXT PRIMARY KEY, v INTEGER DEFAULT 0);
+
+CREATE TEMP TABLE _up AS
+SELECT s.id FROM src.session s WHERE s.id IN (SELECT id FROM session) AND s.time_updated > (SELECT time_updated FROM session WHERE id = s.id);
+INSERT OR REPLACE INTO _stats VALUES ('updated', (SELECT COUNT(*) FROM _up));
+
+DELETE FROM todo WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM session_share WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM session_context_epoch WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM session_input WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM part WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM message WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM session_message WHERE session_id IN (SELECT id FROM _up);
+DELETE FROM session WHERE id IN (SELECT id FROM _up);
+DROP TABLE _up;
+
+INSERT OR IGNORE INTO session(id, project_id, workspace_id, parent_id, slug, directory, path, title, version, share_url, summary_additions, summary_deletions, summary_files, summary_diffs, metadata, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, revert, permission, agent, model, time_created, time_updated, time_compacting, time_archived)
+SELECT s.id,
+  COALESCE((SELECT tp.id FROM project tp WHERE tp.worktree = (SELECT sp.worktree FROM src.project sp WHERE sp.id = s.project_id)), s.project_id),
+  NULLIF(s.workspace_id, ''), s.parent_id, s.slug, s.directory, s.path, s.title, s.version, s.share_url,
+  s.summary_additions, s.summary_deletions, s.summary_files, s.summary_diffs,
+  s.metadata, s.cost, s.tokens_input, s.tokens_output, s.tokens_reasoning,
+  s.tokens_cache_read, s.tokens_cache_write, s.revert, s.permission, s.agent, s.model,
+  s.time_created, s.time_updated, s.time_compacting, s.time_archived
+FROM src.session s WHERE s.id NOT IN (SELECT id FROM session);
+INSERT OR REPLACE INTO _stats VALUES ('added', changes());
+
+INSERT OR IGNORE INTO session_message(id, session_id, type, seq, time_created, time_updated, data)
+SELECT id, session_id, type, seq, time_created, time_updated, data FROM src.session_message WHERE session_id IN (SELECT id FROM session);
+INSERT OR IGNORE INTO message(id, session_id, time_created, time_updated, data)
+SELECT id, session_id, time_created, time_updated, data FROM src.message WHERE session_id IN (SELECT id FROM session);
+INSERT OR IGNORE INTO part(id, message_id, session_id, time_created, time_updated, data)
+SELECT id, message_id, session_id, time_created, time_updated, data FROM src.part WHERE session_id IN (SELECT id FROM session);
+INSERT OR IGNORE INTO session_input(id, session_id, prompt, delivery, admitted_seq, promoted_seq, time_created)
+SELECT id, session_id, prompt, delivery, admitted_seq, promoted_seq, time_created FROM src.session_input WHERE session_id IN (SELECT id FROM session);
+INSERT OR IGNORE INTO session_context_epoch(session_id, baseline, snapshot, baseline_seq)
+SELECT session_id, baseline, snapshot, baseline_seq FROM src.session_context_epoch WHERE session_id IN (SELECT id FROM session);
+INSERT OR IGNORE INTO todo(session_id, content, status, priority, position, time_created, time_updated)
+SELECT session_id, content, status, priority, position, time_created, time_updated FROM src.todo WHERE session_id IN (SELECT id FROM session);
+INSERT OR IGNORE INTO session_share(session_id, id, secret, url, time_created, time_updated)
+SELECT session_id, id, secret, url, time_created, time_updated FROM src.session_share WHERE session_id IN (SELECT id FROM session);
+
+INSERT OR IGNORE INTO data_migration(name, time_completed)
+SELECT name, time_completed FROM src.data_migration WHERE name NOT IN (SELECT name FROM data_migration);
+
+SELECT 'UPDATED:' || COALESCE((SELECT v FROM _stats WHERE k = 'updated'), 0);
+SELECT 'ADDED:' || COALESCE((SELECT v FROM _stats WHERE k = 'added'), 0);
+DROP TABLE IF EXISTS _stats;
+
+COMMIT;
+DETACH src;
+`;
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-sync-'));
+    const sqlFile = path.join(tmpDir, 'sync.sql');
+    fs.writeFileSync(sqlFile, sql);
+    try {
+      const out = execSync(`sqlite3 "${targetPath}" < "${sqlFile}" 2>&1`, { encoding: 'utf-8', maxBuffer: 200 * 1024 * 1024 });
+      const errLines = out.split('\n').filter((l: string) => l.startsWith('Runtime error') || l.startsWith('Error:'));
+      if (errLines.length > 0) {
+        console.error(`  ❌ SQL 오류 (${label}):`, errLines[0]);
+        this.stats.errors++;
+      } else {
+        let added = 0, updated = 0;
+        for (const line of out.split('\n')) {
+          const am = line.match(/^ADDED:(\d+)$/);
+          if (am) added = parseInt(am[1], 10);
+          const um = line.match(/^UPDATED:(\d+)$/);
+          if (um) updated = parseInt(um[1], 10);
+        }
+        this.stats.sessionsAdded += added;
+        this.stats.sessionsUpdated += updated;
+        const after = this.queryJson(targetPath, 'SELECT COUNT(*) as c FROM session')[0]?.c ?? 0;
+        console.log(`  ✅ 완료 (${label}): +${added} 추가, ${updated} 갱신, 총 ${after} 세션`);
+      }
+    } catch (err: any) {
+      console.error(`  ❌ 동기화 실패 (${label}):`, err.message);
+      // Show actual SQLite error output
+      try {
+        const stderr = (err as any).stdout || (err as any).stderr || '';
+        if (stderr) console.error(`     ${stderr.split('\n')[0]}`);
+      } catch { /* ignore */ }
+      this.stats.errors++;
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  // ── File sync ──
+
+  private syncDir(name: string, src: string, dest: string): void {
+    console.log(`\n📁 파일 동기화: ${name}/`);
+
+    if (!fs.existsSync(src)) {
+      console.log(`  ⏭️  ${src} 없음, 건너뜁니다.`);
+      return;
+    }
+
+    if (this.dryRun) {
+      try {
+        const count = execSync(`find "${src}" -type f 2>/dev/null | wc -l | tr -d ' '`, { encoding: 'utf-8' }).trim();
+        console.log(`  [Dry-run] ${count}개 파일 → ${dest}`);
+      } catch {
+        console.log(`  [Dry-run] 파일 동기화 예정: ${src} → ${dest}`);
+      }
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    try {
+      const out = execSync(`rsync -a --ignore-existing "${src}/" "${dest}/" 2>&1`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+      const added = out.split('\n').filter(l => l.length > 0 && !l.endsWith('/') && l !== '.').length;
+      this.stats.filesCopied += added;
+      console.log(`  ✅ ${added}개 파일 동기화 완료`);
+    } catch (err: any) {
+      console.error(`  ❌ 파일 동기화 실패: ${err.message}`);
+      this.stats.errors++;
+    }
+  }
+
+  // ── Post-sync checks ──
+
+  private postSyncChecks(): void {
+    console.log('\n🔍 사후 검증...');
+    this.walCheckpointOne(this.HOST_DB, 'Host');
+    this.walCheckpointOne(this.SANDBOX_DB, 'Sandbox');
+
+    for (const [p, label] of [[this.HOST_DB, 'Host'], [this.SANDBOX_DB, 'Sandbox']] as const) {
+      try {
+        const out = execSync(`sqlite3 "${p}" "PRAGMA integrity_check;" 2>&1`, { encoding: 'utf-8' }).trim();
+        if (out === 'ok') {
+          console.log(`  ✅ DB 무결성 검증: ${label}`);
+        } else {
+          console.error(`  ❌ DB 무결성 오류 (${label}): ${out.slice(0, 200)}`);
+          this.stats.errors++;
+        }
+      } catch (err: any) {
+        console.error(`  ❌ DB 검증 실패 (${label}): ${err.message}`);
+        this.stats.errors++;
+      }
+    }
+  }
+
+  private printSummary(): void {
+    console.log('\n' + '='.repeat('='.length + 24));
+    console.log('📊 동기화 결과 요약');
+    console.log('='.repeat(36));
+    console.log(`  추가된 세션:    ${this.stats.sessionsAdded}`);
+    console.log(`  갱신된 세션:    ${this.stats.sessionsUpdated}`);
+    console.log(`  복사된 파일:    ${this.stats.filesCopied}`);
+    console.log(`  오류:           ${this.stats.errors}`);
+    console.log('='.repeat(36));
+    if (this.dryRun) console.log('\n💡 --dry-run 모드입니다. 실제 변경은 없었습니다.');
+    if (this.stats.errors > 0) process.exit(1);
+    console.log('✅ 동기화 완료');
+  }
+}
+
+// ==============================================================================
+// 6. CodexSyncer (양방향 동기화 호스트 ↔ 샌드박스 - Codex CLI)
+// ==============================================================================
+
+interface CodexSyncStats {
+  direction: string;
+  dbs: number;
+  files: number;
+  errors: number;
+}
+
+class CodexSyncer {
+  private readonly HOST_DIR: string;
+  private readonly SANDBOX_DIR: string;
+  private readonly PROJECT_ROOT: string;
+
+  private dryRun = false;
+  private force = false;
+  private direction: 'host-to-sandbox' | 'sandbox-to-host' | 'both' = 'both';
+
+  private stats: CodexSyncStats = { direction: '', dbs: 0, files: 0, errors: 0 };
+
+  constructor() {
+    this.PROJECT_ROOT = path.resolve(__dirname, '../..');
+    this.HOST_DIR = path.join(os.homedir(), '.codex');
+    this.SANDBOX_DIR = path.join(this.PROJECT_ROOT, 'agents/.volumes/sandbox/codex');
+  }
+
+  public run(): void {
+    const args = process.argv.slice(2);
+    const dirArg = args.find(a => a.startsWith('--direction='));
+    if (dirArg) this.direction = dirArg.split('=')[1] as typeof this.direction;
+    this.dryRun = args.includes('--dry-run');
+    this.force = args.includes('--force');
+
+    console.log('🔄 Codex CLI 세션 동기화\n');
+
+    this.checkDirs();
+    this.checkOpencodeRunning();
+
+    if (this.direction === 'host-to-sandbox' || this.direction === 'both') {
+      this.syncAll('host-to-sandbox');
+    }
+    if (this.direction === 'sandbox-to-host' || this.direction === 'both') {
+      this.syncAll('sandbox-to-host');
+    }
+
+    this.printSummary();
+  }
+
+  private checkDirs(): void {
+    for (const [d, label] of [[this.HOST_DIR, 'Host codex'], [this.SANDBOX_DIR, 'Sandbox codex']] as const) {
+      if (fs.existsSync(d)) {
+        console.log(`  ✅ ${label}: ${d}`);
+      } else {
+        console.warn(`  ⚠️ ${label} 없음: ${d}`);
+      }
+    }
+  }
+
+  private checkOpencodeRunning(): void {
+    const check = (cmd: string, label: string): boolean => {
+      try {
+        const out = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+        return out.length > 0;
+      } catch { return false; }
+    };
+    const hostRunning = check('pgrep -x codex 2>/dev/null || true', 'Host');
+    let sandboxRunning = false;
+    try {
+      const out = execSync(
+        'docker compose -p scraper exec -T sandbox bash -c "pgrep -x codex 2>/dev/null || true" 2>/dev/null || true',
+        { encoding: 'utf-8' }
+      ).trim();
+      sandboxRunning = out.length > 0;
+    } catch { /* ignore */ }
+    if (hostRunning) {
+      console.warn('  ⚠️ 호스트에서 codex가 실행 중입니다.');
+      if (!this.force) {
+        console.error('  ❌ codex를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        process.exit(1);
+      }
+    }
+    if (sandboxRunning) {
+      console.warn('  ⚠️ 샌드박스에서 codex가 실행 중입니다.');
+      if (!this.force) {
+        console.error('  ❌ 샌드박스에서 codex를 종료한 후 다시 실행하세요. (--force로 무시 가능)');
+        process.exit(1);
+      }
+    }
+    if (!hostRunning && !sandboxRunning) console.log('  ✅ codex 미실행 확인');
+  }
+
+  private queryJson(db: string, sql: string): any[] {
+    try {
+      const out = execSync(`sqlite3 -json "${db}" "${sql}" 2>&1`, { encoding: 'utf-8', maxBuffer: 20 * 1024 * 1024 }).trim();
+      return out ? JSON.parse(out) : [];
+    } catch { return []; }
+  }
+
+  private syncAll(label: string): void {
+    const isH2S = label === 'host-to-sandbox';
+    const srcDir = isH2S ? this.HOST_DIR : this.SANDBOX_DIR;
+    const tgtDir = isH2S ? this.SANDBOX_DIR : this.HOST_DIR;
+
+    if (!fs.existsSync(srcDir) || !fs.existsSync(tgtDir)) {
+      console.log(`\n📦 Codex 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}: 디렉토리 없음, 건너뜁니다.`);
+      return;
+    }
+
+    console.log(`\n📦 Codex 동기화: ${isH2S ? 'Host → Sandbox' : 'Sandbox → Host'}`);
+
+    // 1. SQLite DBs
+    const dbFiles = ['logs_2.sqlite', 'state_5.sqlite', 'goals_1.sqlite', 'memories_1.sqlite'];
+    for (const db of dbFiles) {
+      this.syncSqliteDb(path.join(srcDir, db), path.join(tgtDir, db));
+    }
+
+    // 2. Rollout sessions + history + cache
+    for (const rel of ['sessions', 'history.jsonl', '.codex-global-state.json', 'models_cache.json']) {
+      this.syncFile(path.join(srcDir, rel), path.join(tgtDir, rel));
+    }
+  }
+
+  private syncSqliteDb(src: string, tgt: string): void {
+    const name = path.basename(src);
+    if (!fs.existsSync(src)) {
+      console.log(`  ⏭️  ${name}: source 없음`);
+      return;
+    }
+    if (!fs.existsSync(tgt)) {
+      if (this.dryRun) {
+        console.log(`  [Dry-run] ${name}: 새로 복사`);
+        return;
+      }
+      fs.mkdirSync(path.dirname(tgt), { recursive: true });
+      fs.copyFileSync(src, tgt);
+      console.log(`  ✅ ${name}: 새로 복사됨`);
+      this.stats.dbs++;
+      return;
+    }
+
+    if (this.dryRun) {
+      const srcCount = this.queryJson(src, "SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx_%'")[0]?.c ?? 0;
+      console.log(`  [Dry-run] ${name}: ${srcCount}개 테이블 merge 예정`);
+      return;
+    }
+
+    // ATTACH-based merge
+    const safeSrc = src.replace(/'/g, "''");
+    const tables = this.queryJson(src, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx_%'");
+    if (tables.length === 0) { console.log(`  ⏭️  ${name}: sync 대상 테이블 없음`); return; }
+
+    const tableNames = tables.map((r: any) => r.name);
+    let sql = `ATTACH DATABASE '${safeSrc}' AS src;\nBEGIN IMMEDIATE;\n`;
+    for (const tbl of tableNames) {
+      sql += `INSERT OR IGNORE INTO ${tbl} SELECT * FROM src.${tbl};\n`;
+    }
+      sql += `INSERT OR IGNORE INTO _sqlx_migrations SELECT * FROM src._sqlx_migrations WHERE version NOT IN (SELECT version FROM _sqlx_migrations);\n`;
+    sql += `COMMIT;\nDETACH src;\n`;
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-codex-'));
+    const sqlFile = path.join(tmpDir, 'sync.sql');
+    fs.writeFileSync(sqlFile, sql);
+    try {
+      execSync(`sqlite3 "${tgt}" < "${sqlFile}" 2>&1`, { encoding: 'utf-8', maxBuffer: 200 * 1024 * 1024 });
+      console.log(`  ✅ ${name}: ${tableNames.length}개 테이블 merge 완료`);
+      this.stats.dbs++;
+    } catch (err: any) {
+      const msg = err?.stdout || err?.stderr || err.message || 'unknown error';
+      console.error(`  ❌ ${name}: ${msg.split('\n')[0]}`);
+      this.stats.errors++;
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  private syncFile(src: string, tgt: string): void {
+    const name = path.basename(src);
+    if (!fs.existsSync(src)) {
+      return;
+    }
+
+    if (this.dryRun) {
+      console.log(`  [Dry-run] ${name}: 복사 예정`);
+      return;
+    }
+
+    fs.mkdirSync(path.dirname(tgt), { recursive: true });
+    if (fs.lstatSync(src).isDirectory()) {
+      try {
+        const out = execSync(`rsync -a --ignore-existing "${src}/" "${tgt}/" 2>&1`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+        const count = out.split('\n').filter(l => l && !l.endsWith('/') && l !== '.').length;
+        console.log(`  ✅ ${name}/: ${count}개 파일 동기화 완료`);
+        this.stats.files += count;
+      } catch (err: any) {
+        console.error(`  ❌ ${name}/: ${err.message}`);
+        this.stats.errors++;
+      }
+    } else {
+      if (fs.existsSync(tgt)) return; // skip existing files
+      try {
+        fs.copyFileSync(src, tgt);
+        console.log(`  ✅ ${name}: 복사됨`);
+        this.stats.files++;
+      } catch (err: any) {
+        console.error(`  ❌ ${name}: ${err.message}`);
+        this.stats.errors++;
+      }
+    }
+  }
+
+  private printSummary(): void {
+    console.log('\n' + '='.repeat(36));
+    console.log('📊 Codex 동기화 결과');
+    console.log('='.repeat(36));
+    console.log(`  merge된 DB:   ${this.stats.dbs}`);
+    console.log(`  복사된 파일:  ${this.stats.files}`);
+    console.log(`  오류:         ${this.stats.errors}`);
+    console.log('='.repeat(36));
+    if (this.dryRun) console.log('\n💡 --dry-run 모드입니다.');
+    if (this.stats.errors > 0) process.exit(1);
+    console.log('✅ Codex 동기화 완료');
+  }
+}
+
+// ==============================================================================
+// 7. Session Pruner
 // ==============================================================================
 class SessionPruner {
   private readonly baseBrainDir: string;
@@ -721,8 +1335,28 @@ class SessionPruner {
 // CLI Main Entrypoint
 // ==============================================================================
 if (require.main === module) {
-  const args = process.argv.slice(2);
+    const args = process.argv.slice(2);
   const allMode = args.includes('--all') || args.includes('-a');
+
+  const hasSync = args.includes('--sync') || args.includes('-y');
+  
+  // Sync mode is exclusive
+  if (hasSync) {
+    const runOpenCode = !args.includes('--codex') || args.includes('--opencode');
+    const runCodex = args.includes('--codex');
+    const dryRun = args.includes('--dry-run') || args.includes('--noop');
+    if (runOpenCode) {
+      const syncer = new SessionSyncer();
+      if (dryRun) process.argv.push('--dry-run');
+      syncer.run();
+    }
+    if (runCodex) {
+      const syncer = new CodexSyncer();
+      if (dryRun) process.argv.push('--dry-run');
+      syncer.run();
+    }
+    process.exit(0);
+  }
   
   const hasTranscript = args.includes('--transcript') || args.includes('-t');
   const hasContext = args.includes('--context') || args.includes('-c');
