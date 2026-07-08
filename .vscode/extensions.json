@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "mhutchie.git-graph",
+    "ms-azuretools.vscode-containers",
+    "ms-azuretools.vscode-docker",
+    "pkief.material-icon-theme",
+    "ms-python.python",
+    "esbenp.prettier-vscode",
+    "yzhang.markdown-all-in-one",
+    "eamodio.gitlens"
+  ]
+}

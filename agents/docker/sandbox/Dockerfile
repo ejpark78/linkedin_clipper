@@ -107,6 +107,12 @@ RUN mkdir -p /usr/local/share/fonts/jetbrains-mono && \
     tar -xJ -C /usr/local/share/fonts/jetbrains-mono && \
     fc-cache -f
 
+# init-scripts 및 entrypoint 설치
+COPY init-scripts/ /etc/init-scripts/
+RUN chmod +x /etc/init-scripts/*
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Google Antigravity CLI (agy), OpenAI Codex CLI, Joplin CLI 설치 (root 권한 필요)
 USER root
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
@@ -118,7 +124,7 @@ RUN chsh -s /bin/zsh ubuntu
 
 USER ubuntu
 
-ENTRYPOINT ["dumb-init", "code-server"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # 헬스체크 설정 (포트 8080에 curl HTTP 요청 전송)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

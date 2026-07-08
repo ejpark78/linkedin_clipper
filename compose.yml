@@ -29,4 +29,5 @@ include:
   - apps/wiki/docker/worker/compose.yml
   - apps/wiki/docker/joplin/compose.yml
   - infra/autoheal/docker/compose.yml
+  - projects/openusd/docker/compose.yml
 

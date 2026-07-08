@@ -7,3 +7,4 @@ temp_raw_*.html
 data
 node_modules
 .firecrawl
+.volumes

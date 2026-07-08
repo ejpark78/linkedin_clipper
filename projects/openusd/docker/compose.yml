@@ -1,0 +1,37 @@
+services:
+  openusd:
+    image: projects/openusd:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles:
+      - tools
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      traefik:
+        condition: service_healthy
+    environment:
+      - PUID=${USER_UID:-1000}
+      - PGID=${USER_GID:-1000}
+      - TZ=${TZ:-Asia/Seoul}
+    command: --auth none --bind-addr 0.0.0.0:8080 /workspace
+    group_add:
+      - ${DOCKER_GID:-999}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../../:${PROJECT_PATH:-/workspace}
+      - ../.volumes/sandbox/local:/home/ubuntu/.local
+      - ../.volumes/sandbox/config:/home/ubuntu/.config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openusd.rule=Host(`usd.localhost`)"
+      - "traefik.http.routers.openusd.entrypoints=websecure"
+      - "traefik.http.routers.openusd.tls=true"
+      - "traefik.http.services.openusd.loadbalancer.server.port=8080"

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "[init] Syncing openusd skel to /home/ubuntu"
+cp -rn /etc/skel/. /home/ubuntu/
