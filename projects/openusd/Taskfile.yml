@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build openusd image.
+    cmds:
+      - '{{.COMPOSE}} --profile tools build openusd'
+
+  up:
+    desc: Start openusd container.
+    cmds:
+      - '{{.COMPOSE}} --profile tools up -d openusd'
+
+  down:
+    desc: Stop openusd container.
+    cmds:
+      - '{{.COMPOSE}} stop openusd'
+
+  shell:
+    desc: Open shell in openusd container.
+    cmds:
+      - '{{.COMPOSE}} exec -it openusd bash'

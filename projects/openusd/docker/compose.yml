@@ -15,14 +15,20 @@ services:
       - PUID=${USER_UID:-1000}
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
-    command: --auth none --bind-addr 0.0.0.0:8080 /workspace
+    command: --auth none --bind-addr 0.0.0.0:8080 ${PROJECT_PATH:-.}
     group_add:
       - ${DOCKER_GID:-999}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../../:${PROJECT_PATH:-/workspace}
-      - ../.volumes/sandbox/local:/home/ubuntu/.local
-      - ../.volumes/sandbox/config:/home/ubuntu/.config
+      # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
+      - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
+      # IDE 설정 및 익스텐션 영구 보존 마운트
+      - ${PROJECT_PATH:-.}/projects/openusd/.volumes/sandbox/local:/home/ubuntu/.local
+      - ${PROJECT_PATH:-.}/projects/openusd/.volumes/sandbox/config:/home/ubuntu/.config
+      # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
+      - ${PROJECT_PATH:-.}/projects/openusd/.volumes/sandbox/gemini:/home/ubuntu/.gemini
+      - ${PROJECT_PATH:-.}/projects/openusd/.volumes/sandbox/opencode:/home/ubuntu/.opencode
+      - ${PROJECT_PATH:-.}/projects/openusd/.volumes/sandbox/codex:/home/ubuntu/.codex      
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 15s
