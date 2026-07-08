@@ -12,9 +12,6 @@ services:
         - VCS_REF
     image: scraper/worker:latest
     working_dir: /app
-    profiles:
-      - runtime
-      - crawler
     environment:
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
@@ -41,9 +38,6 @@ services:
         - VCS_REF
     image: scraper/scraper:latest
     working_dir: /app
-    profiles:
-      - worker
-      - crawler
     labels:
       autoheal: "true"
     environment:
@@ -74,9 +68,6 @@ services:
         - VCS_REF
     image: scraper/converter:latest
     working_dir: /app
-    profiles:
-      - worker
-      - crawler
     labels:
       autoheal: "true"
     environment:
@@ -106,9 +97,6 @@ services:
         - VCS_REF
     image: scraper/indexer:latest
     working_dir: /app
-    profiles:
-      - worker
-      - crawler
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - AUTH=${AUTH:-}

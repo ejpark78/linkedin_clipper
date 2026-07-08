@@ -6,49 +6,6 @@ vars:
     sh: echo "{{.ROOT_DIR}}/data/backup/mongodb/$(date +%Y%m%dT%H%M%S)"
 
 tasks:
-  config:
-    desc: Show MongoDB Compose config.
-    summary: |
-      Print the resolved Docker Compose configuration for MongoDB.
-
-      [Usage Examples]
-        - task mongo:config
-    cmds:
-      - '{{.COMPOSE}} config'
-
-  up:
-    desc: Start MongoDB server.
-    summary: |
-      Start the MongoDB database server.
-
-      [Usage Examples]
-        - task mongo:up
-    cmds:
-      - '{{.COMPOSE}} up -d mongodb'
-
-  gui:up:
-    desc: Start Mongo Express web UI.
-    summary: |
-      Start the Mongo Express web-based admin UI for MongoDB.
-
-      [Usage Examples]
-        - task mongo:gui:up
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d mongo-express'
-
-  down:
-    desc: Stop MongoDB and Mongo Express.
-    summary: |
-      Stop both MongoDB and Mongo Express containers.
-
-      [Usage Examples]
-        - task mongo:down
-    cmds:
-      - '{{.COMPOSE}} stop mongodb mongo-express'
-
-
-
-
   dump:
     desc: Back up MongoDB databases.
     summary: |

@@ -4,8 +4,6 @@ services:
       context: ${PROJECT_PATH:-.}/apps/wiki
       dockerfile: docker/web/Dockerfile
     image: scraper/wiki-web:latest
-    profiles:
-      - tools
     depends_on:
       redis:
         condition: service_healthy

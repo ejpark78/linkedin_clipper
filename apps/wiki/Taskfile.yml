@@ -1,38 +1,6 @@
 version: '3'
 
 tasks:
-  build:
-    desc: Build wiki-web and wiki-worker Docker images.
-    summary: |
-      Build wiki-web (Streamlit UI) and wiki-worker (Redis worker) images.
-
-      [Usage Examples]
-        - task wiki:build
-    cmds:
-      - '{{.COMPOSE}} build wiki-web'
-      - '{{.COMPOSE}} build wiki-worker'
-
-  up:
-    desc: Start wiki-web and wiki-worker containers.
-    summary: |
-      Start both wiki-web (UI) and wiki-worker (Redis consumer) containers.
-
-      [Usage Examples]
-        - task wiki:up
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d wiki-web'
-      - '{{.COMPOSE}} --profile worker up -d wiki-worker'
-
-  down:
-    desc: Stop wiki-web and wiki-worker containers.
-    summary: |
-      Stop both wiki-web and wiki-worker containers.
-
-      [Usage Examples]
-        - task wiki:down
-    cmds:
-      - '{{.COMPOSE}} stop wiki-web wiki-worker'
-
   pipeline:preprocess:
     desc: "Run preprocess pipeline (collect → normalize → chunk → LLM)"
     summary: |

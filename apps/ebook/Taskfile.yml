@@ -1,38 +1,6 @@
 version: '3'
 
 tasks:
-  build:
-    desc: Build ebook Docker image.
-    summary: |
-      Build the ebook Docker image without cache.
-
-      [Usage Examples]
-        - task ebook:build
-    cmds:
-      - '{{.COMPOSE}} build --no-cache ebook'
-
-  up:
-    desc: Start ebook container.
-    summary: |
-      Start the ebook container in the background.
-
-      [Usage Examples]
-        - task ebook:up
-    cmds:
-      - '{{.COMPOSE}} --profile ebook up -d ebook'
-
-  down:
-    desc: Stop ebook container.
-    summary: |
-      Stop the ebook container.
-
-      [Usage Examples]
-        - task ebook:down
-    cmds:
-      - '{{.COMPOSE}} stop ebook'
-
-
-
   summary:
     desc: Print ebook pipeline summary.
     summary: |
@@ -105,12 +73,4 @@ tasks:
     cmds:
       - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook uv run poe to-md --path "{{.OUT_PATH | default "data/output"}}" {{.CLI_ARGS}}'
 
-  shell:
-    desc: Open ebook container shell.
-    summary: |
-      Open an interactive bash shell in the ebook container.
 
-      [Usage Examples]
-        - task ebook:shell
-    cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} ebook bash'

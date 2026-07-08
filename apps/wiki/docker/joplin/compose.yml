@@ -13,8 +13,6 @@ services:
         - BUILD_DATE
         - VCS_REF
     image: scraper/wiki-tool:latest
-    profiles:
-      - tools
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - JOPLIN_SERVER_URL=${JOPLIN_SERVER_URL:-}

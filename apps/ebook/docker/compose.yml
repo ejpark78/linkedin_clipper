@@ -4,8 +4,6 @@ services:
       context: ${PROJECT_PATH:-.}/apps/ebook
       dockerfile: docker/Dockerfile
     image: scraper/ebook:latest
-    profiles:
-      - ebook
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}

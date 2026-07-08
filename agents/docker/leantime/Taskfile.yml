@@ -1,40 +1,6 @@
 version: '3'
 
 tasks:
-  up:
-    desc: Leantime 컨테이너 실행
-    summary: |
-      Leantime + MySQL 컨테이너를 실행하고 헬스체크가 통과할 때까지 대기합니다.
-
-      [Usage Examples]
-        - task leantime:up
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d leantime leantime_db'
-      - echo "⏳ MySQL 헬스체크 대기 중..."
-      - sleep 10
-      - echo "✅ https://pm.localhost/install 에서 관리자 계정을 생성하세요."
-
-  down:
-    desc: Leantime 컨테이너 중지
-    summary: |
-      Leantime 및 MySQL 컨테이너를 중지합니다.
-
-      [Usage Examples]
-        - task leantime:down
-    cmds:
-      - '{{.COMPOSE}} stop leantime leantime_db'
-
-  logs:
-    desc: Leantime 서비스 로그 조회
-    summary: |
-      Leantime 컨테이너의 로그를 실시간으로 확인합니다.
-
-      [Usage Examples]
-        - task leantime:logs
-        - task leantime:logs leantime_db
-    cmds:
-      - '{{.COMPOSE}} logs -f {{.CLI_ARGS}}'
-
   init:
     desc: Leantime 초기 설치 (인증서 → 실행)
     summary: |
@@ -45,7 +11,8 @@ tasks:
         - task leantime:init
     cmds:
       - task traefik:mkcert
-      - task: up
+      - '{{.COMPOSE}} up -d leantime leantime_db'
+      - sleep 10
 
   install:
     desc: Leantime 설치 안내 출력
@@ -55,7 +22,7 @@ tasks:
         echo "  Leantime 초기 설치 안내"
         echo "=============================="
         echo ""
-        echo "1. task leantime:up 으로 컨테이너 실행"
+        echo "1. docker compose up -d leantime leantime_db 로 컨테이너 실행"
         echo "2. 브라우저에서 https://pm.localhost/install 접속"
         echo "3. DB 정보가 자동 입력되어 있음 (기본값 그대로 Next)"
         echo "4. 관리자 계정 생성 후 로그인"

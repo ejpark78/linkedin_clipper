@@ -9,8 +9,6 @@
 services:
   obsidian:
     image: lscr.io/linuxserver/obsidian:latest
-    profiles:
-      - tools
     security_opt:
       - seccomp:unconfined # Required for Electron rendering in containers
     depends_on:

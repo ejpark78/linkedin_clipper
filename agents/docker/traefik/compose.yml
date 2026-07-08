@@ -15,9 +15,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    profiles:
-      - tools
-      - viewer
     command:
       - "--ping=true"
       - "--api.insecure=true"

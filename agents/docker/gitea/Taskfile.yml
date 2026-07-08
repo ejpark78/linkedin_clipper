@@ -4,17 +4,6 @@ env:
   NODE_OPTIONS: "--use-system-ca"
 
 tasks:
-  up:
-    desc: Gitea 컨테이너 실행
-    summary: |
-      Gitea 컨테이너를 시작하고 헬스체크가 통과할 때까지 대기합니다.
-
-      [Usage Examples]
-        - task git:up
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d gitea'
-      - sleep 5
-
   user:create:
     desc: ".env의 GITEA_ADMIN_USER/PASSWORD로 admin 계정 생성"
     summary: |
@@ -103,31 +92,12 @@ tasks:
         - task git:init
     cmds:
       - task traefik:mkcert
-      - task: up
+      - '{{.COMPOSE}} up -d gitea'
+      - sleep 5
       - echo "Gitea 컨테이너가 시작되었습니다. 계정을 생성합니다..."
       - task: user:create
       - echo "계정 생성 완료. repo를 초기화합니다..."
       - task: repo:init
-
-  down:
-    desc: Stop Gitea and runner.
-    summary: |
-      Stop the Gitea server and its Actions runner containers.
-
-      [Usage Examples]
-        - task git:down
-    cmds:
-      - '{{.COMPOSE}} stop gitea gitea_runner'
-
-  runner:up:
-    desc: Start Gitea Actions runner.
-    summary: |
-      Start the Gitea Actions runner container for CI/CD workflows.
-
-      [Usage Examples]
-        - task git:runner:up
-    cmds:
-      - '{{.COMPOSE}} --profile tools up -d gitea_runner'
 
   repo:dump:
     desc: Gitea repo 전체 덤프 (이슈 + 위키)

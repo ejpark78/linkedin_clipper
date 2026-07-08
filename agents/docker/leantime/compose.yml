@@ -13,8 +13,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    profiles:
-      - tools
     depends_on:
       traefik:
         condition: service_healthy
@@ -52,8 +50,6 @@ services:
 
   leantime_db:
     image: mysql:8.4
-    profiles:
-      - tools
     environment:
       - MYSQL_ROOT_PASSWORD=${LEANTIME_DB_ROOT_PASSWORD:-rootpassword}
       - MYSQL_DATABASE=${LEANTIME_DB_DATABASE:-leantime}
@@ -71,8 +67,6 @@ services:
 
   leantime_db_helper:
     image: mysql:8.4
-    profiles:
-      - helper
     command: chown -R mysql:mysql /var/lib/mysql
     volumes:
       - ${PROJECT_PATH:-.}/agents/.volumes/leantime/mysql:/var/lib/mysql

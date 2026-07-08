@@ -12,8 +12,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    profiles:
-      - tools
     depends_on:
       traefik:
         condition: service_healthy      
@@ -46,8 +44,6 @@ services:
 
   gitea_runner:
     image: gitea/act_runner:latest
-    profiles:
-      - tools
     depends_on:
       gitea:
         condition: service_healthy

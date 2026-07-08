@@ -1,16 +1,6 @@
 version: '3'
 
 tasks:
-  build:
-    desc: "Build Joplin wiki-tool Docker image."
-    summary: |
-      Build the wiki-tool Docker image for Joplin/Obsidian CLI operations.
-
-      [Usage Examples]
-        - task joplin:build
-    cmds:
-      - '{{.COMPOSE}} build wiki-tool'
-
   pull:
     desc: "Pull/download markdown notebooks from Local Joplin App Web Clipper API."
     summary: |

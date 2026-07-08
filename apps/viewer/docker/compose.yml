@@ -8,9 +8,6 @@ services:
       context: ..
       dockerfile: docker/fe/Dockerfile
     image: scraper/viewer-fe:dev
-    profiles:
-      - tools
-      - viewer
     environment:
       - TZ=${TZ:-Asia/Seoul}
     restart: unless-stopped
@@ -40,9 +37,6 @@ services:
         - VCS_REF
     image: scraper/viewer:latest
     command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "api/server.ts"]
-    profiles:
-      - tools
-      - viewer
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
@@ -84,9 +78,6 @@ services:
         - VCS_REF
     image: scraper/viewer:latest
     command: ["npx", "ts-node", "--project", "/app/tsconfig.json", "mcp/mcp-entry.ts"]
-    profiles:
-      - tools
-      - viewer
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}

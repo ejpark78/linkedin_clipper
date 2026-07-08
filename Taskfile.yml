@@ -10,9 +10,6 @@ vars:
   ENV_COMMON: -e TS_NODE_PROJECT=tsconfig.json
 
 includes:
-  viewer:
-    taskfile: ./apps/viewer/Taskfile.yml
-    dir: .
   ebook:
     taskfile: ./apps/ebook/Taskfile.yml
     dir: .
@@ -41,19 +38,12 @@ includes:
   mongo:
     taskfile: ./infra/mongodb/Taskfile.yml
     dir: .
-  redis:
-    taskfile: ./infra/redis/Taskfile.yml
-    dir: .
   traefik:
     taskfile: ./agents/docker/traefik/Taskfile.yml
     dir: .
   leantime:
     taskfile: ./agents/docker/leantime/Taskfile.yml
     dir: .
-  usd:
-    taskfile: ./projects/LearnOpenUSD/Taskfile.yml
-    dir: .
-
 tasks:
   config:
     desc: Validate the full Docker Compose graph.

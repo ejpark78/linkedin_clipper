@@ -1,16 +1,9 @@
 # ==============================================================================
 # 🗄️ MongoDB Service Block (Core Database)
 # ==============================================================================
-# 1. mongodb
-#    - 용도: 크롤러가 수집한 원본 채용 정보(Bronze) 및 정제 데이터(Silver) 영구 적재 데이터베이스
-#    - 볼륨: 프로젝트 루트의 `infra/.volumes/mongodb` 경로에 데이터 보존
-#    - 헬스체크: mongosh ping 테스트를 통해 정상 구동 확인
-#
-# 2. mongo-express (profile: tools)
-#    - 용도: 웹 GUI 기반 MongoDB 관리 대시보드
-#    - 접속 URL: https://me.localhost
-#    - 기본 계정: ID: admin / PW: pass
-#    - 라우팅: Traefik 프록시를 통해 TLS 라우팅 서비스 (포트 8081)
+# - 용도: 크롤러가 수집한 원본 채용 정보(Bronze) 및 정제 데이터(Silver) 영구 적재 데이터베이스
+# - 볼륨: 프로젝트 루트의 `infra/.volumes/mongodb` 경로에 데이터 보존
+# - 헬스체크: mongosh ping 테스트를 통해 정상 구동 확인
 # ==============================================================================
 
 services:
@@ -31,31 +24,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
-  mongo-express:
-    image: mongo-express:latest
-    environment:
-      - TZ=${TZ:-Asia/Seoul}
-      - MONGODB_SERVER=${MONGODB_SERVER:-mongodb}
-      - ME_CONFIG_MONGODB_SERVER=${ME_CONFIG_MONGODB_SERVER:-mongodb}
-      - ME_CONFIG_MONGODB_PORT=${ME_CONFIG_MONGODB_PORT:-27017}
-      - ME_CONFIG_MONGODB_ENABLE_ADMIN=${ME_CONFIG_MONGODB_ENABLE_ADMIN:-true}
-    profiles:
-      - tools
-    depends_on:
-      traefik:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://admin:pass@127.0.0.1:8081/', (r) => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.mongoexpress.rule=Host(`me.localhost`)"
-      - "traefik.http.routers.mongoexpress.entrypoints=websecure"
-      - "traefik.http.routers.mongoexpress.tls=true"
-      - "traefik.http.services.mongoexpress.loadbalancer.server.port=8081"

@@ -1,39 +1,6 @@
 version: '3'
 
 tasks:
-  build:
-    desc: Build crawler worker images.
-    summary: |
-      Build crawler Docker images (worker, scraper, converter, indexer) without cache.
-
-      [Usage Examples]
-        - task crawler:build
-    cmds:
-      - '{{.COMPOSE}} build --no-cache worker scraper converter indexer'
-
-  up:
-    desc: Start crawler workers.
-    summary: |
-      Start crawler worker containers (worker, scraper, converter, indexer).
-
-      [Usage Examples]
-        - task crawler:up
-        - task crawler:up SCALE=2
-    cmds:
-      - SCALE={{.SCALE | default "1"}} {{.COMPOSE}} up -d worker scraper converter indexer {{.CLI_ARGS}}
-
-
-
-  down:
-    desc: Stop crawler workers.
-    summary: |
-      Stop all crawler worker containers.
-
-      [Usage Examples]
-        - task crawler:down
-    cmds:
-      - '{{.COMPOSE}} stop worker scraper converter indexer'
-
   login:
     desc: Log into a browser-backed site session.
     summary: |

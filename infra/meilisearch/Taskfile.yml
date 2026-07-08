@@ -1,39 +1,6 @@
 version: '3'
 
 tasks:
-  config:
-    desc: Show Meilisearch Compose config.
-    summary: |
-      Print the resolved Docker Compose configuration for Meilisearch.
-
-      [Usage Examples]
-        - task meili:config
-    cmds:
-      - '{{.COMPOSE}} config'
-
-  up:
-    desc: Start Meilisearch server.
-    summary: |
-      Start the Meilisearch search engine server.
-
-      [Usage Examples]
-        - task meili:up
-    cmds:
-      - '{{.COMPOSE}} up -d meilisearch'
-
-  down:
-    desc: Stop Meilisearch.
-    summary: |
-      Stop the Meilisearch server.
-
-      [Usage Examples]
-        - task meili:down
-    cmds:
-      - '{{.COMPOSE}} stop meilisearch'
-
-
-
-
   refresh-index:
     desc: Sync MongoDB Silver documents to Meilisearch.
     summary: |

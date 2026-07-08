@@ -1,15 +1,9 @@
 # ==============================================================================
 # 📥 Redis & Message Queue Service Block
 # ==============================================================================
-# 1. redis
-#    - 용도: 분산 크롤러 워커(Worker)들이 비동기로 작업을 할당받을 수 있는 메시지 큐 시스템 (BullMQ용)
-#    - 볼륨: 프로젝트 루트의 `infra/.volumes/redis` 경로에 Redis 스냅샷 데이터 저장
-#    - 헬스체크: redis-cli ping 명령어로 감시
-#
-# 2. redisinsight (profile: tools)
-#    - 용도: Redis 메모리 데이터베이스 시각화 관리 대시보드
-#    - 접속 URL: https://redis.localhost
-#    - 라우팅: Traefik 프록시를 통해 TLS 라우팅 서비스 (포트 5540)
+# - 용도: 분산 크롤러 워커(Worker)들이 비동기로 작업을 할당받을 수 있는 메시지 큐 시스템 (BullMQ용)
+# - 볼륨: 프로젝트 루트의 `infra/.volumes/redis` 경로에 Redis 스냅샷 데이터 저장
+# - 헬스체크: redis-cli ping 명령어로 감시
 # ==============================================================================
 
 services:
@@ -25,27 +19,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
-  redisinsight:
-    image: redis/redisinsight:3.4.2
-    profiles:
-      - tools
-    depends_on:
-      redis:
-        condition: service_healthy
-      traefik:
-        condition: service_healthy
-    environment:
-      - TZ=${TZ:-Asia/Seoul}
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5540/', (r) => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.redisinsight.rule=Host(`redis.localhost`)"
-      - "traefik.http.routers.redisinsight.entrypoints=websecure"
-      - "traefik.http.routers.redisinsight.tls=true"
-      - "traefik.http.services.redisinsight.loadbalancer.server.port=5540"

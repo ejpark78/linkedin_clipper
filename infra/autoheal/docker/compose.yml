@@ -9,10 +9,6 @@
 services:
   autoheal:
     image: willfarrell/autoheal:latest
-    profiles:
-      - infrastructure
-      - worker
-      - crawler
     environment:
       - AUTOHEAL_CONTAINER_LABEL=${AUTOHEAL_CONTAINER_LABEL:-autoheal}
       - TZ=${TZ:-Asia/Seoul}
