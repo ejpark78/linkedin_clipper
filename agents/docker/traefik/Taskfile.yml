@@ -28,4 +28,9 @@ tasks:
                -key-file agents/.volumes/traefik/certs/local-key.pem \
                localhost 127.0.0.1 "*.localhost" $HOSTS
       - echo "✅ 로컬 SSL 인증서가 성공적으로 생성 및 갱신되었습니다."
-      - echo "💡 브라우저가 새 인증서 상태를 즉시 반영하지 못할 경우, 완전히 종료(pkill -f \"Brave Browser\" 또는 pkill -f \"Google Chrome\") 후 재시작하십시오."
+      - |
+        read -p "💡 Traefik 재시작 + 브라우저 프로세스 정리를 실행하시겠습니까? [y/N]: " yn
+        case "$yn" in
+          [yY]* ) task restart -- traefik; pkill -f 'Brave Browser' || true; pkill -f 'Google Chrome' || true; echo "✅ Traefik 재시작 및 브라우저 프로세스 정리가 완료되었습니다.";;
+          * ) echo "⚠️ 건너뛰었습니다. 수동으로 \`task restart -- traefik\`를 실행하세요.";;
+        esac

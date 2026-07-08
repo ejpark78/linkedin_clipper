@@ -59,6 +59,9 @@ tasks:
     summary: |
       Display Antigravity CLI system configurations and operational state.
 
+      [Variables]
+        - CLI_ARGS: (옵션) sessions 명령에 전달할 추가 인자
+
       [Usage Examples]
         - task agents:session:dump:sysinfo
     cmds:
@@ -151,6 +154,10 @@ tasks:
     desc: Run AI code review through Antigravity CLI.
     summary: |
       Run semantic code review on the latest workspace diffs.
+      Uses the Antigravity CLI (agy) with the code_review skill.
+
+      [Variables]
+        - CLI_ARGS: (옵션) agy에 전달할 추가 인자
 
       [Usage Examples]
         - task agents:review

@@ -1,7 +1,7 @@
 # ==============================================================================
 # 🤖 Agent Development Sandbox Service Block
 # ==============================================================================
-# - 주소: https://code.localhost/
+# - 주소: https://sandbox.localhost/
 # - 용도: 코딩 에이전트(opencode, codex, agy)들이 안전하게 작업할 수 있는 웹 기반 VS Code IDE 격리 공간
 # - 권한 정책: dangerously-skip-permissions 활성화 대응 (DooD 도커 소켓 바인딩 포함)
 # ==============================================================================
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sandbox.rule=Host(`code.localhost`)"
+      - "traefik.http.routers.sandbox.rule=Host(`sandbox.localhost`)"
       - "traefik.http.routers.sandbox.entrypoints=websecure"
       - "traefik.http.routers.sandbox.tls=true"
       - "traefik.http.services.sandbox.loadbalancer.server.port=8080"

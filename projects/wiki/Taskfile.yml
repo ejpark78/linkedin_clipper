@@ -5,18 +5,19 @@ tasks:
     desc: "Run preprocess pipeline (collect → normalize → chunk → LLM)"
     summary: |
       Preprocess raw markdown files into chunks and LLM-extracted entities.
+      Runs the full pipeline: collect → normalize → chunk → LLM extraction.
 
-      [Usage]
-        task wiki:pipeline:preprocess
-        task wiki:pipeline:preprocess -- --input agents/data/sessions/agy --output preprocessed
-        task wiki:pipeline:preprocess -- --chunk-size 1000
+      [Flags]
+        - --input, -i:     (옵션) 입력 경로 (여러번 가능)
+        - --output, -o:    (옵션) 출력 디렉토리 (기본값: data/preprocessed)
+        - --engine:        (옵션) LLM 엔진 (ollama / llama.cpp)
+        - --model:         (옵션) LLM 모델명
+        - --chunk-size:    (옵션) 청크 크기 (기본값: 2000)
 
-      [Options]
-        --input, -i     입력 경로 (여러번 가능)
-        --output, -o    출력 디렉토리 (기본: data/preprocessed)
-        --engine        LLM 엔진 (ollama / llama.cpp)
-        --model         LLM 모델명
-        --chunk-size    청크 크기 (기본: 2000)
+      [Usage Examples]
+        - task wiki:pipeline:preprocess
+        - task wiki:pipeline:preprocess -- --input agents/data/sessions/agy --output preprocessed
+        - task wiki:pipeline:preprocess -- --chunk-size 1000
     cmds:
       - "{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m worker preprocess {{.CLI_ARGS}}"
 
@@ -24,9 +25,14 @@ tasks:
     desc: "Run openkb compile pipeline"
     summary: |
       Compile wiki pages from preprocessed data using openkb.
+      Generates structured knowledge base files suitable for Obsidian.
 
-      [Usage]
-        task wiki:pipeline:openkb
-        task wiki:pipeline:openkb -- --input agents/data/sessions/agy --output data/obsidian
+      [Flags]
+        - --input, -i:     (옵션) preprocessed 입력 경로
+        - --output, -o:    (옵션) 출력 디렉토리 (기본값: data/obsidian)
+
+      [Usage Examples]
+        - task wiki:pipeline:openkb
+        - task wiki:pipeline:openkb -- --input agents/data/sessions/agy --output data/obsidian
     cmds:
       - "{{.COMPOSE}} run --rm {{.RUN_USER}} wiki-worker python -m worker openkb {{.CLI_ARGS}}"

@@ -15,20 +15,31 @@ tasks:
       - sleep 10
 
   install:
-    desc: Leantime 설치 안내 출력
+    desc: Leantime 초기 설치 안내 출력
+    summary: |
+      Leantime 초기 설치 방법을 안내합니다.
+      docker compose로 컨테이너를 실행한 후 웹브라우저에서 설치를 완료하세요.
+
+      [DB 접속 정보]
+        - DB Host: leantime_db
+        - DB User: leantime
+        - DB Pass: leantime
+        - DB Name: leantime
+
+      [설치 순서]
+        1. task leantime:init 로 컨테이너 실행
+        2. 브라우저에서 https://pm.localhost/install 접속
+        3. DB 정보가 자동 입력되어 있음 (기본값 그대로 Next)
+        4. 관리자 계정 생성 후 로그인
+
+      [Usage Examples]
+        - task leantime:install
     cmds:
       - |
         echo "=============================="
         echo "  Leantime 초기 설치 안내"
         echo "=============================="
         echo ""
-        echo "1. docker compose up -d leantime leantime_db 로 컨테이너 실행"
-        echo "2. 브라우저에서 https://pm.localhost/install 접속"
-        echo "3. DB 정보가 자동 입력되어 있음 (기본값 그대로 Next)"
-        echo "4. 관리자 계정 생성 후 로그인"
-        echo ""
-        echo "   DB Host: leantime_db"
-        echo "   DB User: leantime"
-        echo "   DB Pass: leantime"
-        echo "   DB Name: leantime"
+        echo "자세한 내용은 task leantime:install --summary 를 참고하세요."
+        echo "  → https://pm.localhost/install"
         echo "=============================="

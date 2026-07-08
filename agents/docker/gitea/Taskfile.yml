@@ -198,17 +198,27 @@ tasks:
   commit:
     desc: Commit changes through the project commit helper.
     summary: |
-      Commit modified changes.
+      Stage and commit modified changes using the project's commit helper.
+      Runs linting, builds commit message with conventional commit format,
+      and verifies the commit before finalizing.
+
+      [Variables]
+        - CLI_ARGS: (옵션) commit helper에 전달할 추가 인자
 
       [Usage Examples]
         - task git:commit
+        - task git:commit -- --dry-run
     cmds:
       - npm run git -w agents -- commit {{.CLI_ARGS}}
 
   push:
     desc: Push changes through the project push helper.
     summary: |
-      Push committed changes.
+      Push committed changes to the remote repository.
+      Handles authentication and remote configuration automatically.
+
+      [Variables]
+        - CLI_ARGS: (옵션) push helper에 전달할 추가 인자
 
       [Usage Examples]
         - task git:push
@@ -266,9 +276,15 @@ tasks:
     desc: Gitea API 토큰 생성 (GITEA_ADMIN_USERNAME/PASSWORD 필요)
     summary: |
       Gitea 관리자 계정으로 API 토큰을 생성합니다.
+      .env의 GITEA_ADMIN_USERNAME과 GITEA_ADMIN_PASSWORD를 사용합니다.
+
+      [Variables]
+        - USERNAME: (옵션) 토큰을 발급할 유저명 (미지정 시 .env)
+        - PASSWORD: (옵션) 비밀번호 (미지정 시 .env)
 
       [Usage Examples]
         - task git:token
+        - task git:token USERNAME="ejpark"
     cmds:
       - npm run git -w agents generate-token
 
@@ -276,6 +292,7 @@ tasks:
     desc: Generate a Gitea API token through tea.
     summary: |
       Generate a Gitea API token using the tea interactive CLI tool.
+      tea는 Gitea 공식 CLI 도구로, 대화형 프롬프트를 통해 토큰을 발급합니다.
 
       [Usage Examples]
         - task git:token:tea
