@@ -9,7 +9,7 @@
 services:
   gmail:
     build:
-      context: ..
+      context: ../../
       dockerfile: docker/gmail/Dockerfile
     image: scraper/gmail:latest
     environment:
