@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     zsh \
     tmux \
     docker.io \
+    docker-buildx \
     docker-compose-v2 \
     jq \
     fontconfig \
@@ -27,6 +28,9 @@ RUN apt-get update && apt-get install -y \
     redis-tools \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# ubuntu 사용자의 패스워드 없는 sudo 권한 설정
+RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-ubuntu
 
 # ubuntu 디폴트 유저의 UID를 호스트에 맞게 변경 (GID는 컨테이너 그룹과 충돌 방지)
 RUN if [ "${USER_UID}" != "1000" ]; then \

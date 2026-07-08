@@ -7,7 +7,7 @@ vars:
   COMPOSE: PROJECT_PATH={{.ROOT_DIR}} docker compose -p {{.PROJECT}} --project-directory {{.ROOT_DIR}} -f {{.ROOT_DIR}}/compose.yml
   RUN_USER:
     sh: echo "--user $(id -u):$(id -g)"
-  ENV_COMMON: -e LIST_SLACK={{.LIST_SLACK | default "3"}} -e SCRAPER_SLACK={{.SCRAPER_SLACK | default "0"}} -e PRIORITY={{.PRIORITY | default "medium"}} -e OVERWRITE={{.OVERWRITE | default "false"}} -e AUTH={{.AUTH | default "false"}} -e CHUNK_SIZE={{.CHUNK_SIZE | default "500"}} -e ERROR_RESET={{.ERROR_RESET | default "false"}} -e RESET={{.RESET | default "false"}} -e TS_NODE_PROJECT=tsconfig.json
+  ENV_COMMON: -e TS_NODE_PROJECT=tsconfig.json
 
 includes:
   viewer:
@@ -49,6 +49,10 @@ includes:
     dir: .
   leantime:
     taskfile: ./agents/docker/leantime/Taskfile.yml
+    dir: .
+
+  usd:
+    taskfile: ./projects/LearnOpenUSD/Taskfile.yml
     dir: .
 
 tasks:
