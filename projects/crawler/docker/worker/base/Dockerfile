@@ -20,8 +20,8 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 # Install Korean fonts
 RUN apt-get update && apt-get install -y \
-    fonts-nanum \
-    && rm -rf /var/lib/apt/lists/*
+  fonts-nanum \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

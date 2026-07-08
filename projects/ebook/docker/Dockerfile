@@ -9,13 +9,13 @@ ENV UV_PROJECT_ENVIRONMENT=/usr/local
 
 # Install system dependencies if fitz/pymupdf needs them (usually fitz ships prebuilt wheels)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+  build-essential \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy lock files and project configs
-COPY pyproject.toml uv.lock .
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies globally inside container
 RUN uv pip install --system -r pyproject.toml && rm -rf ${UV_CACHE_DIR}
