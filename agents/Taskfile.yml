@@ -107,37 +107,28 @@ tasks:
     cmds:
       - npm run sessions -w agents -- --prune {{.CLI_ARGS}}
 
-  session:sync:codex:
-    desc: "양방향 codex CLI 세션 DB 동기화 (호스트 ↔ 샌드박스)"
-    summary: |
-      Host/Sandbox 양쪽의 codex SQLite DB와 rollout 파일을 동기화합니다.
-
-      [옵션]
-        --direction (host-to-sandbox|sandbox-to-host|both) (기본값: both)
-        --dry-run    변경 예정 목록만 출력
-        --force      경고 무시
-
-      [Usage Examples]
-        - task agents:session:sync:codex
-        - task agents:session:sync:codex -- --dry-run
-    cmds:
-      - npm run sessions -w agents -- --sync --codex {{.CLI_ARGS}}
-
   session:sync:
-    desc: "양방향 opencode 세션 DB 동기화 (호스트 ↔ 샌드박스)"
+    desc: "양방향 세션 DB 동기화 (호스트 ↔ 샌드박스)"
     summary: |
-      Host/Sandbox 양쪽의 opencode.db, snapshot/, tool-output/ 데이터를 동기화합니다.
+      기본값은 opencode. --codex 플래그로 Codex CLI도 동기화 가능.
+
+      [에이전트 선택]
+        (기본값)           opencode 동기화
+        --opencode         opencode 동기화 (명시적)
+        --codex            Codex CLI 동기화
+        --opencode --codex 둘 다 실행
 
       [옵션]
         --direction (host-to-sandbox|sandbox-to-host|both) (기본값: both)
         --dry-run    변경 예정 목록만 출력
         --force      경고 무시 (스키마 불일치, opencode 실행 중 등)
-        --no-snapshot    snapshot/ 제외
-        --no-tool-output tool-output/ 제외
+        --no-snapshot    opencode snapshot/ 제외
+        --no-tool-output opencode tool-output/ 제외
 
       [Usage Examples]
         - task agents:session:sync
-        - task agents:session:sync -- --dry-run
+        - task agents:session:sync -- --codex
+        - task agents:session:sync -- --opencode --codex --dry-run
         - task agents:session:sync -- --direction host-to-sandbox
     cmds:
       - npm run sessions -w agents -- --sync {{.CLI_ARGS}}
