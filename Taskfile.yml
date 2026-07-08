@@ -50,10 +50,6 @@ includes:
   leantime:
     taskfile: ./agents/docker/leantime/Taskfile.yml
     dir: .
-  openusd:
-    taskfile: ./projects/openusd/Taskfile.yml
-    dir: .
-
 
 tasks:
   config:

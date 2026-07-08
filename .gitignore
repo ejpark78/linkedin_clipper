@@ -16,3 +16,5 @@ notebooks/.*
 .ruff_cache/
 .mypy_cache
 .volumes
+
+LearnOpenUSD
