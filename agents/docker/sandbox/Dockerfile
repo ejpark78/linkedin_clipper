@@ -120,7 +120,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Google Antigravity CLI (agy), OpenAI Codex CLI, Joplin CLI 설치 (root 권한 필요)
 USER root
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
-  npm install -g @openai/codex joplin
+  npm install -g @openai/codex joplin @moonshot-ai/kimi-code
+
+RUN curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.sh | bash
 
 # 기본 shell을 zsh로 강제 지정
 ENV SHELL=/bin/zsh
