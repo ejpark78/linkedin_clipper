@@ -1,8 +1,8 @@
 # ==============================================================================
-# 🤖 Agent Development Openbox (GUI) Service Block
+# 🤖 Agent Development Desktop (Selkies) Service Block
 # ==============================================================================
-# - 주소: https://desktop.localhost/
-# - 용도: OpenCode Desktop, 웹 브라우저 기반 GUI 연동 격리 개발 공간 (noVNC / Openbox)
+# - 주소: https://openbox.localhost/
+# - 용도: OpenCode Desktop, 웹 브라우저 기반 GUI 연동 격리 개발 공간 (Selkies / Labwc)
 # ==============================================================================
 
 services:
@@ -11,9 +11,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        USER_UID: ${USER_UID:-1000}
-        USER_GID: ${USER_GID:-1000}
+    security_opt:
+      - seccomp:unconfined
     depends_on:
       traefik:
         condition: service_healthy
@@ -24,17 +23,25 @@ services:
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
       - PROJECT_PATH=${PROJECT_PATH:-.}
+      - PIXELFLUX_WAYLAND=true
+      - SELKIES_DESKTOP=true
+      - NO_FULL=true
+      - NO_DECOR=false
+      - START_DOCKER=false
+      - LC_ALL=ko_KR.UTF-8
     volumes:
       # DooD 구성을 위한 Docker Socket 마운트
       - /var/run/docker.sock:/var/run/docker.sock
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
-      # sandbox와 자격증명/설정 정보 영구 공유
+      # IDE 설정 및 익스텐션 영구 보존 마운트
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/local:/config/.local
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/config:/config/.config
+      # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/gemini:/config/.gemini
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/opencode:/config/.opencode
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/config/.codex
+    shm_size: "1gb"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
       interval: 15s

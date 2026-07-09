@@ -1,7 +1,0 @@
-# ==========================================
-# 🤖 Openbox GUI Autostart Configuration
-# ==========================================
-
-# 1. dbus 데몬 및 fcitx 입력기 데몬 실행
-export $(dbus-launch)
-fcitx -d -r &
