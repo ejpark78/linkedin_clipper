@@ -41,9 +41,9 @@ services:
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/cline:/config/.cline
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/config/.codex
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/gemini:/config/.gemini
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/kimi:/config/.kimi
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/opencode:/config/.opencode
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/qwen:/config/.qwen
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/kimi:/config/.kimi
     shm_size: "1gb"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
