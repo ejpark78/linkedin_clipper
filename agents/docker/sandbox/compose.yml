@@ -38,9 +38,12 @@ services:
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/local:/home/ubuntu/.local
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/config:/home/ubuntu/.config
       # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/cline:/home/ubuntu/.cline
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/home/ubuntu/.codex
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/gemini:/home/ubuntu/.gemini
       - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/opencode:/home/ubuntu/.opencode
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/home/ubuntu/.codex
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/qwen:/home/ubuntu/.qwen
+      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/kimi:/home/ubuntu/.kimi
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 15s
