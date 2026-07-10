@@ -1,0 +1,23 @@
+#!/usr/bin/with-contenv bash
+
+# labwc autostart를 code로 강제 설정 (볼륨 persist 대응)
+mkdir -p /config/.config/labwc
+echo "code" > /config/.config/labwc/autostart
+
+# VS Code 기본 설정
+SETTINGS_PATH="/config/.config/Code/User/settings.json"
+
+if [ ! -f "$SETTINGS_PATH" ]; then
+  mkdir -p "$(dirname "$SETTINGS_PATH")"
+  cat > "$SETTINGS_PATH" << 'EOF'
+{
+  "editor.fontFamily": "'JetBrainsMono Nerd Font Mono', 'Noto Sans CJK KR'",
+  "editor.fontSize": 14,
+  "editor.fontLigatures": true,
+  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font Mono'",
+  "terminal.integrated.fontSize": 14,
+  "workbench.sideBar.location": "right"
+}
+EOF
+  chown -R abc:abc "$(dirname "$SETTINGS_PATH")"
+fi

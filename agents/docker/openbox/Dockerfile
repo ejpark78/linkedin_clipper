@@ -13,7 +13,8 @@ RUN apt-get update && \
     git \
     gnome-keyring \
     ssh-askpass \
-    stterm && \
+    stterm \
+    xz-utils && \
   CODE_VERSION=$(curl -sL https://update.code.visualstudio.com/api/releases/stable \
     | awk -F'"' '{print $2}') && \
   curl -o \
@@ -49,6 +50,13 @@ RUN apt-get update && \
   cp \
     /opt/obsidian/usr/share/icons/hicolor/512x512/apps/obsidian.png \
     /usr/share/icons/hicolor/512x512/apps/obsidian.png && \
+  echo "**** install nerd font ****" && \
+  mkdir -p /usr/local/share/fonts/jetbrains-mono && \
+  curl -fsSL -o \
+    /tmp/JetBrainsMono.tar.xz \
+    "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz" && \
+  tar -xJf /tmp/JetBrainsMono.tar.xz -C /usr/local/share/fonts/jetbrains-mono && \
+  fc-cache -f && \
   apt-get autoclean && \
   rm -rf \
     /var/lib/apt/lists/* \
