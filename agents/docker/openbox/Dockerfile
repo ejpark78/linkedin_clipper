@@ -3,53 +3,48 @@ FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
 
 RUN apt-get update && apt-get install -y tmux wtype unzip && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
-    if [ -f /opt/cache/brave-keyring.gpg ]; then \
-        cp /opt/cache/brave-keyring.gpg /etc/apt/keyrings/brave-browser.gpg; \
-    else \
-        curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | \
-        gpg --dearmor -o /etc/apt/keyrings/brave-browser.gpg; \
-    fi && \
+RUN curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | \
+    gpg --dearmor -o /etc/apt/keyrings/brave-browser.gpg && \
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/brave-browser.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" \
     | tee /etc/apt/sources.list.d/brave-browser.list > /dev/null && \
   apt-get update && apt-get install -y brave-browser && \
   rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
-    if [ -f /opt/cache/vscode-keyring.gpg ]; then \
-        cp /opt/cache/vscode-keyring.gpg /etc/apt/keyrings/packages.microsoft.gpg; \
-    else \
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
-        gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg; \
-    fi && \
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
+    gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg && \
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
     | tee /etc/apt/sources.list.d/vscode.list > /dev/null && \
   apt-get update && apt-get install -y code && \
   rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    ARCH_DIR=$(dpkg --print-architecture) && \
     ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
-    if [ -f "/opt/cache/opencode-linux-$ARCH.tar.gz" ]; then \
-        tar -xz -C /usr/local/bin opencode < "/opt/cache/opencode-linux-$ARCH.tar.gz"; \
+    if [ -s "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz" ]; then \
+        echo ">>> CACHE HIT"; \
+        tar -xz -C /usr/local/bin opencode < "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz"; \
     else \
+        echo ">>> CACHE MISS"; \
         curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
         tar -xz -C /usr/local/bin opencode; \
     fi
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    ARCH_DIR=$(dpkg --print-architecture) && \
     ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
-    if [ -f "/opt/cache/opencode-desktop-linux-$ARCH.deb" ]; then \
-        cp "/opt/cache/opencode-desktop-linux-$ARCH.deb" /tmp/opencode.deb; \
+    if [ -s "/opt/cache/$ARCH_DIR/opencode-desktop-linux-$ARCH.deb" ]; then \
+        cp "/opt/cache/$ARCH_DIR/opencode-desktop-linux-$ARCH.deb" /tmp/opencode.deb; \
     else \
         curl -fsSL -o /tmp/opencode.deb "https://github.com/anomalyco/opencode/releases/latest/download/opencode-desktop-linux-$ARCH.deb"; \
     fi && \
   apt-get update && apt-get install -y /tmp/opencode.deb && \
   rm -f /tmp/opencode.deb && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    ARCH_DIR=$(dpkg --print-architecture) && \
     ARCH=$(dpkg --print-architecture | sed 's/amd64/x64/' | sed 's/arm64/arm64/') && \
-    if [ -f "/opt/cache/cursor-linux-${ARCH}.deb" ]; then \
-        cp "/opt/cache/cursor-linux-${ARCH}.deb" /tmp/cursor.deb; \
+    if [ -s "/opt/cache/$ARCH_DIR/cursor-linux-${ARCH}.deb" ]; then \
+        cp "/opt/cache/$ARCH_DIR/cursor-linux-${ARCH}.deb" /tmp/cursor.deb; \
     else \
         curl -fsSL -o /tmp/cursor.deb \
             "https://api2.cursor.sh/updates/download/golden/linux-${ARCH}-deb/cursor/latest"; \
@@ -57,47 +52,45 @@ RUN --mount=type=bind,source=./.cache,target=/opt/cache \
   apt-get update && apt-get install -y /tmp/cursor.deb && \
   rm -f /tmp/cursor.deb && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
-    if [ "$(dpkg --print-architecture)" = "amd64" ] && [ -f /opt/cache/devin.deb ]; then \
-        cp /opt/cache/devin.deb /tmp/devin.deb; \
-    elif [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-        curl -fsSL -o /tmp/devin.deb \
-            "https://windsurf-stable.codeiumdata.com/linux-x64-deb/stable/0d4bf12ed4a7597cb8ae9016fe8474468aad98a2/Devin-linux-x64-3.4.27.deb"; \
-    fi && \
-    if [ -f /tmp/devin.deb ]; then \
+RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        ARCH_DIR=$(dpkg --print-architecture) && \
+        if [ -s "/opt/cache/$ARCH_DIR/devin.deb" ]; then \
+            cp "/opt/cache/$ARCH_DIR/devin.deb" /tmp/devin.deb; \
+        else \
+            curl -fsSL -o /tmp/devin.deb \
+                "https://windsurf-stable.codeiumdata.com/linux-x64-deb/stable/0d4bf12ed4a7597cb8ae9016fe8474468aad98a2/Devin-linux-x64-3.4.27.deb"; \
+        fi && \
         apt-get update && apt-get install -y /tmp/devin.deb && \
         rm -f /tmp/devin.deb && rm -rf /var/lib/apt/lists/*; \
     fi
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
-    ARCH_DIR=$(dpkg --print-architecture | sed 's/amd64/linux-x64/' | sed 's/arm64/linux-arm/') && \
-    if [ -f "/opt/cache/antigravity-$ARCH_DIR.tar.gz" ]; then \
-        tar -xzf "/opt/cache/antigravity-$ARCH_DIR.tar.gz" -C /opt; \
+RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    ARCH_DIR=$(dpkg --print-architecture) && \
+    URL_ARCH=$(dpkg --print-architecture | sed 's/amd64/linux-x64/' | sed 's/arm64/linux-arm/') && \
+    if [ -s "/opt/cache/$ARCH_DIR/antigravity-$URL_ARCH.tar.gz" ]; then \
+        tar -xzf "/opt/cache/$ARCH_DIR/antigravity-$URL_ARCH.tar.gz" -C /opt; \
     else \
         curl -fsSL -o /tmp/Antigravity.tar.gz \
-            "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.2.1-5287492581195776/${ARCH_DIR}/Antigravity.tar.gz" && \
+            "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.2.1-5287492581195776/${URL_ARCH}/Antigravity.tar.gz" && \
         tar -xzf /tmp/Antigravity.tar.gz -C /opt && \
         rm -f /tmp/Antigravity.tar.gz; \
     fi
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
-    if [ "$(dpkg --print-architecture)" = "amd64" ] && [ -f /opt/cache/kiro.deb ]; then \
-        cp /opt/cache/kiro.deb /tmp/kiro.deb; \
-    elif [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-        curl -fsSL -o /tmp/kiro.deb \
-            "https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/1.0.89/deb/kiro-ide-1.0.89-stable-linux-x64.deb"; \
-    fi && \
-    if [ -f /tmp/kiro.deb ]; then \
+RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+        ARCH_DIR=$(dpkg --print-architecture) && \
+        if [ -s "/opt/cache/$ARCH_DIR/kiro.deb" ]; then \
+            cp "/opt/cache/$ARCH_DIR/kiro.deb" /tmp/kiro.deb; \
+        else \
+            curl -fsSL -o /tmp/kiro.deb \
+                "https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/1.0.89/deb/kiro-ide-1.0.89-stable-linux-x64.deb"; \
+        fi && \
         apt-get update && apt-get install -y /tmp/kiro.deb && \
         rm -f /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
     fi
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache \
-    if [ -f /opt/cache/kiro-cli-install.sh ]; then \
-        bash /opt/cache/kiro-cli-install.sh || true; \
-    else \
-        curl -fsSL https://cli.kiro.dev/install | bash || true; \
-    fi
+RUN curl -fsSL https://cli.kiro.dev/install | bash || true
 
 RUN mkdir -p /config/.config/opencode && \
   echo '{"useNewLayout":true}' > /config/.config/opencode/settings.json
