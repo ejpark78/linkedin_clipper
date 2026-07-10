@@ -4,6 +4,8 @@
 .sandbox/
 .volumes/
 .vscode/*
+.DS_Store
+
 !.vscode/extensions.json
 data/
 node_modules/
