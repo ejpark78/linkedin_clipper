@@ -9,7 +9,10 @@
 services:
   openbox:
     platform: linux/${ARCH:-arm64}
-    image: lscr.io/linuxserver/vscode:latest
+    image: agents/openbox:${ARCH:-arm64}
+    build:
+      context: .
+      dockerfile: Dockerfile
     cap_add:
       - IPC_LOCK
     security_opt:
