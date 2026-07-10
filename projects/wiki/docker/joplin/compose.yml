@@ -12,7 +12,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: wiki/tool:latest
+    platform: linux/${ARCH:-arm64}
+    image: wiki/tool:${ARCH:-arm64}
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - JOPLIN_SERVER_URL=${JOPLIN_SERVER_URL:-}

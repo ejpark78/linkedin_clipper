@@ -11,7 +11,8 @@ services:
     build:
       context: ../../
       dockerfile: docker/gmail/Dockerfile
-    image: gmail:latest
+    platform: linux/${ARCH:-arm64}
+    image: gmail:${ARCH:-arm64}
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - EMAIL_USER=${EMAIL_USER:-}

@@ -3,7 +3,8 @@ services:
     build:
       context: ${PROJECT_PATH:-.}/projects/ebook
       dockerfile: docker/Dockerfile
-    image: ebook:latest
+    platform: linux/${ARCH:-arm64}
+    image: ebook:${ARCH:-arm64}
     environment:
       - TZ=${TZ:-Asia/Seoul}
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}

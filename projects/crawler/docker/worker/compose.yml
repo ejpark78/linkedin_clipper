@@ -10,7 +10,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: crawler/worker:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/worker:${ARCH:-arm64}
     working_dir: /app
     environment:
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
@@ -36,7 +37,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: crawler/scraper:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/scraper:${ARCH:-arm64}
     working_dir: /app
     labels:
       autoheal: "true"
@@ -70,7 +72,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: crawler/converter:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/converter:${ARCH:-arm64}
     working_dir: /app
     labels:
       autoheal: "true"
@@ -103,7 +106,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: crawler/indexer:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/indexer:${ARCH:-arm64}
     working_dir: /app
     environment:
       - TZ=${TZ:-Asia/Seoul}

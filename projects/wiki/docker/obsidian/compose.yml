@@ -8,6 +8,7 @@
 
 services:
   obsidian:
+    platform: linux/${ARCH:-arm64}
     image: lscr.io/linuxserver/obsidian:latest
     security_opt:
       - seccomp:unconfined # Required for Electron rendering in containers

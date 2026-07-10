@@ -7,7 +7,8 @@ services:
     build:
       context: ..
       dockerfile: docker/fe/Dockerfile
-    image: crawler/viewer/fe:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/viewer/fe:${ARCH:-arm64}
     environment:
       - TZ=${TZ:-Asia/Seoul}
     restart: unless-stopped
@@ -41,7 +42,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: crawler/viewer/be:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/viewer/be:${ARCH:-arm64}
     command:
       ["npx", "ts-node", "--project", "/app/tsconfig.json", "api/server.ts"]
     environment:
@@ -89,7 +91,8 @@ services:
       args:
         - BUILD_DATE
         - VCS_REF
-    image: crawler/viewer/be:latest
+    platform: linux/${ARCH:-arm64}
+    image: crawler/viewer/be:${ARCH:-arm64}
     command:
       ["npx", "ts-node", "--project", "/app/tsconfig.json", "mcp/mcp-entry.ts"]
     environment:
