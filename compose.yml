@@ -25,7 +25,7 @@ include:
   - agents/docker/sandbox/compose.yml
   - agents/docker/kasm/compose.yml
   - agents/docker/brave/compose.yml
-  - agents/docker/vscode/compose.yml
+  - agents/docker/openbox/compose.yml
   - agents/docker/leantime/compose.yml
   - projects/wiki/docker/web/compose.yml
   - projects/wiki/docker/worker/compose.yml
