@@ -30,6 +30,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
       - ${PROJECT_PATH:-.}/data/openbox:/config
+      - ${PROJECT_PATH:-.}/data/obsidian:/obsidian
     shm_size: "1gb"
     restart: unless-stopped
     healthcheck:

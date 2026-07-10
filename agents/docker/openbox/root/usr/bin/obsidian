@@ -1,0 +1,14 @@
+#!/bin/bash
+
+BIN=/opt/obsidian/obsidian
+
+if ls -l /dev/dri/* > /dev/null 2>&1; then
+  if pgrep labwc > /dev/null 2>&1; then
+    WAYLAND="--ozone-platform=wayland"
+  fi
+fi
+
+${BIN} \
+  --no-sandbox \
+  ${WAYLAND} \
+  "$@" > /dev/null 2>&1

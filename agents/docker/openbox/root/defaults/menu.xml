@@ -3,6 +3,7 @@
 <menu id="root-menu" label="MENU">
 <item label="VS Code"><action name="Execute"><command>/usr/bin/code</command></action></item>
 <item label="Brave"><action name="Execute"><command>/usr/bin/wrapped-brave</command></action></item>
+<item label="Obsidian"><action name="Execute"><command>/usr/bin/obsidian</command></action></item>
 <item label="xterm"><action name="Execute"><command>/usr/bin/xterm</command></action></item>
 </menu>
 </openbox_menu>
