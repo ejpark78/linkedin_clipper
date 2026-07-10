@@ -43,18 +43,3 @@ services:
       - "traefik.http.routers.gitea.tls=true"
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
 
-  gitea_runner:
-    platform: linux/${ARCH:-arm64}
-    image: gitea/act_runner:latest
-    depends_on:
-      gitea:
-        condition: service_healthy
-    environment:
-      - GITEA_INSTANCE_URL=${GITEA_INSTANCE_URL:-http://gitea:3000}
-      - GITEA_RUNNER_REGISTRATION_TOKEN_FILE=${GITEA_RUNNER_REGISTRATION_TOKEN_FILE:-/data/token}
-      - GITEA_RUNNER_NAME=${GITEA_RUNNER_NAME:-local-runner}
-      - GITEA_RUNNER_LABELS=${GITEA_RUNNER_LABELS:-ubuntu-latest:docker://node:18-bullseye,ubuntu-22.04:docker://node:18-bullseye}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ${PROJECT_PATH:-.}/agents/.volumes/gitea/act_runner:/data
-    restart: unless-stopped
