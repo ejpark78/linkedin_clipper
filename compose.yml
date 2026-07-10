@@ -22,7 +22,6 @@ include:
   - infra/redis/docker/compose.yml
   - agents/docker/traefik/compose.yml
   - agents/docker/sandbox/compose.yml
-  - agents/docker/kasm/compose.yml
   - agents/docker/openbox/compose.yml
   - agents/docker/leantime/compose.yml
   - projects/wiki/docker/web/compose.yml
