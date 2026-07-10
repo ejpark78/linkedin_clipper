@@ -8,5 +8,6 @@ fi
 
 dbus-launch ${BIN} \
   --no-sandbox \
+  --disable-gpu \
   ${WAYLAND} \
    "$@"

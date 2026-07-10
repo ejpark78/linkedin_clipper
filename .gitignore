@@ -2,6 +2,7 @@
 .env
 .firecrawl/
 .sandbox/
+.openbox/
 .volumes/
 .vscode/*
 .DS_Store
