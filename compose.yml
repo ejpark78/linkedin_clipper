@@ -29,4 +29,3 @@ include:
   - projects/wiki/docker/worker/compose.yml
   - projects/wiki/docker/joplin/compose.yml
   - infra/autoheal/docker/compose.yml
-  - projects/openusd/docker/compose.yml
