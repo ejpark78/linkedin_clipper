@@ -1,25 +1,45 @@
 # syntax=docker/dockerfile:1
-FROM ghcr.io/linuxserver/baseimage-selkies:debiantrixie
+FROM kasmweb/core-ubuntu-noble:1.18.0
+USER root
 
-RUN apt-get update && apt-get install -y tmux wtype unzip && rm -rf /var/lib/apt/lists/*
+ENV HOME /home/kasm-default-profile
+ENV STARTUPDIR /dockerstartup
+ENV INST_SCRIPTS $STARTUPDIR/install
+WORKDIR $HOME
 
-RUN curl -fsSL https://brave-browser-apt-release.s3.brave.com/brave-core.asc | \
-    gpg --dearmor -o /etc/apt/keyrings/brave-browser.gpg && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/brave-browser.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" \
-    | tee /etc/apt/sources.list.d/brave-browser.list > /dev/null && \
+# 기본 패키지
+RUN apt-get update && apt-get install -y sudo curl wget tmux unzip xz-utils fonts-nanum fcitx fcitx-hangul && rm -rf /var/lib/apt/lists/*
+
+ENV GTK_IM_MODULE=fcitx
+ENV QT_IM_MODULE=fcitx
+ENV XMODIFIERS=@im=fcitx
+
+# Brave 설치 (Kasm 공식 방식)
+RUN curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg && \
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" > /etc/apt/sources.list.d/brave-browser-release.list && \
   apt-get update && apt-get install -y brave-browser && \
-  rm -rf /var/lib/apt/lists/*
+  sed -i 's/-stable//g' /usr/share/applications/brave-browser.desktop && \
+  mv /usr/bin/brave-browser /usr/bin/brave-browser-orig && \
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'CHROME_ARGS="--password-store=basic --no-sandbox --ignore-gpu-blocklist --user-data-dir --no-first-run --check-for-update-interval=31449600"' \
+    'sed -i '\''s/"exited_cleanly":false/"exited_cleanly":true/'\'' ~/.config/BraveSoftware/Brave-Browser/Default/Preferences 2>/dev/null' \
+    'sed -i '\''s/"exit_type":"Crashed"/"exit_type":"None"/'\'' ~/.config/BraveSoftware/Brave-Browser/Default/Preferences 2>/dev/null' \
+    'exec /opt/brave.com/brave/brave-browser ${CHROME_ARGS} "$@"' \
+    > /usr/bin/brave-browser && \
+  chmod +x /usr/bin/brave-browser
 
-RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | \
-    gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
-    | tee /etc/apt/sources.list.d/vscode.list > /dev/null && \
-  apt-get update && apt-get install -y code && \
-  rm -rf /var/lib/apt/lists/*
+# VSCode 설치 (Kasm 공식 방식)
+RUN ARCH=$(dpkg --print-architecture | sed 's/arm64/arm64/g' | sed 's/amd64/x64/g') && \
+  curl -fsSL -o /tmp/vs_code.deb "https://update.code.visualstudio.com/latest/linux-deb-${ARCH}/stable" && \
+  apt-get update && apt-get install -y /tmp/vs_code.deb && \
+  rm -f /tmp/vs_code.deb && \
+  sed -i 's#/usr/share/code/code#/usr/share/code/code --no-sandbox#g' /usr/share/applications/code.desktop
 
+# opencode CLI 설치
 RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
     ARCH_DIR=$(dpkg --print-architecture) && \
-    ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
+    ARCH=$(dpkg --print-architecture | sed 's/amd64/x64/' | sed 's/aarch64/arm64/') && \
     if [ -s "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz" ]; then \
         echo ">>> CACHE HIT"; \
         tar -xz -C /usr/local/bin opencode < "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz"; \
@@ -29,6 +49,7 @@ RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
         tar -xz -C /usr/local/bin opencode; \
     fi
 
+# opencode Desktop 설치
 RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
     ARCH_DIR=$(dpkg --print-architecture) && \
     ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
@@ -40,63 +61,62 @@ RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
   apt-get update && apt-get install -y /tmp/opencode.deb && \
   rm -f /tmp/opencode.deb && rm -rf /var/lib/apt/lists/*
 
+# JetBrainsMono Nerd Font 설치
 RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
     ARCH_DIR=$(dpkg --print-architecture) && \
-    ARCH=$(dpkg --print-architecture | sed 's/amd64/x64/' | sed 's/arm64/arm64/') && \
-    if [ -s "/opt/cache/$ARCH_DIR/cursor-linux-${ARCH}.deb" ]; then \
-        cp "/opt/cache/$ARCH_DIR/cursor-linux-${ARCH}.deb" /tmp/cursor.deb; \
-    else \
-        curl -fsSL -o /tmp/cursor.deb \
-            "https://api2.cursor.sh/updates/download/golden/linux-${ARCH}-deb/cursor/latest"; \
-    fi && \
-  apt-get update && apt-get install -y /tmp/cursor.deb && \
-  rm -f /tmp/cursor.deb && rm -rf /var/lib/apt/lists/*
-
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-        ARCH_DIR=$(dpkg --print-architecture) && \
-        if [ -s "/opt/cache/$ARCH_DIR/devin.deb" ]; then \
-            cp "/opt/cache/$ARCH_DIR/devin.deb" /tmp/devin.deb; \
-        else \
-            curl -fsSL -o /tmp/devin.deb \
-                "https://windsurf-stable.codeiumdata.com/linux-x64-deb/stable/0d4bf12ed4a7597cb8ae9016fe8474468aad98a2/Devin-linux-x64-3.4.27.deb"; \
-        fi && \
-        apt-get update && apt-get install -y /tmp/devin.deb && \
-        rm -f /tmp/devin.deb && rm -rf /var/lib/apt/lists/*; \
+    if [ -s "/opt/cache/$ARCH_DIR/JetBrainsMono.tar.xz" ]; then \
+        mkdir -p /usr/local/share/fonts/jetbrains-mono && \
+        tar -xJf "/opt/cache/$ARCH_DIR/JetBrainsMono.tar.xz" -C /usr/local/share/fonts/jetbrains-mono && \
+        fc-cache -f; \
     fi
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    ARCH_DIR=$(dpkg --print-architecture) && \
-    URL_ARCH=$(dpkg --print-architecture | sed 's/amd64/linux-x64/' | sed 's/arm64/linux-arm/') && \
-    if [ -s "/opt/cache/$ARCH_DIR/antigravity-$URL_ARCH.tar.gz" ]; then \
-        tar -xzf "/opt/cache/$ARCH_DIR/antigravity-$URL_ARCH.tar.gz" -C /opt; \
-    else \
-        curl -fsSL -o /tmp/Antigravity.tar.gz \
-            "https://storage.googleapis.com/antigravity-public/antigravity-hub/2.2.1-5287492581195776/${URL_ARCH}/Antigravity.tar.gz" && \
-        tar -xzf /tmp/Antigravity.tar.gz -C /opt && \
-        rm -f /tmp/Antigravity.tar.gz; \
-    fi
+# opencode Desktop settings
+RUN mkdir -p /home/kasm-default-profile/.config/opencode && \
+  echo '{"useNewLayout":true}' > /home/kasm-default-profile/.config/opencode/settings.json
 
-RUN mkdir -p /config/.config/opencode && \
-  echo '{"useNewLayout":true}' > /config/.config/opencode/settings.json
+# opencode desktop .desktop 파일에 --no-sandbox 추가
+RUN sed -i 's#Exec=/opt/OpenCode/ai.opencode.desktop#Exec=/opt/OpenCode/ai.opencode.desktop --no-sandbox#' /usr/share/applications/ai.opencode.desktop.desktop 2>/dev/null || true
 
-RUN mkdir -p /etc/cont-init.d && \
+# VSCode settings (초기 설정)
+RUN mkdir -p /home/kasm-default-profile/.config/Code/User && \
+  python3 -c 'import json; json.dump({"editor.fontFamily": "\u0027JetBrainsMono Nerd Font\u0027, \u0027Noto Sans CJK KR\u0027", "editor.fontSize": 14, "editor.fontLigatures": True, "terminal.integrated.fontFamily": "\u0027JetBrainsMono Nerd Font\u0027, \u0027Noto Sans CJK KR\u0027", "terminal.integrated.fontSize": 14, "terminal.integrated.gpuAcceleration": "off", "workbench.sideBar.location": "right"}, open("/home/kasm-default-profile/.config/Code/User/settings.json", "w"), indent=4)'
+
+
+
+# fcitx 자동 시작 + 한글 기본 입력기 + kasmvnc IME 설정
+RUN mkdir -p /home/kasm-default-profile/.vnc /home/kasm-default-profile/.config/autostart /home/kasm-default-profile/.config/fcitx && \
   printf '%s\n' \
-    '#!/usr/bin/with-contenv bash' \
-    'chown -R abc:abc "${PROJECT_PATH:-.}/node_modules" "${PROJECT_PATH:-.}/.venv" 2>/dev/null' \
-    'cd "${PROJECT_PATH:-.}"' \
-    '[ -f package.json ] && npm install --no-audit --no-fund' \
-    '[ -f pyproject.toml ] || [ -f requirements.txt ] && uv sync 2>/dev/null || true' \
-    > /etc/cont-init.d/00-fix-perms && \
-  chmod +x /etc/cont-init.d/00-fix-perms && \
+    '[Desktop Entry]' \
+    'Type=Application' \
+    'Name=fcitx' \
+    'Exec=sh -c "sleep 2 && fcitx -d"' \
+    'StartupNotify=false' \
+    > /home/kasm-default-profile/.config/autostart/fcitx.desktop && \
   printf '%s\n' \
-    '#!/usr/bin/with-contenv bash' \
-    'AUTOSTART="/config/.config/labwc/autostart"' \
-    'mkdir -p "$(dirname "$AUTOSTART")"' \
-    'touch "$AUTOSTART"' \
-    'if ! grep -q "wtype.*Caps_Lock" "$AUTOSTART" 2>/dev/null; then' \
-    '  echo "sleep 3" >> "$AUTOSTART"' \
-    '  echo "wtype -k Caps_Lock 2>/dev/null || true" >> "$AUTOSTART"' \
-    'fi' \
-    > /etc/cont-init.d/41-disable-capslock && \
-  chmod +x /etc/cont-init.d/41-disable-capslock
+    '[Profile]' \
+    'TriggerHotkey=CTRL_SPACE' \
+    'EnabledIMList=fcitx-keyboard-kr:True,hangul:True,default:True' \
+    > /home/kasm-default-profile/.config/fcitx/profile && \
+  printf '%s\n' \
+    'keyboard:' \
+    '  raw_keyboard: false' \
+    'logging:' \
+    '  log_writer_name: all' \
+    '  log_dest: logfile' \
+    '  level: 100' \
+    > /home/kasm-default-profile/.vnc/kasmvnc.yaml
+
+# sudo 권한
+RUN echo "kasm-user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Kasm 사용자 설정
+RUN $STARTUPDIR/set_user_permission.sh $HOME
+
+ENV HOME /home/kasm-user
+WORKDIR $HOME
+RUN mkdir -p $HOME && chown -R 1000:0 $HOME
+
+# 사용자 홈 디렉토리 초기화
+RUN mkdir -p /home/kasm-user && chown -R 1000:0 /home/kasm-user/
+
+USER 1000
