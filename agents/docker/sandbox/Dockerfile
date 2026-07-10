@@ -64,7 +64,7 @@ RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/loc
 # opencode 설치 (/usr/local/bin에 바이너리 직접 배치)
 RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
     ARCH_DIR=$(dpkg --print-architecture) && \
-    ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
+    ARCH=$(dpkg --print-architecture | sed 's/amd64/x64/' | sed 's/aarch64/arm64/') && \
     if [ -s "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz" ]; then \
         tar -xz -C /usr/local/bin opencode < "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz"; \
     else \

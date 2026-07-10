@@ -54,11 +54,23 @@ tasks:
       Uses --no-cache to force a fresh build.
 
       [Variables]
-        - CLI_ARGS: (옵션) docker compose build에 전달할 추가 인자 (서비스명 등)
+        - CLI_ARGS:   (옵션) docker compose build에 전달할 추가 인자 (서비스명 등)
+        - ARCH:       (옵션) sandbox 빌드 플랫폼 아키텍처 (amd64 | arm64, 기본값: arm64)
+                      agents/docker/sandbox/compose.yml 의 platform: 및 image: 태그에 적용됨
 
       [Usage Examples]
+        # 기본 전체 빌드 (native)
         - task build
-        - task build -- traefik sandbox
+
+        # 특정 서비스만 native 빌드
+        - task build -- traefik gitea
+
+        # sandbox amd64 빌드 (태그: agents/sandbox:amd64, platform: linux/amd64)
+        - ARCH=amd64 task build -- sandbox
+
+        # sandbox arm64 빌드 (태그: agents/sandbox:arm64, platform: linux/arm64)
+        - ARCH=arm64 task build -- sandbox
+          or just: task build -- sandbox
     cmds:
       - "{{.COMPOSE}} build --no-cache {{.CLI_ARGS}}"
 
@@ -69,11 +81,15 @@ tasks:
       If no service name is given, all services defined in compose.yml are started.
 
       [Variables]
-        - CLI_ARGS: (옵션) docker compose up에 전달할 추가 인자 (서비스명 등)
+        - CLI_ARGS:   (옵션) docker compose up에 전달할 추가 인자 (서비스명 등)
+        - ARCH:       (옵션) sandbox 실행 플랫폼 아키텍처 (amd64 | arm64, 기본값: arm64)
+                      agents/docker/sandbox/compose.yml 의 platform: 및 image: 태그에 적용됨
 
       [Usage Examples]
         - task up
         - task up -- traefik gitea
+        - ARCH=amd64 task up -- sandbox   (amd64, 이미지: agents/sandbox:amd64)
+        - ARCH=arm64 task up -- sandbox   (arm64, 이미지: agents/sandbox:arm64)
     cmds:
       - "{{.COMPOSE}} up -d {{.CLI_ARGS}}"
 

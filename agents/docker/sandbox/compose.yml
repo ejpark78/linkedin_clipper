@@ -8,7 +8,8 @@
 
 services:
   sandbox:
-    image: agents/sandbox:latest
+    platform: linux/${ARCH:-arm64}
+    image: agents/sandbox:${ARCH:-arm64}
     build:
       context: .
       dockerfile: Dockerfile
