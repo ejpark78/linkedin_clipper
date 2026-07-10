@@ -7,28 +7,8 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 
 # 필수 패키지 설치
-RUN apt-get update && apt-get install -y \
-  sudo \
-  dumb-init \
-  locales \
-  git \
-  gzip \
-  bzip2 \
-  sqlite3 \
-  wget \
-  make \
-  curl \
-  zsh \
-  tmux \
-  docker.io \
-  docker-buildx \
-  docker-compose-v2 \
-  jq \
-  fontconfig \
-  xz-utils \
-  redis-tools \
-  gnupg \
-  && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    bash /tmp/setup.d/root/01-system-packages.sh
 
 # locales 파일 내 주석 제거 및 생성 강제화
 RUN sed -i '/ko_KR.UTF-8/s/^# //g' /etc/locale.gen && \
@@ -55,83 +35,56 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
 # uv 의존성 관리자 복사 이식 (멀티 스테이지 복사)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# code-server 수동 설치
-RUN curl -fsSL https://code-server.dev/install.sh | sh
-
-# go-task (task) 자동 설치 스크립트 실행
-RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
-
-# opencode 설치 (/usr/local/bin에 바이너리 직접 배치)
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    ARCH_DIR=$(dpkg --print-architecture) && \
-    ARCH=$(dpkg --print-architecture | sed 's/amd64/x64/' | sed 's/aarch64/arm64/') && \
-    if [ -s "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz" ]; then \
-        tar -xz -C /usr/local/bin opencode < "/opt/cache/$ARCH_DIR/opencode-linux-$ARCH.tar.gz"; \
-    else \
-        curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
-        tar -xz -C /usr/local/bin opencode; \
-    fi
-
-# GitHub CLI (gh), Google Cloud SDK (gcloud), MongoDB Shell (mongosh) 공식 apt 저장소 등록 및 설치
-RUN mkdir -p -m 755 /etc/apt/keyrings && \
-  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null && \
-  chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
-  curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/cloud.google.gpg && \
-  echo "deb [signed-by=/etc/apt/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee /etc/apt/sources.list.d/google-cloud-sdk.list > /dev/null && \
-  curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | gpg --dearmor -o /etc/apt/keyrings/mongodb-server-8.0.gpg && \
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-8.0.list > /dev/null && \
-  apt-get update && apt-get install -y gh google-cloud-cli mongodb-mongosh \
-  && rm -rf /var/lib/apt/lists/*
-
-# Gitea CLI (tea) 설치 (아키텍처 맞춤 다운로드)
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    ARCH_DIR=$(dpkg --print-architecture) && \
-    ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
-    if [ -s "/opt/cache/$ARCH_DIR/tea-linux-$ARCH" ]; then \
-        cp "/opt/cache/$ARCH_DIR/tea-linux-$ARCH" /usr/local/bin/tea; \
-    else \
-        curl -fsSL -o /usr/local/bin/tea "https://dl.gitea.com/tea/0.9.2/tea-0.9.2-linux-$ARCH"; \
-    fi && \
-    chmod +x /usr/local/bin/tea
-
-# Jira CLI 설치 (GitHub Releases에서 다운로드)
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    ARCH_DIR=$(dpkg --print-architecture) && \
-    ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/' | sed 's/arm64/arm64/') && \
-    if [ -s "/opt/cache/$ARCH_DIR/jira-linux-$ARCH.tar.gz" ]; then \
-        tar -xzf "/opt/cache/$ARCH_DIR/jira-linux-$ARCH.tar.gz" -C /tmp; \
-    else \
-        VERSION=$(curl -fsSL https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | jq -r .tag_name | sed 's/v//') && \
-        curl -fsSL -o /tmp/jira.tar.gz "https://github.com/ankitpokhrel/jira-cli/releases/download/v${VERSION}/jira_${VERSION}_linux_${ARCH}.tar.gz" && \
-        tar -xzf /tmp/jira.tar.gz -C /tmp && \
-        rm -f /tmp/jira.tar.gz; \
-    fi && \
-    DIR=$(ls /tmp | grep jira) && \
-    mv "/tmp/$DIR/bin/jira" /usr/local/bin/jira && \
-    rm -rf "/tmp/$DIR"
-
-# JetBrainsMono Nerd Font 설치 및 캐시 갱신
+# ============================================================
+# 🔑 Root 권한 유틸리티 설치 (setup.d/root 위임)
+# ============================================================
 USER root
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    ARCH_DIR=$(dpkg --print-architecture) && \
-    mkdir -p /usr/local/share/fonts/jetbrains-mono && \
-    if [ -s "/opt/cache/$ARCH_DIR/JetBrainsMono.tar.xz" ]; then \
-        tar -xJ -C /usr/local/share/fonts/jetbrains-mono < "/opt/cache/$ARCH_DIR/JetBrainsMono.tar.xz"; \
-    else \
-        curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz | \
-        tar -xJ -C /usr/local/share/fonts/jetbrains-mono; \
-    fi && \
-    fc-cache -f
 
-# Google Antigravity CLI (agy), OpenAI Codex CLI, Joplin CLI 설치 (root 권한 필요)
-USER root
-RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
-    npm install -g @openai/codex joplin @moonshot-ai/kimi-code
+# 1. code-server 수동 설치
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    bash /tmp/setup.d/root/02-code-server.sh
 
-# oh-my-zsh 설치 스크립트 실행 (설치 과정에서 기본 .zshrc 템플릿 생성됨)
+# 2. go-task 설치
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    bash /tmp/setup.d/root/03-go-task.sh
+
+# 3. opencode 설치 (캐시 마운트 추가)
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    bash /tmp/setup.d/root/04-opencode.sh
+
+# 4. GitHub CLI, Google Cloud SDK, MongoDB Shell 설치
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    bash /tmp/setup.d/root/05-github-cli.sh
+
+# 5. Gitea CLI (tea) 설치 (캐시 마운트 추가)
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    bash /tmp/setup.d/root/06-gitea-tea.sh
+
+# 6. Jira CLI 설치 (캐시 마운트 추가)
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    bash /tmp/setup.d/root/07-jira-cli.sh
+
+# 7. JetBrainsMono Nerd Font 설치 (캐시 마운트 추가)
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
+    bash /tmp/setup.d/root/08-fonts.sh
+
+# 8. Google Antigravity CLI, OpenAI Codex CLI, Joplin CLI 설치
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    bash /tmp/setup.d/root/09-google-agy-codex.sh
+
+
+# ============================================================
+# 👤 User(ubuntu) 권한 유틸리티 설치 (setup.d/user 위임)
+# ============================================================
 USER ubuntu
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+# 1. oh-my-zsh 설치
+RUN --mount=type=bind,source=./setup.d,target=/tmp/setup.d \
+    bash /tmp/setup.d/user/01-oh-my-zsh.sh
 
 # 뼈대(skel) 설정 파일 복사 및 ubuntu 사용자 홈에 반영 (oh-my-zsh 기본 .zshrc를 skel 설정으로 덮어씀)
 USER root
