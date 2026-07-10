@@ -35,15 +35,15 @@ services:
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
       # IDE 설정 및 익스텐션 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/local:/home/ubuntu/.local
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/config:/home/ubuntu/.config
+      - ${PROJECT_PATH:-.}/.sandbox/local:/home/ubuntu/.local
+      - ${PROJECT_PATH:-.}/.sandbox/config:/home/ubuntu/.config
       # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/cline:/home/ubuntu/.cline
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/home/ubuntu/.codex
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/gemini:/home/ubuntu/.gemini
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/opencode:/home/ubuntu/.opencode
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/qwen:/home/ubuntu/.qwen
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/kimi:/home/ubuntu/.kimi
+      - ${PROJECT_PATH:-.}/.sandbox/cline:/home/ubuntu/.cline
+      - ${PROJECT_PATH:-.}/.sandbox/codex:/home/ubuntu/.codex
+      - ${PROJECT_PATH:-.}/.sandbox/gemini:/home/ubuntu/.gemini
+      - ${PROJECT_PATH:-.}/.sandbox/opencode:/home/ubuntu/.opencode
+      - ${PROJECT_PATH:-.}/.sandbox/qwen:/home/ubuntu/.qwen
+      - ${PROJECT_PATH:-.}/.sandbox/kimi:/home/ubuntu/.kimi
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/"]
       interval: 15s

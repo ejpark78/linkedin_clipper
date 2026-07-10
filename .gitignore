@@ -16,5 +16,6 @@ notebooks/.*
 .ruff_cache/
 .mypy_cache
 .volumes
+.sandbox
 
 LearnOpenUSD

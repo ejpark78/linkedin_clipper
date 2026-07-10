@@ -35,15 +35,15 @@ services:
       # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
       # IDE 설정 및 익스텐션 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/local:/config/.local
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/config:/config/.config
+      - ${PROJECT_PATH:-.}/.sandbox/local:/config/.local
+      - ${PROJECT_PATH:-.}/.sandbox/config:/config/.config
       # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/cline:/config/.cline
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/codex:/config/.codex
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/gemini:/config/.gemini
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/kimi:/config/.kimi
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/opencode:/config/.opencode
-      - ${PROJECT_PATH:-.}/agents/.volumes/sandbox/qwen:/config/.qwen
+      - ${PROJECT_PATH:-.}/.sandbox/cline:/config/.cline
+      - ${PROJECT_PATH:-.}/.sandbox/codex:/config/.codex
+      - ${PROJECT_PATH:-.}/.sandbox/gemini:/config/.gemini
+      - ${PROJECT_PATH:-.}/.sandbox/kimi:/config/.kimi
+      - ${PROJECT_PATH:-.}/.sandbox/opencode:/config/.opencode
+      - ${PROJECT_PATH:-.}/.sandbox/qwen:/config/.qwen
     shm_size: "1gb"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/"]
