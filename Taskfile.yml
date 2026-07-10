@@ -16,9 +16,6 @@ includes:
   ebook:
     taskfile: ./projects/ebook/Taskfile.yml
     dir: .
-  obsidian:
-    taskfile: ./agents/docker/obsidian/Taskfile.yml
-    dir: .
   crawler:
     taskfile: ./projects/crawler/Taskfile.yml
     dir: .
