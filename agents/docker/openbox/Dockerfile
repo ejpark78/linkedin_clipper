@@ -77,21 +77,6 @@ RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
         rm -f /tmp/Antigravity.tar.gz; \
     fi
 
-RUN --mount=type=bind,source=./.cache,target=/opt/cache,readonly \
-    if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-        ARCH_DIR=$(dpkg --print-architecture) && \
-        if [ -s "/opt/cache/$ARCH_DIR/kiro.deb" ]; then \
-            cp "/opt/cache/$ARCH_DIR/kiro.deb" /tmp/kiro.deb; \
-        else \
-            curl -fsSL -o /tmp/kiro.deb \
-                "https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/1.0.89/deb/kiro-ide-1.0.89-stable-linux-x64.deb"; \
-        fi && \
-        apt-get update && apt-get install -y /tmp/kiro.deb && \
-        rm -f /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
-    fi
-
-RUN curl -fsSL https://cli.kiro.dev/install | bash || true
-
 RUN mkdir -p /config/.config/opencode && \
   echo '{"useNewLayout":true}' > /config/.config/opencode/settings.json
 
