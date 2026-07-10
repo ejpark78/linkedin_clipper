@@ -17,7 +17,7 @@ includes:
     taskfile: ./projects/ebook/Taskfile.yml
     dir: .
   obsidian:
-    taskfile: ./projects/wiki/docker/obsidian/Taskfile.yml
+    taskfile: ./agents/docker/obsidian/Taskfile.yml
     dir: .
   crawler:
     taskfile: ./projects/crawler/Taskfile.yml
