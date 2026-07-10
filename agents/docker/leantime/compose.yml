@@ -9,7 +9,8 @@
 
 services:
   leantime:
-    image: agents/leantime:latest
+    platform: linux/${ARCH:-arm64}
+    image: agents/leantime:${ARCH:-arm64}
     build:
       context: .
       dockerfile: Dockerfile
@@ -49,6 +50,7 @@ services:
       - "traefik.http.services.leantime.loadbalancer.server.port=8080"
 
   leantime_db:
+    platform: linux/${ARCH:-arm64}
     image: mysql:8.4
     environment:
       - MYSQL_ROOT_PASSWORD=${LEANTIME_DB_ROOT_PASSWORD:-rootpassword}
@@ -66,6 +68,7 @@ services:
       retries: 5
 
   leantime_db_helper:
+    platform: linux/${ARCH:-arm64}
     image: mysql:8.4
     command: chown -R mysql:mysql /var/lib/mysql
     volumes:

@@ -8,7 +8,8 @@
 
 services:
   gitea:
-    image: agents/gitea:latest
+    platform: linux/${ARCH:-arm64}
+    image: agents/gitea:${ARCH:-arm64}
     build:
       context: .
       dockerfile: Dockerfile
@@ -43,6 +44,7 @@ services:
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
 
   gitea_runner:
+    platform: linux/${ARCH:-arm64}
     image: gitea/act_runner:latest
     depends_on:
       gitea:

@@ -1,66 +1,47 @@
 # ==============================================================================
-# 🤖 Agent Development Desktop (Selkies) Service Block
+# 🤖 Agent Development Desktop (KasmVNC) Service Block
 # ==============================================================================
 # - 주소: https://openbox.localhost/
-# - 용도: OpenCode Desktop, 웹 브라우저 기반 GUI 연동 격리 개발 공간 (Selkies / Labwc)
+# - 용도: OpenCode Desktop, 웹 브라우저 기반 GUI 연동 격리 개발 공간 (KasmVNC / Openbox)
 # ==============================================================================
 
 services:
   openbox:
-    image: agents/openbox:latest
+    platform: linux/${ARCH:-arm64}
+    image: agents/openbox:${ARCH:-arm64}
     build:
       context: .
       dockerfile: Dockerfile
-    security_opt:
-      - seccomp:unconfined
+    shm_size: "1gb"
     depends_on:
       traefik:
         condition: service_healthy
-      gitea:
-        condition: service_healthy
     environment:
-      - PUID=${USER_UID:-1000}
-      - PGID=${USER_GID:-1000}
-      - TZ=${TZ:-Asia/Seoul}
-      - PROJECT_PATH=${PROJECT_PATH:-.}
-      - PIXELFLUX_WAYLAND=true
-      - SELKIES_DESKTOP=true
-      - NO_FULL=true
-      - NO_DECOR=false
-      - START_DOCKER=false
+      - KASM_USER=kasm_user
+      - VNC_PW=opencode
+      - VNCOPTIONS=-disableBasicAuth
       - LC_ALL=ko_KR.UTF-8
+      - LANG=ko_KR.UTF-8
+      - LANGUAGE=ko_KR.UTF-8
+      - PROJECT_PATH=${PROJECT_PATH:-.}
     volumes:
-      # DooD 구성을 위한 Docker Socket 마운트
       - /var/run/docker.sock:/var/run/docker.sock
-      # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
-      # Container-private: 호스트 바이너리 충돌 방지 (arm64 vs amd64)
-      - openbox_node_modules:${PROJECT_PATH:-.}/node_modules
-      - openbox_venv:${PROJECT_PATH:-.}/.venv
-      # IDE 설정 및 익스텐션 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/.sandbox/local:/config/.local
-      - ${PROJECT_PATH:-.}/.sandbox/config:/config/.config
-      # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
-      - ${PROJECT_PATH:-.}/.sandbox/cline:/config/.cline
-      - ${PROJECT_PATH:-.}/.sandbox/codex:/config/.codex
-      - ${PROJECT_PATH:-.}/.sandbox/gemini:/config/.gemini
-      - ${PROJECT_PATH:-.}/.sandbox/kimi:/config/.kimi
-      - ${PROJECT_PATH:-.}/.sandbox/opencode:/config/.opencode
-      - ${PROJECT_PATH:-.}/.sandbox/qwen:/config/.qwen
-    shm_size: "1gb"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
+      - ${PROJECT_PATH:-.}/.sandbox/local:/home/kasm-user/.local
+      - ${PROJECT_PATH:-.}/.sandbox/config:/home/kasm-user/.config
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ss -tln | grep -q 6901"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.openbox.rule=Host(`openbox.localhost`)"
       - "traefik.http.routers.openbox.entrypoints=websecure"
       - "traefik.http.routers.openbox.tls=true"
-      - "traefik.http.services.openbox.loadbalancer.server.port=3000"
-
-volumes:
-  openbox_node_modules:
-  openbox_venv:
+      - "traefik.http.routers.openbox.service=openbox"
+      - "traefik.docker.network=scraper_default"
+      - "traefik.http.services.openbox.loadbalancer.server.port=6901"
+      - "traefik.http.services.openbox.loadbalancer.server.scheme=https"

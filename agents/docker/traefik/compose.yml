@@ -11,13 +11,15 @@
 
 services:
   traefik:
-    image: agents/traefik:latest
+    platform: linux/${ARCH:-arm64}
+    image: agents/traefik:${ARCH:-arm64}
     build:
       context: .
       dockerfile: Dockerfile
     command:
       - "--ping=true"
       - "--api.insecure=true"
+
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
