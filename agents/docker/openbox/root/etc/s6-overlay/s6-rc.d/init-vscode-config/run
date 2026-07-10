@@ -1,8 +1,9 @@
 #!/usr/bin/with-contenv bash
 
-# labwc autostart를 code로 강제 설정 (볼륨 persist 대응)
+# labwc autostart 및 menu 강제 설정 (볼륨 persist 대응)
 mkdir -p /config/.config/labwc
 echo "code" > /config/.config/labwc/autostart
+cp /defaults/menu.xml /config/.config/labwc/menu.xml
 
 # VS Code 기본 설정
 SETTINGS_PATH="/config/.config/Code/User/settings.json"
