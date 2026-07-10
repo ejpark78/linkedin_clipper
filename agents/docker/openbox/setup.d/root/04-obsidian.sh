@@ -25,4 +25,9 @@ cp \
   /opt/obsidian/usr/share/icons/hicolor/512x512/apps/obsidian.png \
   /usr/share/icons/hicolor/512x512/apps/obsidian.png
 
+# Obsidian desktop entry 등록 (panel/launcher 인식용)
+cp /opt/obsidian/obsidian.desktop /usr/share/applications/obsidian.desktop
+sed -i 's|Exec=AppRun|Exec=/usr/bin/obsidian|' /usr/share/applications/obsidian.desktop
+update-desktop-database /usr/share/applications 2>/dev/null || true
+
 rm -rf /tmp/obsidian.app /var/lib/apt/lists/* /var/tmp/*
