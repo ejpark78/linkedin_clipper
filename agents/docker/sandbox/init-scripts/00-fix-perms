@@ -1,0 +1,5 @@
+#!/bin/bash
+sudo chown -R ubuntu:ubuntu "${PROJECT_PATH:-.}/node_modules" "${PROJECT_PATH:-.}/.venv" 2>/dev/null
+cd "${PROJECT_PATH:-.}"
+[ -f package.json ] && npm install --no-audit --no-fund
+[ -f pyproject.toml ] || [ -f requirements.txt ] && uv sync 2>/dev/null || true

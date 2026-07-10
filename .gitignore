@@ -1,21 +1,18 @@
+.cache/
 .env
 .firecrawl/
+.sandbox/
+.volumes/
 .vscode/*
 !.vscode/extensions.json
 data/
-data/sessions/
-agents/data/
 node_modules/
 notebooks/.*
 
 # Python
-**/__pycache__/
-*.pyc
-.venv/
+.mypy_cache
 .pytest_cache/
 .ruff_cache/
-.mypy_cache
-.volumes
-.sandbox
-
-LearnOpenUSD
+.venv/
+*.pyc
+**/__pycache__/

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM node:24-bookworm AS node_base
 
 FROM ubuntu:26.04
@@ -44,7 +45,12 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
   ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # code-server 수동 설치
-RUN curl -fsSL https://code-server.dev/install.sh | sh
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    if [ -f /opt/cache/code-server-install.sh ]; then \
+        sh /opt/cache/code-server-install.sh; \
+    else \
+        curl -fsSL https://code-server.dev/install.sh | sh; \
+    fi
 
 # locales 파일 내 주석 제거 및 생성 강제화
 RUN sed -i '/ko_KR.UTF-8/s/^# //g' /etc/locale.gen && \
@@ -58,12 +64,22 @@ ENV LC_ALL=ko_KR.UTF-8
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # go-task (task) 자동 설치 스크립트 실행
-RUN sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    if [ -f /opt/cache/task-install.sh ]; then \
+        sh /opt/cache/task-install.sh -- -d -b /usr/local/bin; \
+    else \
+        sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin; \
+    fi
 
 # opencode 설치 (/usr/local/bin에 바이너리 직접 배치)
-RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
-  curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
-  tar -xz -C /usr/local/bin opencode
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    ARCH=$(dpkg --print-architecture | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/') && \
+    if [ -f "/opt/cache/opencode-linux-$ARCH.tar.gz" ]; then \
+        tar -xz -C /usr/local/bin opencode < "/opt/cache/opencode-linux-$ARCH.tar.gz"; \
+    else \
+        curl -fsSL "https://github.com/anomalyco/opencode/releases/latest/download/opencode-linux-$ARCH.tar.gz" | \
+        tar -xz -C /usr/local/bin opencode; \
+    fi
 
 # GitHub CLI (gh), Google Cloud SDK (gcloud), MongoDB Shell (mongosh) 공식 apt 저장소 등록 및 설치
 RUN mkdir -p -m 755 /etc/apt/keyrings && \
@@ -77,26 +93,49 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && \
   apt-get update && apt-get install -y gh google-cloud-cli mongodb-mongosh
 
 # Gitea CLI (tea) 설치 (아키텍처 맞춤 다운로드)
-RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
-  curl -fsSL -o /usr/local/bin/tea "https://dl.gitea.com/tea/0.9.2/tea-0.9.2-linux-$ARCH" && \
-  chmod +x /usr/local/bin/tea
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
+    if [ -f "/opt/cache/tea-linux-$ARCH" ]; then \
+        cp "/opt/cache/tea-linux-$ARCH" /usr/local/bin/tea; \
+    else \
+        curl -fsSL -o /usr/local/bin/tea "https://dl.gitea.com/tea/0.9.2/tea-0.9.2-linux-$ARCH"; \
+    fi && \
+    chmod +x /usr/local/bin/tea
 
 # Jira CLI 설치 (GitHub Releases에서 다운로드)
-RUN ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/' | sed 's/arm64/arm64/') && \
-  VERSION=$(curl -fsSL https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | jq -r .tag_name | sed 's/v//') && \
-  curl -fsSL -o /tmp/jira.tar.gz "https://github.com/ankitpokhrel/jira-cli/releases/download/v${VERSION}/jira_${VERSION}_linux_${ARCH}.tar.gz" && \
-  tar -xzf /tmp/jira.tar.gz -C /tmp && \
-  mv /tmp/jira_${VERSION}_linux_${ARCH}/bin/jira /usr/local/bin/jira && \
-  rm -rf /tmp/jira.tar.gz /tmp/jira_${VERSION}_linux_${ARCH}
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/' | sed 's/arm64/arm64/') && \
+    if [ -f "/opt/cache/jira-linux-$ARCH.tar.gz" ]; then \
+        tar -xzf "/opt/cache/jira-linux-$ARCH.tar.gz" -C /tmp && \
+        DIR=$(ls /tmp | grep jira) && \
+        mv "/tmp/$DIR/bin/jira" /usr/local/bin/jira && \
+        rm -rf "/tmp/$DIR"; \
+    else \
+        VERSION=$(curl -fsSL https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | jq -r .tag_name | sed 's/v//') && \
+        curl -fsSL -o /tmp/jira.tar.gz "https://github.com/ankitpokhrel/jira-cli/releases/download/v${VERSION}/jira_${VERSION}_linux_${ARCH}.tar.gz" && \
+        tar -xzf /tmp/jira.tar.gz -C /tmp && \
+        mv /tmp/jira_${VERSION}_linux_${ARCH}/bin/jira /usr/local/bin/jira && \
+        rm -rf /tmp/jira.tar.gz /tmp/jira_${VERSION}_linux_${ARCH}; \
+    fi
 
 # mkcert 설치 (아키텍처 맞춤 다운로드)
-RUN ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
-  curl -fsSL -o /usr/local/bin/mkcert "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-$ARCH" && \
-  chmod +x /usr/local/bin/mkcert
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    ARCH=$(dpkg --print-architecture | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/') && \
+    if [ -f "/opt/cache/mkcert-linux-$ARCH" ]; then \
+        cp "/opt/cache/mkcert-linux-$ARCH" /usr/local/bin/mkcert; \
+    else \
+        curl -fsSL -o /usr/local/bin/mkcert "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-$ARCH"; \
+    fi && \
+    chmod +x /usr/local/bin/mkcert
 
 # oh-my-zsh 설치 스크립트 실행 (설치 과정에서 기본 .zshrc 템플릿 생성됨)
 USER ubuntu
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    if [ -f /opt/cache/ohmyzsh-install.sh ]; then \
+        sh /opt/cache/ohmyzsh-install.sh "" --unattended; \
+    else \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
+    fi
 
 # 뼈대(skel) 설정 파일 복사 및 ubuntu 사용자 홈에 반영 (oh-my-zsh 기본 .zshrc를 skel 설정으로 덮어씀)
 USER root
@@ -106,10 +145,15 @@ RUN cp -rT /etc/skel/ /home/ubuntu/ && \
 
 # JetBrainsMono Nerd Font 설치 및 캐시 갱신
 USER root
-RUN mkdir -p /usr/local/share/fonts/jetbrains-mono && \
-  curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz | \
-  tar -xJ -C /usr/local/share/fonts/jetbrains-mono && \
-  fc-cache -f
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    mkdir -p /usr/local/share/fonts/jetbrains-mono && \
+    if [ -f /opt/cache/JetBrainsMono.tar.xz ]; then \
+        tar -xJ -C /usr/local/share/fonts/jetbrains-mono < /opt/cache/JetBrainsMono.tar.xz; \
+    else \
+        curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.tar.xz | \
+        tar -xJ -C /usr/local/share/fonts/jetbrains-mono; \
+    fi && \
+    fc-cache -f
 
 # init-scripts 및 entrypoint 설치
 COPY init-scripts/ /etc/init-scripts/
@@ -119,10 +163,20 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Google Antigravity CLI (agy), OpenAI Codex CLI, Joplin CLI 설치 (root 권한 필요)
 USER root
-RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin && \
-  npm install -g @openai/codex joplin @moonshot-ai/kimi-code
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    if [ -f /opt/cache/antigravity-install.sh ]; then \
+        bash /opt/cache/antigravity-install.sh -- --dir /usr/local/bin; \
+    else \
+        curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin; \
+    fi && \
+    npm install -g @openai/codex joplin @moonshot-ai/kimi-code
 
-RUN curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.sh | bash
+RUN --mount=type=bind,source=./.cache,target=/opt/cache \
+    if [ -f /opt/cache/qwen-install.sh ]; then \
+        bash /opt/cache/qwen-install.sh; \
+    else \
+        curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.sh | bash; \
+    fi
 
 # 기본 shell을 zsh로 강제 지정
 ENV SHELL=/bin/zsh
