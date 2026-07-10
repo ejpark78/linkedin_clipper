@@ -24,7 +24,6 @@ services:
       - PUID=${USER_UID:-1000}
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
-      - NO_FULL=false
       - SELKIES_DESKTOP=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
