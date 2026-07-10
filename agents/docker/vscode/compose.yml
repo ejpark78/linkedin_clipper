@@ -1,0 +1,41 @@
+# ==============================================================================
+# 💻 VS Code Service Block (Self-Hosted Desktop IDE)
+# ==============================================================================
+# - 주소: https://code.localhost/
+# - 용도: Selkies 기반 VS Code 데스크탑 IDE (linuxserver.io)
+# - 포트: Traefik을 통한 80/443 SSL 프록시 포트 포워딩 (호스트 포트 직접 노출 없음)
+# ==============================================================================
+
+services:
+  vscode:
+    platform: linux/${ARCH:-arm64}
+    image: lscr.io/linuxserver/vscode:latest
+    cap_add:
+      - IPC_LOCK
+    security_opt:
+      - seccomp:unconfined # Required for Electron rendering in containers
+    depends_on:
+      traefik:
+        condition: service_healthy
+    environment:
+      - PUID=${USER_UID:-1000}
+      - PGID=${USER_GID:-1000}
+      - TZ=${TZ:-Asia/Seoul}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
+      - ${PROJECT_PATH:-.}/data/vscode:/config
+    shm_size: "1gb"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ss -tln | grep -q 3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vscode.rule=Host(`code.localhost`)"
+      - "traefik.http.routers.vscode.entrypoints=websecure"
+      - "traefik.http.routers.vscode.tls=true"
+      - "traefik.http.services.vscode.loadbalancer.server.port=3000"

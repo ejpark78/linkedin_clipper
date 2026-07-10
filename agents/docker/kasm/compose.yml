@@ -1,14 +1,14 @@
 # ==============================================================================
 # 🤖 Agent Development Desktop (KasmVNC) Service Block
 # ==============================================================================
-# - 주소: https://openbox.localhost/
+# - 주소: https://kasm.localhost/
 # - 용도: OpenCode Desktop, 웹 브라우저 기반 GUI 연동 격리 개발 공간 (KasmVNC / Openbox)
 # ==============================================================================
 
 services:
-  openbox:
+  kasm:
     platform: linux/${ARCH:-arm64}
-    image: agents/openbox:${ARCH:-arm64}
+    image: agents/kasm:${ARCH:-arm64}
     build:
       context: .
       dockerfile: Dockerfile
@@ -38,10 +38,10 @@ services:
       start_period: 30s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.openbox.rule=Host(`openbox.localhost`)"
-      - "traefik.http.routers.openbox.entrypoints=websecure"
-      - "traefik.http.routers.openbox.tls=true"
-      - "traefik.http.routers.openbox.service=openbox"
+      - "traefik.http.routers.kasm.rule=Host(`kasm.localhost`)"
+      - "traefik.http.routers.kasm.entrypoints=websecure"
+      - "traefik.http.routers.kasm.tls=true"
+      - "traefik.http.routers.kasm.service=kasm"
       - "traefik.docker.network=scraper_default"
-      - "traefik.http.services.openbox.loadbalancer.server.port=6901"
-      - "traefik.http.services.openbox.loadbalancer.server.scheme=https"
+      - "traefik.http.services.kasm.loadbalancer.server.port=6901"
+      - "traefik.http.services.kasm.loadbalancer.server.scheme=https"
