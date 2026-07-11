@@ -100,7 +100,9 @@ export const descriptor: SiteDescriptor = {
   },
 
   converter: {
-    converter: new GptersConverter(),
+    get converter() {
+      return new GptersConverter();
+    },
     targetCollection: "gpters.html",
     filter: (id) => ({ $or: [{ postId: id }, { id: id }] }),
     statusCollection: "bronze/gpters.urls",

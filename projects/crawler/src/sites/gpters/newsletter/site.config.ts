@@ -126,7 +126,9 @@ export const descriptor: SiteDescriptor = {
   },
 
   converter: {
-    converter: new GptersConverter(),
+    get converter() {
+      return new GptersConverter();
+    },
     targetCollection: "gpters_newsletter.html",
     filter: (id) => ({ id }),
     statusCollection: "bronze/gpters_newsletter.urls",

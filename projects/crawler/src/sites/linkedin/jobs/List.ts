@@ -142,7 +142,13 @@ export class LinkedInList {
     const isHeadless = AppConfig.HEADLESS;
     const browser: Browser = await chromium.launch({
       headless: isHeadless,
-      args: ["--disable-blink-features=AutomationControlled"],
+      args: [
+        "--disable-blink-features=AutomationControlled",
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+      ],
     });
 
     try {
