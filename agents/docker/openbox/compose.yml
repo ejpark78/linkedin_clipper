@@ -13,6 +13,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PUID: ${USER_UID:-1000}
+        PGID: ${USER_GID:-1000}
     cap_add:
       - IPC_LOCK
     security_opt:
@@ -25,10 +28,26 @@ services:
       - PGID=${USER_GID:-1000}
       - TZ=${TZ:-Asia/Seoul}
       - SELKIES_DESKTOP=true
+      - XKB_DEFAULT_OPTIONS=caps:swapescape
+      - XDG_RUNTIME_DIR=/config/.runtime
     volumes:
+      # DooD 구성을 위한 Docker Socket 마운트
       - /var/run/docker.sock:/var/run/docker.sock
+      # 호스트의 프로젝트 전체 소스코드를 컨테이너 내부 작업장으로 맵핑
       - ${PROJECT_PATH:-.}:${PROJECT_PATH:-.}
-      - ${PROJECT_PATH:-.}/.openbox:/config
+      # Container-private: 호스트 바이너리 충돌 방지 (arm64 vs amd64)
+      - sandbox_node_modules:${PROJECT_PATH:-.}/node_modules
+      - sandbox_venv:${PROJECT_PATH:-.}/.venv
+      # IDE 설정 및 익스텐션 영구 보존 마운트
+      - ${PROJECT_PATH:-.}/.sandbox/local:/config/.local
+      - ${PROJECT_PATH:-.}/.sandbox/config:/config/.config
+      # Antigravity CLI 및 Opencode 에이전트 자격증명 영구 보존 마운트
+      - ${PROJECT_PATH:-.}/.sandbox/cline:/config/.cline
+      - ${PROJECT_PATH:-.}/.sandbox/codex:/config/.codex
+      - ${PROJECT_PATH:-.}/.sandbox/gemini:/config/.gemini
+      - ${PROJECT_PATH:-.}/.sandbox/opencode:/config/.opencode
+      - ${PROJECT_PATH:-.}/.sandbox/qwen:/config/.qwen
+      - ${PROJECT_PATH:-.}/.sandbox/kimi:/config/.kimi
     shm_size: "1gb"
     restart: unless-stopped
     healthcheck:

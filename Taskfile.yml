@@ -108,17 +108,18 @@ tasks:
   restart:
     desc: "Restart containers. Usage: task restart [-- <service_names>]"
     summary: |
-      Restart running Docker containers.
+      Restart running Docker containers by recreating them.
       If no service name is given, all services are restarted.
 
       [Variables]
-        - CLI_ARGS: (옵션) docker compose restart에 전달할 추가 인자 (서비스명 등)
+        - CLI_ARGS: (옵션) docker compose down/up에 전달할 추가 인자 (서비스명 등)
 
       [Usage Examples]
         - task restart
         - task restart -- traefik
     cmds:
-      - "{{.COMPOSE}} restart {{.CLI_ARGS}}"
+      - "{{.COMPOSE}} down {{.CLI_ARGS}}"
+      - "{{.COMPOSE}} up -d {{.CLI_ARGS}}"
 
   logs:
     desc: "View container logs. Usage: task logs [-- <service_names>]"

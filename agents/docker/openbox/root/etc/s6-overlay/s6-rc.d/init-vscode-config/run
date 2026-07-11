@@ -1,10 +1,30 @@
 #!/usr/bin/with-contenv bash
 
-# labwc autostart 및 menu 강제 설정 (볼륨 persist 대응)
+# labwc autostart 및 menu 강제 설정 (Wayland 모드)
 mkdir -p /config/.config/labwc
 echo "code" > /config/.config/labwc/autostart
 cp /defaults/menu.xml /config/.config/labwc/menu.xml
 cp /defaults/menu.xml /config/.config/labwc/menu_wayland.xml
+
+# openbox autostart (X11 모드 대응) — code 추가
+OPENBOX_AUTOSTART="/config/.config/openbox/autostart"
+if [ -f "$OPENBOX_AUTOSTART" ]; then
+  if ! grep -q "code" "$OPENBOX_AUTOSTART" 2>/dev/null; then
+    echo "" >> "$OPENBOX_AUTOSTART"
+    echo "# 키보드 옵션 (caps:swapescape)" >> "$OPENBOX_AUTOSTART"
+    echo "setxkbmap -option caps:swapescape" >> "$OPENBOX_AUTOSTART"
+    echo "" >> "$OPENBOX_AUTOSTART"
+    echo "# VSCode 실행" >> "$OPENBOX_AUTOSTART"
+    echo "code &" >> "$OPENBOX_AUTOSTART"
+  fi
+else
+  mkdir -p "$(dirname "$OPENBOX_AUTOSTART")"
+  {
+    echo 'setxkbmap -option caps:swapescape'
+    echo ''
+    echo 'code &'
+  } > "$OPENBOX_AUTOSTART"
+fi
 
 # oh-my-zsh 설치 (볼륨 persist 대응, 네트워크 대기)
 if [ ! -d "/config/.oh-my-zsh" ]; then
@@ -14,6 +34,13 @@ if [ ! -d "/config/.oh-my-zsh" ]; then
     "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
   chmod 755 /config
 fi
+
+# oh-my-zsh 권한 fix (빌드-런타임 UID/GID mismatch 대응)
+if [ -d "/config/.oh-my-zsh" ]; then
+  chown -R abc:abc /config/.oh-my-zsh /config/.zshrc 2>/dev/null || true
+fi
+mkdir -p /config/.cache
+chown abc:abc /config/.cache 2>/dev/null || true
 
 # VS Code 기본 설정
 SETTINGS_PATH="/config/.config/Code/User/settings.json"
@@ -27,6 +54,7 @@ if [ ! -f "$SETTINGS_PATH" ]; then
   "editor.fontLigatures": true,
   "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font Mono'",
   "terminal.integrated.fontSize": 14,
+  "terminal.integrated.defaultProfile.linux": "zsh",
   "workbench.sideBar.location": "right"
 }
 EOF
