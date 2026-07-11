@@ -6,6 +6,15 @@ echo "code" > /config/.config/labwc/autostart
 cp /defaults/menu.xml /config/.config/labwc/menu.xml
 cp /defaults/menu.xml /config/.config/labwc/menu_wayland.xml
 
+# oh-my-zsh 설치 (볼륨 persist 대응, 네트워크 대기)
+if [ ! -d "/config/.oh-my-zsh" ]; then
+  chmod 777 /config
+  sleep 5
+  s6-setuidgid abc sh -c \
+    "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
+  chmod 755 /config
+fi
+
 # VS Code 기본 설정
 SETTINGS_PATH="/config/.config/Code/User/settings.json"
 
