@@ -62,3 +62,9 @@ services:
       - "traefik.http.routers.openbox.entrypoints=websecure"
       - "traefik.http.routers.openbox.tls=true"
       - "traefik.http.services.openbox.loadbalancer.server.port=3000"
+
+volumes:
+  sandbox_node_modules:
+    name: sandbox_node_modules_${ARCH:-arm64}
+  sandbox_venv:
+    name: sandbox_venv_${ARCH:-arm64}

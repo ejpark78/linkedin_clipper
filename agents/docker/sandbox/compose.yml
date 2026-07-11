@@ -64,4 +64,6 @@ services:
 
 volumes:
   sandbox_node_modules:
+    name: sandbox_node_modules_${ARCH:-arm64}
   sandbox_venv:
+    name: sandbox_venv_${ARCH:-arm64}
