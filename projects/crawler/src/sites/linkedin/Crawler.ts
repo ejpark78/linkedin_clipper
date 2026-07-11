@@ -106,6 +106,9 @@ export class LinkedInCrawler implements ICrawler {
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-dev-shm-usage",
       ],
     });
     const context = await browser.newContext({
@@ -157,6 +160,9 @@ export class LinkedInCrawler implements ICrawler {
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-dev-shm-usage",
       ],
     });
 
@@ -260,6 +266,9 @@ export class LinkedInCrawler implements ICrawler {
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-dev-shm-usage",
       ],
     });
 

@@ -145,6 +145,7 @@ export class LinkedInList {
       args: [
         "--disable-blink-features=AutomationControlled",
         "--disable-gpu",
+        "--disable-software-rasterizer",
         "--disable-dev-shm-usage",
         "--no-sandbox",
         "--disable-setuid-sandbox",

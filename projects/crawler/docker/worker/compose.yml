@@ -12,6 +12,7 @@ services:
         - VCS_REF
     platform: linux/${ARCH:-arm64}
     image: crawler/worker:${ARCH:-arm64}
+    ipc: host
     working_dir: /app
     environment:
       - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
@@ -39,6 +40,7 @@ services:
         - VCS_REF
     platform: linux/${ARCH:-arm64}
     image: crawler/scraper:${ARCH:-arm64}
+    ipc: host
     working_dir: /app
     labels:
       autoheal: "true"
