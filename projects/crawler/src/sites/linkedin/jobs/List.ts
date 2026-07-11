@@ -625,9 +625,13 @@ export class LinkedInList {
 }
 
 if (require.main === module) {
-  let configFile = process.argv[2] || "config/config.json";
-  if (configFile && /^\d+$/.test(configFile)) {
-    configFile = "config/config.json";
+  let configFile = "config/config.json";
+  for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    if (!arg.startsWith("-") && !/^\d+$/.test(arg)) {
+      configFile = arg;
+      break;
+    }
   }
   const scraper = new LinkedInList();
 

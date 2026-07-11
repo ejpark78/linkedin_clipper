@@ -29,7 +29,6 @@ services:
     volumes:
       - ${PROJECT_PATH:-.}/data/sessions:/app/data/sessions
       - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
-      - ${PROJECT_PATH:-.}/config:/app/config
 
   scraper:
     build:

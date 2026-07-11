@@ -33,8 +33,9 @@ RUN npm install --legacy-peer-deps && npm cache clean --force
 COPY src/ ./
 COPY src/ ./src/
 COPY tests/ ./tests/
+COPY config/ ./config/
 
-# Precreate data and config directories
-RUN mkdir -p data config
+# Precreate data directory
+RUN mkdir -p data
 
 CMD ["tail", "-f", "/dev/null"]
