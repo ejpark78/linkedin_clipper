@@ -11,6 +11,18 @@ apt-get install --no-install-recommends -y \
   gnome-keyring \
   ssh-askpass \
   stterm \
-  xz-utils
+  xz-utils \
+  zsh \
+  jq \
+  docker.io \
+  fuse-overlayfs \
+  fonts-noto-cjk \
+  libnss3-tools \
+  python3 \
+  python3-pip \
+  python3-venv \
+  build-essential \
+  pkg-config \
+  xclip
 apt-get autoclean
 rm -rf /var/lib/apt/lists/* /var/tmp/*
