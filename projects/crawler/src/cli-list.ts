@@ -67,27 +67,20 @@ if (!siteKey) {
 
 const runScraper = (key: string, path: string): Promise<number> => {
   return new Promise((resolve) => {
-    let currentArg = page || "1-5";
-    if (key === "geeknews" && day && day.trim() !== "") {
-      currentArg = day;
-    } else if ((key === "gpters" || key === "gpters_newsletter") && limit) {
-      currentArg = limit;
-    }
-
     const spawnArgs = ["ts-node", path];
-    if (page) {
-      spawnArgs.push("--page", page);
+    for (let i = 2; i < process.argv.length; i++) {
+      const arg = process.argv[i];
+      if (arg.startsWith("--site")) {
+        if (!arg.includes("=")) {
+          i++;
+        }
+        continue;
+      }
+      if (arg === "--list") {
+        continue;
+      }
+      spawnArgs.push(arg);
     }
-    if (listSlack) {
-      spawnArgs.push("--list-slack", listSlack);
-    }
-    if (day) {
-      spawnArgs.push("--day", day);
-    }
-    if (limit) {
-      spawnArgs.push("--limit", limit);
-    }
-    spawnArgs.push(currentArg);
 
     console.log(
       `🚀 [cli-list] Running list scraper for ${key} (${path}) with args: ${spawnArgs.slice(2).join(" ")}`,
