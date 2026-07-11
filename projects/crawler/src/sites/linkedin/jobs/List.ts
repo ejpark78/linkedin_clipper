@@ -27,8 +27,8 @@ export class LinkedInList {
 
   constructor(options: { listSlack?: number; priority?: string } = {}) {
     this.useLogin = AppConfig.USE_LOGIN;
-    this.listSlack = options.listSlack ?? parseInt(process.env.LIST_SLACK || "3", 10);
-    this.priority = options.priority ?? (process.env.PRIORITY || "medium");
+    this.listSlack = options.listSlack ?? AppConfig.LIST_SLACK;
+    this.priority = options.priority ?? AppConfig.PRIORITY;
   }
 
   private async autoScroll(page: any): Promise<void> {
@@ -139,7 +139,7 @@ export class LinkedInList {
 
     console.log(`📋 총 ${urls.length} 개의 목록 URL이 감지되었습니다.`);
 
-    const isHeadless = process.env.HEADLESS !== "false";
+    const isHeadless = AppConfig.HEADLESS;
     const browser: Browser = await chromium.launch({
       headless: isHeadless,
       args: ["--disable-blink-features=AutomationControlled"],

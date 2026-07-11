@@ -9,6 +9,24 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+// Helper to check if a flag exists (including key=value format)
+const hasCliFlag = (flag: string): boolean => {
+  return process.argv.includes(flag) || process.argv.some(arg => arg.startsWith(flag + "="));
+};
+
+// Helper to parse CLI flags
+const getCliArg = (flag: string): string | undefined => {
+  const index = process.argv.indexOf(flag);
+  if (index !== -1 && index + 1 < process.argv.length) {
+    return process.argv[index + 1];
+  }
+  const prefixArg = process.argv.find(arg => arg.startsWith(flag + "="));
+  if (prefixArg) {
+    return prefixArg.substring(flag.length + 1);
+  }
+  return undefined;
+};
+
 export class AppConfig {
   /**
    * MongoDB Connection URI
@@ -50,7 +68,7 @@ export class AppConfig {
    * Crawler/Scraper Slack Interval (in seconds)
    */
   public static readonly LIST_SLACK: number = parseInt(
-    process.env.LIST_SLACK || "3",
+    getCliArg("--list-slack") || "3",
     10,
   );
 
@@ -65,7 +83,7 @@ export class AppConfig {
   /**
    * Scrape Task Priority Level
    */
-  public static readonly PRIORITY: string = (process.env.PRIORITY || "medium")
+  public static readonly PRIORITY: string = (getCliArg("--priority") || "medium")
     .toLowerCase()
     .trim();
 
@@ -92,32 +110,56 @@ export class AppConfig {
   /**
    * Whether to overwrite existing files/documents
    */
-  public static readonly OVERWRITE: boolean = process.env.OVERWRITE === "true";
+  public static readonly OVERWRITE: boolean = hasCliFlag("--overwrite");
 
   /**
    * Whether to reset the silver database during conversion
    */
-  public static readonly RESET: boolean = process.env.RESET === "true";
+  public static readonly RESET: boolean = hasCliFlag("--reset");
 
   /**
    * Whether to login (scraper settings)
    */
-  public static readonly LOGIN: boolean = process.env.LOGIN === "true";
+  public static readonly LOGIN: boolean = hasCliFlag("--login");
 
   /**
    * Whether to reset error status on items
    */
-  public static readonly ERROR_RESET: boolean =
-    process.env.ERROR_RESET === "true";
+  public static readonly ERROR_RESET: boolean = hasCliFlag("--error-reset");
 
   /**
-   * Combined login flag using LOGIN or AUTH env variables
+   * Combined login flag using LOGIN or AUTH CLI flags
    */
   public static readonly USE_LOGIN: boolean =
-    process.env.LOGIN === "true" || process.env.AUTH === "true";
+    hasCliFlag("--login") || hasCliFlag("--auth");
 
   /**
    * Target crawler site (defaults to linkedin)
    */
-  public static readonly SITE: string = process.env.SITE || "linkedin";
+  public static readonly SITE: string = getCliArg("--site") || "linkedin";
+
+  /**
+   * Page range parameter (default: 1-5)
+   */
+  public static readonly PAGE: string = getCliArg("--page") || "1-5";
+
+  /**
+   * Day filter parameter (e.g. for geeknews)
+   */
+  public static readonly DAY: string = getCliArg("--day") || "";
+
+  /**
+   * Query limits (e.g. for gpters)
+   */
+  public static readonly LIMIT: number = parseInt(getCliArg("--limit") || "20", 10);
+
+  /**
+   * Headless browser execution option (default: true, overridden by --no-headless)
+   */
+  public static readonly HEADLESS: boolean = !hasCliFlag("--no-headless");
+
+  /**
+   * Category filter for Uppity news (CLI flag: --section)
+   */
+  public static readonly SECTION: string = getCliArg("--section") || "";
 }

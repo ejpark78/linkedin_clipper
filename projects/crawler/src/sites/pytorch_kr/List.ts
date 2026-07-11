@@ -10,6 +10,7 @@
 import { MongoDatabase } from "../../database/mongo";
 import { BaseListService } from "../../core/BaseListService";
 import { descriptor, PyTorchListDocument } from "./site.config";
+import { AppConfig } from "../../config/AppConfig";
 
 class PyTorchKRList extends BaseListService {
   constructor() {
@@ -28,7 +29,7 @@ class PyTorchKRList extends BaseListService {
   }
 
   public async run(page: number = 1): Promise<number> {
-    const sleepSec = parseInt(process.env.LIST_SLACK || "3", 10);
+    const sleepSec = AppConfig.LIST_SLACK;
     if (sleepSec > 0) {
       console.log(`💤 [대기] PyTorch KR 목록 수집 전 ${sleepSec}초 대기 중...`);
       await new Promise((resolve) => setTimeout(resolve, sleepSec * 1000));

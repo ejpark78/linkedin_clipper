@@ -103,77 +103,62 @@ tasks:
       - "{{.COMPOSE}} run --rm {{.RUN_USER}} -v {{.ROOT_DIR}}/data/gmail:/data gmail npm run gmail:sync -- {{.CLI_ARGS}}"
 
   site:
-    desc: "Run a crawler site command. Variables: SITE, CMD, PAGE, LIST_SLACK."
+    desc: "Run a crawler site command. Control with CLI flags (e.g. --list)"
     summary: |
       Execute a crawler command (list, refresh-urls, refresh-silver) for a specific site.
-
-      [Variables]
-        - SITE: (필수) 대상 사이트명
-        - CMD: (필수) 실행할 명령어 (list / refresh-urls / refresh-silver)
-        - PAGE: (옵션) 페이지 번호 (기본값: "1")
-        - LIST_SLACK: (옵션) 슬랙 로깅 제한 (기본값: "2")
+      Action type is determined dynamically via CLI flags (--list, --refresh-urls, --refresh-silver).
 
       [Usage Examples]
-        - task crawler:site SITE=yozm CMD=list
-        - task crawler:site SITE=yozm CMD=refresh-urls
+        - task crawler:site -- --list --site=yozm
+        - task crawler:site -- --refresh-urls --site=*
     cmds:
       - |
-        if [ -z "{{.SITE}}" ] || [ -z "{{.CMD}}" ]; then
-          echo "SITE and CMD variables are required. Example: task app:crawler:site SITE=yozm CMD=list"
-          exit 1
+        CMD="list"
+        if [[ "{{.CLI_ARGS}}" =~ "--refresh-urls" ]]; then
+          CMD="refresh-urls"
+        elif [[ "{{.CLI_ARGS}}" =~ "--refresh-silver" ]]; then
+          CMD="refresh-silver"
+        elif [ -n "{{.CMD}}" ]; then
+          CMD="{{.CMD}}"
         fi
-        if [ "{{.CMD}}" = "list" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:list -- --page "{{.PAGE | default "1"}}" --list-slack "{{.LIST_SLACK | default "2"}}" {{.CLI_ARGS}}
-        elif [ "{{.CMD}}" = "refresh-urls" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-urls -- --priority "{{.PRIORITY | default "medium"}}" {{if eq .OVERWRITE "true"}}--overwrite{{end}} {{if eq .ERROR_RESET "true"}}--error-reset{{end}} {{.CLI_ARGS}}
-        elif [ "{{.CMD}}" = "refresh-silver" ]; then
-          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npm run scrape:{{.SITE}}:refresh-silver -- {{if eq .OVERWRITE "true"}}--overwrite{{end}} {{if eq .RESET "true"}}--reset{{end}} {{.CLI_ARGS}}
+
+        if [ "$CMD" = "list" ]; then
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npx ts-node src/cli-list.ts {{.CLI_ARGS}}
+        elif [ "$CMD" = "refresh-urls" ]; then
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npx ts-node src/cli-refresh-urls.ts {{.CLI_ARGS}}
+        elif [ "$CMD" = "refresh-silver" ]; then
+          {{.COMPOSE}} run --rm {{.RUN_USER}} {{.ENV_COMMON}} worker npx ts-node src/cli-refresh-silver.ts {{.CLI_ARGS}}
         else
-          echo "Unknown crawler command: {{.CMD}}"
+          echo "Unknown crawler command: $CMD"
           exit 1
         fi
 
-  sites:list:
-    desc: "Run crawler list command for a site."
+  sites:
+    desc: "Run site crawler commands (list, refresh-urls, refresh-silver)"
     summary: |
-      List crawled target URLs, metadata, and status distribution for a specific site.
-
-      [Variables]
-        - SITE: (필수) 목록을 출력할 사이트명 (예: geeknews, linkedin, yozm)
-        - PAGE: (옵션) 조회할 페이지 번호 (기본값: "1")
-        - LIST_SLACK: (옵션) 슬랙 로깅 제한 설정값 (기본값: "2")
+      Run a crawler action for specific sites or all (*) sites.
+      Specify the action and parameters by passing CLI flags:
+        --list              List crawled URLs & status (default action)
+        --refresh-urls      Fetch newest URLs
+        --refresh-silver    Convert Bronze (HTML) to Silver (Markdown)
+        --site=<name>       Target site key (e.g. geeknews, yozm, or * for all)
+        --page=<range>      Page range (e.g. 1-5, defaults internally to 1-5)
+        --list-slack=<sec>  Slack logging limit interval (seconds)
 
       [Usage Examples]
-        - task crawler:sites:list SITE="geeknews"
-        - task crawler:sites:list SITE="yozm" PAGE=2
+        - task crawler:sites -- --list --site=yozm --page=1-3
+        - task crawler:sites -- --refresh-urls --site=*
+        - task crawler:sites -- --refresh-silver --site=geeknews
     cmds:
-      - task site SITE={{.SITE}} CMD=list PAGE={{.PAGE | default "1"}} LIST_SLACK={{.LIST_SLACK | default "2"}} CLI_ARGS={{.CLI_ARGS}}
+      - |
+        CMD="list"
+        if [[ "{{.CLI_ARGS}}" =~ "--refresh-urls" ]]; then
+          CMD="refresh-urls"
+        elif [[ "{{.CLI_ARGS}}" =~ "--refresh-silver" ]]; then
+          CMD="refresh-silver"
+        fi
+        task crawler:site CMD=$CMD CLI_ARGS="{{.CLI_ARGS}}"
 
-  sites:refresh:urls:
-    desc: "Refresh crawler URLs for a site."
-    summary: |
-      Trigger crawling and scraping cycle to fetch newest URLs for a specific site.
-
-      [Variables]
-        - SITE: (필수) 새로운 URL 목록을 갱신할 사이트명 (예: gpters, linkedin)
-
-      [Usage Examples]
-        - task crawler:sites:refresh:urls SITE="gpters"
-    cmds:
-      - task site SITE={{.SITE}} CMD=refresh-urls CLI_ARGS={{.CLI_ARGS}}
-
-  sites:refresh:silver:
-    desc: "Refresh crawler Silver documents for a site."
-    summary: |
-      Re-process raw HTML data (Bronze) and convert it into structured markdown (Silver) for a specific site.
-
-      [Variables]
-        - SITE: (필수) 실버 데이터를 재생성할 사이트명 (예: maily_josh, uppity)
-
-      [Usage Examples]
-        - task crawler:sites:refresh:silver SITE="uppity"
-    cmds:
-      - task site SITE={{.SITE}} CMD=refresh-silver CLI_ARGS={{.CLI_ARGS}}
 
   extract:
     desc: Extract a single article for debugging.

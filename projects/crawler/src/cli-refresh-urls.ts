@@ -15,48 +15,76 @@ let priority = "";
 let overwrite = false;
 let errorReset = false;
 
+const siteKeys = [
+  "aicasebook",
+  "dailydoseofds",
+  "geeknews",
+  "gpters",
+  "gpters_newsletter",
+  "linkedin",
+  "maily_josh",
+  "pytorch_kr",
+  "uppity",
+  "yozm",
+];
+
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === "--site") {
+  const arg = process.argv[i];
+  if (arg.startsWith("--site=")) {
+    siteKey = arg.substring(7);
+  } else if (arg === "--site") {
     siteKey = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--priority") {
+  } else if (arg.startsWith("--priority=")) {
+    priority = arg.substring(11);
+  } else if (arg === "--priority") {
     priority = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--overwrite") {
+  } else if (arg === "--overwrite") {
     overwrite = true;
-  } else if (process.argv[i] === "--error-reset") {
+  } else if (arg === "--error-reset") {
     errorReset = true;
   }
 }
-if (!siteKey) {
-  siteKey = process.argv[2];
-}
 
 if (!siteKey) {
-  console.error(
-    "Usage: npx ts-node src/crawler/cli-refresh-urls.ts --site <siteKey> [--priority <p>] [--overwrite] [--error-reset]",
-  );
-  process.exit(1);
+  console.log("ℹ️ [cli-refresh-urls] No site specified. Defaulting to wildcard (*) to run all sites.");
+  siteKey = "*";
 }
 
-const desc = getSite(siteKey);
-if (!desc) {
-  console.error(`Unknown site key: ${siteKey}`);
-  process.exit(1);
-}
-if (!desc.converter?.completedSetKey) {
-  console.error(`Site ${siteKey} has no converter.completedSetKey`);
-  process.exit(1);
-}
+const runRefresh = async (key: string): Promise<void> => {
+  const desc = getSite(key);
+  if (!desc) {
+    console.error(`Unknown site key: ${key}`);
+    return;
+  }
+  if (!desc.converter?.completedSetKey) {
+    console.warn(`⚠️ [cli-refresh-urls] Site ${key} has no converter.completedSetKey. Skipping.`);
+    return;
+  }
 
-const refresh = new BaseRefreshUrls({
-  site: desc.key,
-  displayName: desc.name,
-  cacheSetKey: desc.converter.completedSetKey,
-  legacyQueue: siteKey === "gpters",
-  priority: priority || undefined,
-  overwrite: overwrite || undefined,
-  errorReset: errorReset || undefined,
-});
+  const refresh = new BaseRefreshUrls({
+    site: desc.key,
+    displayName: desc.name,
+    cacheSetKey: desc.converter.completedSetKey,
+    legacyQueue: key === "gpters",
+    priority: priority || undefined,
+    overwrite: overwrite || undefined,
+    errorReset: errorReset || undefined,
+  });
 
-refresh.run().catch(console.error);
+  console.log(`🔄 Running refresh-urls for ${key}...`);
+  await refresh.run().catch(console.error);
+};
+
+(async () => {
+  if (siteKey === "*") {
+    console.log(`🚀 [cli-refresh-urls] Wildcard (*) specified. Refreshing all sites: ${siteKeys.join(", ")}`);
+    for (const key of siteKeys) {
+      await runRefresh(key);
+    }
+  } else {
+    await runRefresh(siteKey);
+  }
+  process.exit(0);
+})();

@@ -33,7 +33,7 @@ export class LinkedInCrawler implements ICrawler {
       options.login !== undefined ? options.login : AppConfig.USE_LOGIN;
     this.headless = options.headless !== undefined
       ? options.headless
-      : process.env.HEADLESS !== "false";
+      : AppConfig.HEADLESS;
   }
 
   /**

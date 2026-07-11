@@ -14,49 +14,70 @@ let siteKey = "";
 let overwrite = false;
 let reset = false;
 
+const siteKeys = [
+  "aicasebook",
+  "dailydoseofds",
+  "geeknews",
+  "gpters",
+  "gpters_newsletter",
+  "linkedin",
+  "maily_josh",
+  "pytorch_kr",
+  "uppity",
+  "yozm",
+];
+
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === "--site") {
+  const arg = process.argv[i];
+  if (arg.startsWith("--site=")) {
+    siteKey = arg.substring(7);
+  } else if (arg === "--site") {
     siteKey = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--overwrite") {
+  } else if (arg === "--overwrite") {
     overwrite = true;
-  } else if (process.argv[i] === "--reset") {
+  } else if (arg === "--reset") {
     reset = true;
   }
 }
-if (!siteKey) {
-  siteKey = process.argv[2];
-}
 
 if (!siteKey) {
-  console.error(
-    "Usage: npx ts-node src/crawler/cli-refresh-silver.ts --site <siteKey> [--overwrite] [--reset]",
-  );
-  process.exit(1);
+  console.log("ℹ️ [cli-refresh-silver] No site specified. Defaulting to wildcard (*) to run all sites.");
+  siteKey = "*";
 }
 
-const desc = getSite(siteKey);
-if (!desc) {
-  console.error(`Unknown site key: ${siteKey}`);
-  process.exit(1);
-}
+const runRefreshConvert = async (key: string): Promise<void> => {
+  const desc = getSite(key);
+  if (!desc) {
+    console.error(`Unknown site key: ${key}`);
+    return;
+  }
+  if (!desc.scraper?.collectionName) {
+    console.warn(`⚠️ [cli-refresh-silver] Site ${key} has no scraper.collectionName. Skipping.`);
+    return;
+  }
 
-console.log(`🔄 Running refresh for ${siteKey} (Queue-based)...`);
-if (!desc.scraper?.collectionName) {
-  console.error(`Site ${siteKey} has no scraper.collectionName`);
-  process.exit(1);
-}
+  console.log(`🔄 Running refresh-silver for ${key} (Queue-based)...`);
+  const refreshConvert = new BaseRefreshConvert({
+    site: desc.key,
+    bronzeCollection: desc.scraper.collectionName,
+    idExtract:
+      key === "gpters" ? (doc: any) => doc.id || doc.postId : undefined,
+    includeUrlInPayload: key === "gpters",
+    overwrite,
+    reset,
+  });
+  await refreshConvert.run().catch(console.error);
+};
 
-const refreshConvert = new BaseRefreshConvert({
-  site: desc.key,
-  bronzeCollection: desc.scraper.collectionName,
-  idExtract:
-    siteKey === "gpters" ? (doc: any) => doc.id || doc.postId : undefined,
-  includeUrlInPayload: siteKey === "gpters",
-  overwrite,
-  reset,
-});
-refreshConvert
-  .run()
-  .catch(console.error)
-  .then(() => process.exit(0));
+(async () => {
+  if (siteKey === "*") {
+    console.log(`🚀 [cli-refresh-silver] Wildcard (*) specified. Refreshing all sites: ${siteKeys.join(", ")}`);
+    for (const key of siteKeys) {
+      await runRefreshConvert(key);
+    }
+  } else {
+    await runRefreshConvert(siteKey);
+  }
+  process.exit(0);
+})();

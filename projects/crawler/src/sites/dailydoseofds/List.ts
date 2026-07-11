@@ -11,6 +11,7 @@ import * as cheerio from "cheerio";
 import { BaseListService } from "../../core/BaseListService";
 import { descriptor } from "./site.config";
 import { DateUtils } from "../../utils/DateUtils";
+import { AppConfig } from "../../config/AppConfig";
 
 class DailyDoseDSList extends BaseListService {
   constructor() {
@@ -29,7 +30,7 @@ class DailyDoseDSList extends BaseListService {
   }
 
   public async run(maxPages: number = 1): Promise<number> {
-    const pageEnv = process.env.PAGE || "";
+    const pageEnv = AppConfig.PAGE;
     let maxPage = maxPages;
     if (pageEnv) {
       if (pageEnv.includes("-")) {
@@ -39,7 +40,7 @@ class DailyDoseDSList extends BaseListService {
         maxPage = parseInt(pageEnv, 10);
       }
     }
-    const sleepSec = parseInt(process.env.LIST_SLACK || "3", 10);
+    const sleepSec = AppConfig.LIST_SLACK;
 
     await this.seedCache();
 

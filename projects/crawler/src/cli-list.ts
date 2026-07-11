@@ -25,69 +25,104 @@ const pathMap: Record<string, string> = {
 };
 
 let siteKey = "";
-let page = "";
+let page = "1-5";
 let day = "";
 let limit = "";
 let listSlack = "";
 
 for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] === "--site") {
+  const arg = process.argv[i];
+  if (arg.startsWith("--site=")) {
+    siteKey = arg.substring(7);
+  } else if (arg === "--site") {
     siteKey = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--page") {
+  } else if (arg.startsWith("--page=")) {
+    page = arg.substring(7);
+  } else if (arg === "--page") {
     page = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--day") {
+  } else if (arg.startsWith("--day=")) {
+    day = arg.substring(6);
+  } else if (arg === "--day") {
     day = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--limit") {
+  } else if (arg.startsWith("--limit=")) {
+    limit = arg.substring(8);
+  } else if (arg === "--limit") {
     limit = process.argv[i + 1] || "";
     i++;
-  } else if (process.argv[i] === "--list-slack") {
+  } else if (arg.startsWith("--list-slack=")) {
+    listSlack = arg.substring(13);
+  } else if (arg === "--list-slack") {
     listSlack = process.argv[i + 1] || "";
     i++;
   }
 }
 
 if (!siteKey) {
-  console.error(
-    "Usage: npx ts-node src/crawler/cli-list.ts --site <siteKey> [--page <page>] [--day <day>] [--limit <limit>] [--list-slack <sec>]",
-  );
-  process.exit(1);
+  console.log("ℹ️ [cli-list] No site specified. Defaulting to wildcard (*) to run all sites.");
+  siteKey = "*";
 }
 
-const targetPath = pathMap[siteKey];
-if (!targetPath) {
-  console.error(`Unknown site key: ${siteKey}`);
-  process.exit(1);
-}
+const runScraper = (key: string, path: string): Promise<number> => {
+  return new Promise((resolve) => {
+    let currentArg = page || "1-5";
+    if (key === "geeknews" && day && day.trim() !== "") {
+      currentArg = day;
+    } else if ((key === "gpters" || key === "gpters_newsletter") && limit) {
+      currentArg = limit;
+    }
 
-// Determine the positional argument to pass to target List.ts
-let arg = page || "1";
-if (siteKey === "geeknews" && day && day.trim() !== "") {
-  arg = day;
-} else if ((siteKey === "gpters" || siteKey === "gpters_newsletter") && limit) {
-  arg = limit;
-}
+    const spawnArgs = ["ts-node", path];
+    if (page) {
+      spawnArgs.push("--page", page);
+    }
+    if (listSlack) {
+      spawnArgs.push("--list-slack", listSlack);
+    }
+    if (day) {
+      spawnArgs.push("--day", day);
+    }
+    if (limit) {
+      spawnArgs.push("--limit", limit);
+    }
+    spawnArgs.push(currentArg);
 
-console.log(
-  `🚀 [cli-list] Running list scraper for ${siteKey} (${targetPath}) with argument: ${arg}`,
-);
+    console.log(
+      `🚀 [cli-list] Running list scraper for ${key} (${path}) with args: ${spawnArgs.slice(2).join(" ")}`,
+    );
 
-const childEnv: Record<string, string | undefined> = {
-  ...process.env,
+    const child = spawn("npx", spawnArgs, {
+      stdio: "inherit",
+      env: process.env,
+    });
+
+    child.on("close", (code) => {
+      resolve(code || 0);
+    });
+  });
 };
-if (page) {
-  childEnv.PAGE = page;
-}
-if (listSlack) {
-  childEnv.LIST_SLACK = listSlack;
-}
-const child = spawn("npx", ["ts-node", targetPath, arg], {
-  stdio: "inherit",
-  env: childEnv,
-});
 
-child.on("close", (code) => {
-  process.exit(code || 0);
-});
+(async () => {
+  if (siteKey === "*") {
+    const keys = Object.keys(pathMap);
+    console.log(`🚀 [cli-list] Wildcard (*) specified. Running scrapers for all sites: ${keys.join(", ")}`);
+    for (const key of keys) {
+      const path = pathMap[key];
+      const code = await runScraper(key, path);
+      if (code !== 0) {
+        console.warn(`⚠️ [cli-list] Scraper for ${key} finished with non-zero exit code: ${code}`);
+      }
+    }
+    process.exit(0);
+  } else {
+    const path = pathMap[siteKey];
+    if (!path) {
+      console.error(`Unknown site key: ${siteKey}`);
+      process.exit(1);
+    }
+    const code = await runScraper(siteKey, path);
+    process.exit(code);
+  }
+})();

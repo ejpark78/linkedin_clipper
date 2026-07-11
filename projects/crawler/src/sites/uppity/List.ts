@@ -11,6 +11,7 @@
 import * as cheerio from "cheerio";
 import { BaseListService } from "../../core/BaseListService";
 import { descriptor, SECTIONS } from "./site.config";
+import { AppConfig } from "../../config/AppConfig";
 
 class UppityList extends BaseListService {
   constructor() {
@@ -29,11 +30,11 @@ class UppityList extends BaseListService {
   }
 
   public async run(pageArg?: number): Promise<number> {
-    const pageEnv = process.env.PAGE || "1";
-    const sleepSec = parseInt(process.env.LIST_SLACK || "2", 10);
+    const pageEnv = AppConfig.PAGE || "1";
+    const sleepSec = AppConfig.LIST_SLACK;
 
     let sectionsToProcess = SECTIONS;
-    const sectionFilter = process.env.SECTION;
+    const sectionFilter = AppConfig.SECTION;
     if (sectionFilter) {
       sectionsToProcess = SECTIONS.filter((s) => s.slug === sectionFilter);
     }

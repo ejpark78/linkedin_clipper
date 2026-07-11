@@ -9,6 +9,7 @@
 
 import { BaseListService } from "../../../core/BaseListService";
 import { descriptor, NEWSLETTER_QUERY, NEWSLETTER_VARS } from "./site.config";
+import { AppConfig } from "../../../config/AppConfig";
 
 class GptersNewsletterList extends BaseListService {
   constructor() {
@@ -39,9 +40,9 @@ class GptersNewsletterList extends BaseListService {
   }
 
   public async run(limit: number = 20): Promise<number> {
-    const pageEnv = process.env.PAGE || "0";
+    const pageEnv = AppConfig.PAGE || "0";
     const maxPages = parseInt(pageEnv, 10) || 0;
-    const slackSec = parseInt(process.env.LIST_SLACK || "3", 10);
+    const slackSec = AppConfig.LIST_SLACK;
     console.log(`🌐 [GPTERS Newsletter List] Fetching guest access token...`);
     const token = await this.fetchGuestToken();
 

@@ -10,6 +10,7 @@
 import * as cheerio from "cheerio";
 import { BaseListService } from "../../core/BaseListService";
 import { descriptor } from "./site.config";
+import { AppConfig } from "../../config/AppConfig";
 
 class GeekNewsList extends BaseListService {
   private exhaustedSections = new Set<string>();
@@ -48,7 +49,7 @@ class GeekNewsList extends BaseListService {
       urls = descriptor.scraper.generateUrls({ page });
     }
 
-    const sleepSec = parseInt(process.env.LIST_SLACK || "3", 10);
+    const sleepSec = AppConfig.LIST_SLACK;
     await this.seedCache();
 
     let queuedCount = 0;
@@ -267,7 +268,7 @@ class GeekNewsList extends BaseListService {
   public async runBackfill(day: string): Promise<number> {
     let page = 1;
     let totalQueuedCount = 0;
-    const sleepSec = parseInt(process.env.LIST_SLACK || "3", 10);
+    const sleepSec = AppConfig.LIST_SLACK;
     await this.seedCache();
 
     while (true) {
