@@ -7,6 +7,7 @@
  */
 
 import * as dotenv from "dotenv";
+import * as os from "os";
 dotenv.config();
 
 // Helper to check if a flag exists (including key=value format)
@@ -29,6 +30,11 @@ const getCliArg = (flag: string): string | undefined => {
 
 export class AppConfig {
   /**
+   * Container Hostname
+   */
+  public static readonly HOSTNAME: string = os.hostname();
+
+  /**
    * MongoDB Connection URI
    */
   public static readonly MONGO_URL: string =
@@ -47,10 +53,22 @@ export class AppConfig {
     process.env.REDIS_URL || "redis://redis:6379";
 
   /**
-   * Session Storage Directory Path
+   * Session Storage Directory Path (Base/Read-only)
    */
   public static readonly SESSION_DIR: string =
     process.env.SESSION_DIR || "data/sessions";
+
+  /**
+   * Build-time Session Directory Path
+   */
+  public static readonly SESSION_BUILD_DIR: string =
+    process.env.SESSION_BUILD_DIR || "data/sessions_build";
+
+  /**
+   * Docker Volume Session Update Directory Path
+   */
+  public static readonly SESSION_UPDATE_DIR: string =
+    process.env.SESSION_UPDATE_DIR || "data/sessions_updated";
 
   /**
    * Browser HTML Dump Directory Path

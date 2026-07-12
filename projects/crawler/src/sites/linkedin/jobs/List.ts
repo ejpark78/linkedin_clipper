@@ -21,6 +21,10 @@ export class LinkedInList {
     AppConfig.SESSION_DIR,
     "linkedin.json",
   );
+  private readonly sessionWritePath: string = path.join(
+    AppConfig.SESSION_UPDATE_DIR,
+    `linkedin_${AppConfig.HOSTNAME}.json`,
+  );
   private readonly useLogin: boolean;
   private readonly listSlack: number;
   private readonly priority: string;
@@ -29,6 +33,57 @@ export class LinkedInList {
     this.useLogin = AppConfig.USE_LOGIN;
     this.listSlack = options.listSlack ?? AppConfig.LIST_SLACK;
     this.priority = options.priority ?? AppConfig.PRIORITY;
+  }
+
+  private getValidSessionPath(): string | undefined {
+    if (!this.useLogin) {
+      return undefined;
+    }
+
+    const site = "linkedin";
+    const hostname = AppConfig.HOSTNAME;
+
+    const paths = [
+      path.join(AppConfig.SESSION_UPDATE_DIR, `${site}_${hostname}.json`),
+      path.join(AppConfig.SESSION_UPDATE_DIR, `${site}.json`),
+      path.join(AppConfig.SESSION_DIR, `${site}.json`),
+      path.join(AppConfig.SESSION_BUILD_DIR, `${site}.json`),
+    ];
+
+    const validCandidates = paths
+      .filter((p) => fs.existsSync(p))
+      .map((p) => {
+        try {
+          const stat = fs.statSync(p);
+          return { path: p, mtime: stat.mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is { path: string; mtime: number } => item !== null)
+      .sort((a, b) => b.mtime - a.mtime);
+
+    for (const candidate of validCandidates) {
+      try {
+        const content = fs.readFileSync(candidate.path, "utf-8").trim();
+        if (!content) continue;
+        JSON.parse(content);
+        console.log(`ℹ️  [세션 로드] 최신 세션 파일 선택 완료: ${candidate.path}`);
+        return candidate.path;
+      } catch (err: any) {
+        console.warn(
+          `⚠️  [세션 경고] 파일(${candidate.path})이 손상되어 건너뜁니다: ${err.message}`,
+        );
+      }
+    }
+
+    if (validCandidates.length > 0) {
+      throw new Error(
+        `LinkedIn session candidate files are all corrupted. Please re-run login command (task crawler:login -- --site=linkedin).`
+      );
+    }
+
+    return undefined;
   }
 
   private async autoScroll(page: any): Promise<void> {
@@ -83,7 +138,8 @@ export class LinkedInList {
   }
 
   public async scrapeList(configFilePath: string): Promise<void> {
-    const isLoggedIn = this.useLogin && fs.existsSync(this.sessionPath);
+    const validSession = this.getValidSessionPath();
+    const isLoggedIn = !!validSession;
     if (!isLoggedIn) {
       console.log(
         "⚠️  [안내] 로그인 세션 파일(linkedin.json)이 발견되지 않았거나 login 옵션이 활성화되지 않아 비로그인(Public) 모드로 동작합니다.",
@@ -159,8 +215,8 @@ export class LinkedInList {
         viewport: { width: 1280, height: 800 },
         locale: "en-US",
       };
-      if (isLoggedIn) {
-        contextOptions.storageState = this.sessionPath;
+      if (isLoggedIn && validSession) {
+        contextOptions.storageState = validSession;
       }
 
       const loginStatus = isLoggedIn ? "[AUTHED]" : "[UNAUTHED]";
@@ -302,7 +358,12 @@ export class LinkedInList {
           }
 
           if (isLoggedIn) {
-            await context.storageState({ path: this.sessionPath });
+            const writeDir = path.dirname(this.sessionWritePath);
+            if (!fs.existsSync(writeDir)) {
+              fs.mkdirSync(writeDir, { recursive: true });
+            }
+            await context.storageState({ path: this.sessionWritePath });
+            console.log(`💾 [세션 자동 연장] 최신 로그인 세션 정보 업데이트 완료 ➡️ ${this.sessionWritePath}`);
           }
         } finally {
           await context.close();

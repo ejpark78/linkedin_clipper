@@ -23,17 +23,73 @@ export interface ICrawler {
 
 export class LinkedInCrawler implements ICrawler {
   private readonly sessionPath: string;
+  private readonly sessionWritePath: string;
   private readonly useLogin: boolean;
   private readonly headless: boolean;
 
   constructor(options: { login?: boolean; headless?: boolean; site?: string } = {}) {
     const site = options.site || AppConfig.SITE;
     this.sessionPath = path.join(AppConfig.SESSION_DIR, `${site}.json`);
+    this.sessionWritePath = path.join(
+      AppConfig.SESSION_UPDATE_DIR,
+      `${site}_${AppConfig.HOSTNAME}.json`,
+    );
     this.useLogin =
       options.login !== undefined ? options.login : AppConfig.USE_LOGIN;
     this.headless = options.headless !== undefined
       ? options.headless
       : AppConfig.HEADLESS;
+  }
+
+  private getValidSessionPath(): string | undefined {
+    if (!this.useLogin) {
+      return undefined;
+    }
+
+    const site = "linkedin";
+    const hostname = AppConfig.HOSTNAME;
+
+    const paths = [
+      path.join(AppConfig.SESSION_UPDATE_DIR, `${site}_${hostname}.json`),
+      path.join(AppConfig.SESSION_UPDATE_DIR, `${site}.json`),
+      path.join(AppConfig.SESSION_DIR, `${site}.json`),
+      path.join(AppConfig.SESSION_BUILD_DIR, `${site}.json`),
+    ];
+
+    const validCandidates = paths
+      .filter((p) => fs.existsSync(p))
+      .map((p) => {
+        try {
+          const stat = fs.statSync(p);
+          return { path: p, mtime: stat.mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter((item): item is { path: string; mtime: number } => item !== null)
+      .sort((a, b) => b.mtime - a.mtime);
+
+    for (const candidate of validCandidates) {
+      try {
+        const content = fs.readFileSync(candidate.path, "utf-8").trim();
+        if (!content) continue;
+        JSON.parse(content);
+        console.log(`ℹ️  [세션 로드] 최신 세션 파일 선택 완료: ${candidate.path}`);
+        return candidate.path;
+      } catch (err: any) {
+        console.warn(
+          `⚠️  [세션 경고] 파일(${candidate.path})이 손상되어 건너뜁니다: ${err.message}`,
+        );
+      }
+    }
+
+    if (validCandidates.length > 0) {
+      throw new Error(
+        `LinkedIn session candidate files are all corrupted. Please re-run login command (task crawler:login -- --site=linkedin).`
+      );
+    }
+
+    return undefined;
   }
 
   /**
@@ -153,7 +209,8 @@ export class LinkedInCrawler implements ICrawler {
    * 단일 공고 내용 크롤러 (더보기 버튼 클릭 지원)
    */
   public async scrapeJob(url: string, outputPath: string): Promise<void> {
-    const isLoggedIn = this.useLogin && fs.existsSync(this.sessionPath);
+    const validSession = this.getValidSessionPath();
+    const isLoggedIn = !!validSession;
     const browser: Browser = await chromium.launch({
       headless: this.headless,
       args: [
@@ -173,8 +230,8 @@ export class LinkedInCrawler implements ICrawler {
         viewport: { width: 1280, height: 800 },
         locale: "en-US",
       };
-      if (isLoggedIn) {
-        contextOptions.storageState = this.sessionPath;
+      if (isLoggedIn && validSession) {
+        contextOptions.storageState = validSession;
       }
 
       const context = await browser.newContext(contextOptions);
@@ -232,8 +289,12 @@ export class LinkedInCrawler implements ICrawler {
 
       // 🔑 로그인 성공/세션 유효 시 세션 만료 시간 연장을 위해 최신 쿠키를 파일에 도로 저장
       if (isLoggedIn) {
-        await context.storageState({ path: this.sessionPath });
-        console.log(`💾 [세션 자동 연장] 최신 로그인 세션 정보 업데이트 완료.`);
+        const writeDir = path.dirname(this.sessionWritePath);
+        if (!fs.existsSync(writeDir)) {
+          fs.mkdirSync(writeDir, { recursive: true });
+        }
+        await context.storageState({ path: this.sessionWritePath });
+        console.log(`💾 [세션 자동 연장] 최신 로그인 세션 정보 업데이트 완료 ➡️ ${this.sessionWritePath}`);
       }
     } finally {
       await browser.close();
@@ -247,7 +308,8 @@ export class LinkedInCrawler implements ICrawler {
     url: string,
     outputPath: string,
   ): Promise<void> {
-    const isLoggedIn = this.useLogin && fs.existsSync(this.sessionPath);
+    const validSession = this.getValidSessionPath();
+    const isLoggedIn = !!validSession;
     if (!isLoggedIn) {
       console.warn(
         "⚠️ [경고] 로그인 세션 파일(linkedin.json)이 없거나 login 옵션이 활성화되지 않아 비로그인으로 동작합니다. 회사 정보 스크래핑은 실패할 확률이 매우 높습니다.",
@@ -279,8 +341,8 @@ export class LinkedInCrawler implements ICrawler {
         viewport: { width: 1280, height: 800 },
         locale: "en-US",
       };
-      if (isLoggedIn) {
-        contextOptions.storageState = this.sessionPath;
+      if (isLoggedIn && validSession) {
+        contextOptions.storageState = validSession;
       }
 
       const context = await browser.newContext(contextOptions);
@@ -341,8 +403,12 @@ export class LinkedInCrawler implements ICrawler {
 
       // 🔑 로그인 성공/세션 유효 시 세션 만료 시간 연장을 위해 최신 쿠키를 파일에 도로 저장
       if (isLoggedIn) {
-        await context.storageState({ path: this.sessionPath });
-        console.log(`💾 [세션 자동 연장] 최신 로그인 세션 정보 업데이트 완료.`);
+        const writeDir = path.dirname(this.sessionWritePath);
+        if (!fs.existsSync(writeDir)) {
+          fs.mkdirSync(writeDir, { recursive: true });
+        }
+        await context.storageState({ path: this.sessionWritePath });
+        console.log(`💾 [세션 자동 연장] 최신 로그인 세션 정보 업데이트 완료 ➡️ ${this.sessionWritePath}`);
       }
     } finally {
       await browser.close();

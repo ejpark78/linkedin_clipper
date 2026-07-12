@@ -6,39 +6,37 @@ tasks:
     summary: |
       Log into a Playwright browser-backed site session to store authentication state.
 
-      [Variables]
-        - SITE: (옵션) 대상 사이트 (기본값: "linkedin")
-
       [Usage Examples]
-        - task crawler:login SITE="linkedin"
+        - task crawler:login -- --site=linkedin
     cmds:
-      - npx ts-node src/sites/linkedin/Crawler.ts --site {{.SITE | default "linkedin"}} login {{.CLI_ARGS}}
+      - npx ts-node src/sites/linkedin/Crawler.ts login {{.CLI_ARGS}}
 
   open:
     desc: Open the Playwright browser helper.
     summary: |
       Open Playwright in non-headless/headed mode to inspect pages or debug sessions.
 
-      [Variables]
-        - SITE: (옵션) 대상 사이트 (기본값: "linkedin")
-
       [Usage Examples]
-        - task crawler:open SITE="linkedin"
+        - task crawler:open -- --site=linkedin
     cmds:
-      - SITE={{.SITE | default "linkedin"}} npx ts-node src/tools/browser/open.ts {{.CLI_ARGS}}
+      - npx ts-node src/tools/browser/open.ts {{.CLI_ARGS}}
 
   logout:
     desc: Remove a browser-backed site session.
     summary: |
       Remove stored authentication credentials for a given site session.
 
-      [Variables]
-        - SITE: (옵션) 대상 사이트 (기본값: "linkedin")
-
       [Usage Examples]
-        - task crawler:logout SITE="linkedin"
+        - task crawler:logout -- --site=linkedin
     cmds:
-      - rm -f {{.ROOT_DIR}}/data/sessions/{{.SITE | default "linkedin"}}.json
+      - |
+        SITE_KEY="linkedin"
+        for arg in {{.CLI_ARGS}}; do
+          if [[ "$arg" =~ --site=(.*) ]]; then
+            SITE_KEY="${BASH_REMATCH[1]}"
+          fi
+        done
+        rm -f {{.ROOT_DIR}}/data/sessions/$SITE_KEY.json
 
   queue:clear:
     desc: Clear crawler job queue.

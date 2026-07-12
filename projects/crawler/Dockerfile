@@ -35,7 +35,10 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 COPY config/ ./config/
 
-# Precreate data directory
-RUN mkdir -p data
+# Precreate data directories
+RUN mkdir -p data/sessions data/sessions_build data/sessions_updated
+
+# Copy build-time sessions if they exist
+COPY data/sessions* /app/data/sessions_build/
 
 CMD ["tail", "-f", "/dev/null"]

@@ -6,28 +6,22 @@ tasks:
     summary: |
       Sync Silver-tier documents from MongoDB to the Meilisearch search index.
 
-      [Variables]
-        - SITE: (옵션) 특정 사이트만 인덱싱
-
       [Usage Examples]
         - task meili:refresh-index
-        - task meili:refresh-index SITE="geeknews"
+        - task meili:refresh-index -- --site=geeknews
     cmds:
-      - "{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts {{if .SITE}}--site {{.SITE}}{{end}} {{.CLI_ARGS}}"
+      - "{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts {{.CLI_ARGS}}"
 
   index:reset:
     desc: Clear and rebuild Meilisearch index.
     summary: |
       Clear the Meilisearch index and rebuild from scratch.
 
-      [Variables]
-        - SITE: (옵션) 특정 사이트만 리셋
-
       [Usage Examples]
         - task meili:index:reset
-        - task meili:index:reset SITE="geeknews"
+        - task meili:index:reset -- --site=geeknews
     cmds:
-      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts --clean {{if .SITE}}{{printf "--site %s" .SITE}}{{end}} {{.CLI_ARGS}}'
+      - '{{.COMPOSE}} run --rm {{.RUN_USER}} -v /app/node_modules -T worker npx ts-node src/scripts/meili-manager.ts --clean {{.CLI_ARGS}}'
 
   status:
     desc: Check Meilisearch index statistics.
