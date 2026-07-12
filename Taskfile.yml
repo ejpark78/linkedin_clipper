@@ -7,7 +7,17 @@ vars:
     sh: pwd
   PROJECT_PATH:
     sh: grep -s '^PROJECT_PATH=' .env 2>/dev/null | cut -d= -f2 || pwd
-  COMPOSE: PROJECT_PATH={{.PROJECT_PATH}} docker compose -p {{.PROJECT}} --project-directory {{.ROOT_DIR}} -f {{.ROOT_DIR}}/compose.yml
+  ARCH:
+    sh: |
+      UNAME_M=$(uname -m)
+      if [ "$UNAME_M" = "x86_64" ]; then
+        echo "amd64"
+      elif [ "$UNAME_M" = "aarch64" ] || [ "$UNAME_M" = "arm64" ]; then
+        echo "arm64"
+      else
+        echo "amd64"
+      fi
+  COMPOSE: ARCH={{.ARCH}} PROJECT_PATH={{.PROJECT_PATH}} docker compose -p {{.PROJECT}} --project-directory {{.ROOT_DIR}} -f {{.ROOT_DIR}}/compose.yml
   RUN_USER:
     sh: echo "--user $(id -u):$(id -g)"
   ENV_COMMON: -e TS_NODE_PROJECT=tsconfig.json
