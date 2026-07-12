@@ -19,6 +19,7 @@ const pathMap: Record<string, string> = {
   gpters_newsletter: "src/sites/gpters/newsletter/List.ts",
   linkedin: "src/sites/linkedin/jobs/List.ts",
   maily_josh: "src/sites/maily/josh/List.ts",
+  nvidia: "src/sites/nvidia/List.ts",
   pytorch_kr: "src/sites/pytorch_kr/List.ts",
   uppity: "src/sites/uppity/List.ts",
   yozm: "src/sites/yozm/List.ts",

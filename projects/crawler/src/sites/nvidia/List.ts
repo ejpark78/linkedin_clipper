@@ -28,7 +28,16 @@ class NvidiaList extends BaseListService {
     queue.push({ url: START_URL, depth: 0 });
     visited.add(START_URL);
 
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({
+      headless: true,
+      args: [
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+      ],
+    });
 
     try {
       const context = await browser.newContext({

@@ -48,7 +48,14 @@ export const descriptor: SiteDescriptor = {
       console.log(`🌐 [Nvidia Scrape] Launching Playwright to scrape: ${url}`);
       const browser = await chromium.launch({
         headless: true,
-        args: ["--disable-blink-features=AutomationControlled"],
+        args: [
+          "--disable-blink-features=AutomationControlled",
+          "--disable-gpu",
+          "--disable-software-rasterizer",
+          "--disable-dev-shm-usage",
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+        ],
       });
       try {
         const context = await browser.newContext({

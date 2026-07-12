@@ -23,6 +23,7 @@ const siteKeys = [
   "gpters_newsletter",
   "linkedin",
   "maily_josh",
+  "nvidia",
   "pytorch_kr",
   "uppity",
   "yozm",
