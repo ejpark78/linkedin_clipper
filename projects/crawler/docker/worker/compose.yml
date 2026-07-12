@@ -28,6 +28,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - TZ=${TZ:-Asia/Seoul}
     volumes:
+      - ${PROJECT_PATH:-.}/projects/crawler/src:/app/src
       - ${PROJECT_PATH:-.}/data/sessions:/app/data/sessions
       - ${PROJECT_PATH:-.}/data/sites:/app/data/sites
 

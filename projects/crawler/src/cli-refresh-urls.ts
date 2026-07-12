@@ -84,6 +84,12 @@ const runRefresh = async (key: string): Promise<void> => {
     for (const key of siteKeys) {
       await runRefresh(key);
     }
+  } else if (siteKey.includes(",")) {
+    const keys = siteKey.split(",").map(k => k.trim()).filter(Boolean);
+    console.log(`🚀 [cli-refresh-urls] Multiple sites specified: ${keys.join(", ")}`);
+    for (const key of keys) {
+      await runRefresh(key);
+    }
   } else {
     await runRefresh(siteKey);
   }

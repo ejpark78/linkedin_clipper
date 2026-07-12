@@ -110,6 +110,24 @@ const runScraper = (key: string, path: string): Promise<number> => {
       }
     }
     process.exit(0);
+  } else if (siteKey.includes(",")) {
+    const keys = siteKey.split(",").map(k => k.trim()).filter(Boolean);
+    console.log(`🚀 [cli-list] Multiple sites specified: ${keys.join(", ")}`);
+    let hasError = false;
+    for (const key of keys) {
+      const path = pathMap[key];
+      if (!path) {
+        console.error(`Unknown site key: ${key}`);
+        hasError = true;
+        continue;
+      }
+      const code = await runScraper(key, path);
+      if (code !== 0) {
+        console.warn(`⚠️ [cli-list] Scraper for ${key} finished with non-zero exit code: ${code}`);
+        hasError = true;
+      }
+    }
+    process.exit(hasError ? 1 : 0);
   } else {
     const path = pathMap[siteKey];
     if (!path) {

@@ -76,6 +76,12 @@ const runRefreshConvert = async (key: string): Promise<void> => {
     for (const key of siteKeys) {
       await runRefreshConvert(key);
     }
+  } else if (siteKey.includes(",")) {
+    const keys = siteKey.split(",").map(k => k.trim()).filter(Boolean);
+    console.log(`🚀 [cli-refresh-silver] Multiple sites specified: ${keys.join(", ")}`);
+    for (const key of keys) {
+      await runRefreshConvert(key);
+    }
   } else {
     await runRefreshConvert(siteKey);
   }
